@@ -1,15 +1,26 @@
 import { Plus, Settings, List } from 'lucide-react';
+import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 
 const floatingButton =
-  'w-11 h-11 flex items-center justify-center rounded-full cursor-pointer transition-colors shadow-sm';
+  'w-9 h-9 flex items-center justify-center rounded-[var(--radius-button)] cursor-pointer transition-colors';
 
 export function CanvasArea() {
-  const { activeStrategyId } = useUIStore();
+  const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
+  const strategies = useStrategyStore((s) => s.strategies);
+  const { setStrategySettingsModalOpen } = useUIStore();
+  const hasStrategies = strategies.length > 0;
+
+  const handleGearClick = () => {
+    if (activeStrategyId) {
+      setStrategySettingsModalOpen(true);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
-      {/* Floating buttons: top-right of canvas */}
+      {/* Floating buttons: top-right of canvas (only when strategy selected) */}
+      {activeStrategyId && (
       <div
         className="absolute top-4 right-4 z-10 flex flex-col gap-2"
         style={{ backgroundColor: 'transparent' }}
@@ -20,7 +31,7 @@ export function CanvasArea() {
           style={{
             backgroundColor: 'var(--color-bg-card)',
             color: 'var(--color-text-primary)',
-            boxShadow: '0 1px 3px var(--color-shadow)',
+            border: '1px solid var(--color-border)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
@@ -30,7 +41,7 @@ export function CanvasArea() {
           }}
           title="Add Transaction"
         >
-          <Plus size={20} strokeWidth={2} />
+          <Plus size={18} strokeWidth={2} />
         </button>
         <button
           type="button"
@@ -38,17 +49,18 @@ export function CanvasArea() {
           style={{
             backgroundColor: 'var(--color-bg-card)',
             color: 'var(--color-text-primary)',
-            boxShadow: '0 1px 3px var(--color-shadow)',
+            border: '1px solid var(--color-border)',
           }}
+          onClick={handleGearClick}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
           }}
-          title="Settings"
+          title="Strategy settings (rename, delete)"
         >
-          <Settings size={20} strokeWidth={1.5} />
+          <Settings size={18} strokeWidth={1.5} />
         </button>
         <button
           type="button"
@@ -56,7 +68,7 @@ export function CanvasArea() {
           style={{
             backgroundColor: 'var(--color-bg-card)',
             color: 'var(--color-text-primary)',
-            boxShadow: '0 1px 3px var(--color-shadow)',
+            border: '1px solid var(--color-border)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
@@ -66,9 +78,10 @@ export function CanvasArea() {
           }}
           title="View All Transactions"
         >
-          <List size={20} strokeWidth={1.5} />
+          <List size={18} strokeWidth={1.5} />
         </button>
       </div>
+      )}
 
       {/* Canvas content */}
       <div
@@ -96,16 +109,18 @@ export function CanvasArea() {
         ) : (
           <div className="text-center">
             <p
-              className="text-lg font-semibold mb-2"
+              className="text-xl font-semibold mb-2"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              No strategy selected
+              {hasStrategies ? 'No strategy selected' : 'Create your first strategy'}
             </p>
             <p
               className="text-sm"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              Select a strategy in the sidebar or create one
+              {hasStrategies
+                ? 'Select a strategy in the sidebar or create one'
+                : 'Click Add Strategy in the sidebar to get started'}
             </p>
           </div>
         )}

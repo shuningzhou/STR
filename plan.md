@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phase2-tabs-ui
     content: "Phase 2: Strategy tab bar UI -- add/rename/delete tabs, empty state, Zustand store with mock data (no backend yet)"
-    status: pending
+    status: completed
   - id: phase3-canvas-ui
     content: "Phase 3: Canvas area with react-grid-layout -- draggable/resizable subview cards, toolbar, layout state in Zustand, empty canvas state"
     status: pending
@@ -562,7 +562,7 @@ todos:
     status: completed
   - id: phase2-tabs-ui
     content: "Phase 2: Strategy tab bar UI -- add/rename/delete tabs, empty state, Zustand store with mock data (no backend yet)"
-    status: pending
+    status: completed
   - id: phase3-canvas-ui
     content: "Phase 3: Canvas area with react-grid-layout -- draggable/resizable subview cards, toolbar, layout state in Zustand, empty canvas state"
     status: pending

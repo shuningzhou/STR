@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { CanvasArea } from '@/components/CanvasArea';
+import { AddStrategyModal } from '@/features/strategy/AddStrategyModal';
+import { StrategySettingsModal } from '@/features/strategy/StrategySettingsModal';
 import { initializeTheme } from '@/store/theme-store';
 
 export default function App() {
@@ -12,6 +14,8 @@ export default function App() {
     <div className="h-full flex" style={{ backgroundColor: 'var(--color-bg-page)' }}>
       <Sidebar />
       <CanvasArea />
+      <AddStrategyModal />
+      <StrategySettingsModal />
     </div>
   );
 }

@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   Plus,
   ChevronLeft,
-  ChevronRight,
   Sun,
   Moon,
   User,
@@ -10,36 +9,36 @@ import {
 } from 'lucide-react';
 import { useThemeStore } from '@/store/theme-store';
 import { useUIStore } from '@/store/ui-store';
+import { useStrategyStore } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
 
 const CURRENCIES = ['USD', 'CAD'] as const;
 
-// Mock strategies for now
-const MOCK_STRATEGIES = [
-  { id: '1', name: 'Strategy 1' },
-  { id: '2', name: 'Strategy 2' },
-];
-
 export function Sidebar() {
   const { mode, toggleMode, viewingCurrency, setViewingCurrency } = useThemeStore();
-  const { sidebarCollapsed, toggleSidebar, activeStrategyId, setActiveStrategy } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen } = useUIStore();
+  const {
+    strategies,
+    activeStrategyId,
+    setActiveStrategy,
+  } = useStrategyStore();
 
   return (
     <aside
-      className="relative h-full flex flex-col border-r shrink-0 transition-[width] duration-200 ease-out"
+      className="relative h-full flex flex-col shrink-0 transition-[width] duration-200 ease-out"
       style={{
         width: sidebarCollapsed ? 56 : 240,
-        backgroundColor: 'var(--color-bg-card)',
-        borderColor: 'var(--color-border)',
+        backgroundColor: 'var(--color-bg-sidebar)',
+        borderRight: '1px solid var(--color-border)',
       }}
     >
       <div
-        className={cn('flex flex-col h-full overflow-hidden', sidebarCollapsed ? 'gap-4' : 'gap-8')}
+        className={cn('flex flex-col h-full overflow-hidden', sidebarCollapsed ? 'gap-4' : 'gap-6')}
         style={{
-          paddingTop: 20,
-          paddingBottom: 20,
+          paddingTop: 'var(--space-modal)',
+          paddingBottom: 'var(--space-modal)',
           paddingLeft: sidebarCollapsed ? 8 : 20,
-          paddingRight: sidebarCollapsed ? 8 : 20,
+          paddingRight: sidebarCollapsed ? 8 : 'var(--space-sidebar)',
         }}
       >
         {/* STR Logo + collapse toggle */}
@@ -87,52 +86,54 @@ export function Sidebar() {
             </>
           )}
         </div>
+
         {/* Strategy list */}
         <nav className={cn('flex flex-col gap-2 flex-1 min-h-0 overflow-auto', sidebarCollapsed && 'items-center')}>
-          {MOCK_STRATEGIES.map((s) => {
+          {strategies.map((s) => {
             const isActive = activeStrategyId === s.id;
             return (
-            <button
-              key={s.id}
-              type="button"
-              className={cn(
-                'flex items-center gap-3 text-left cursor-pointer transition-colors',
-                sidebarCollapsed ? 'w-10 h-10 min-w-10 min-h-10 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full rounded-[var(--radius-pill)]',
-              )}
-              style={{
-                padding: sidebarCollapsed ? 0 : '10px 12px',
-                width: sidebarCollapsed ? 40 : undefined,
-                height: sidebarCollapsed ? 40 : undefined,
-                backgroundColor: isActive ? 'var(--color-bg-active)' : 'var(--color-bg-tab)',
-                color: isActive ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
-              }}
-              onClick={() => setActiveStrategy(isActive ? null : s.id)}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-                  e.currentTarget.style.color = 'var(--color-text-primary)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tab)';
-                  e.currentTarget.style.color = 'var(--color-text-secondary)';
-                }
-              }}
-              title={sidebarCollapsed ? s.name : undefined}
-            >
-              <LayoutDashboard size={20} className="shrink-0" strokeWidth={1.5} />
-              {!sidebarCollapsed && <span className="text-sm font-medium truncate">{s.name}</span>}
-            </button>
-          );
+              <button
+                key={s.id}
+                type="button"
+                className={cn(
+                  'flex items-center gap-3 text-left cursor-pointer transition-colors',
+                  sidebarCollapsed ? 'w-10 h-10 min-w-10 min-h-10 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full',
+                  !sidebarCollapsed && 'rounded-[var(--radius-medium)]'
+                )}
+                style={{
+                  padding: sidebarCollapsed ? 0 : '10px 12px 10px 16px',
+                  width: sidebarCollapsed ? 40 : undefined,
+                  height: sidebarCollapsed ? 40 : undefined,
+                  backgroundColor: isActive ? 'var(--color-active)' : 'var(--color-bg-tab)',
+                  color: isActive ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
+                }}
+                onClick={() => setActiveStrategy(s.id)}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+                    e.currentTarget.style.color = 'var(--color-text-primary)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-tab)';
+                    e.currentTarget.style.color = 'var(--color-text-secondary)';
+                  }
+                }}
+                title={sidebarCollapsed ? s.name : undefined}
+              >
+                <LayoutDashboard size={20} className="shrink-0" strokeWidth={1.5} />
+                {!sidebarCollapsed && <span className="text-sm font-medium truncate">{s.name}</span>}
+              </button>
+            );
           })}
 
-          {/* Add Strategy */}
+          {/* Add Strategy — looks like a tab, primary CTA when no strategies */}
           <button
             type="button"
             className={cn(
               'flex items-center gap-3 text-left cursor-pointer transition-colors',
-              sidebarCollapsed ? 'w-10 h-10 min-w-10 min-h-10 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full rounded-[var(--radius-pill)]',
+              sidebarCollapsed ? 'w-10 h-10 min-w-10 min-h-10 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full rounded-[var(--radius-medium)]',
             )}
             style={{
               padding: sidebarCollapsed ? 0 : '10px 12px',
@@ -141,6 +142,7 @@ export function Sidebar() {
               backgroundColor: 'var(--color-bg-tab)',
               color: 'var(--color-text-secondary)',
             }}
+            onClick={() => setAddStrategyModalOpen(true)}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
               e.currentTarget.style.color = 'var(--color-text-primary)';
@@ -160,14 +162,13 @@ export function Sidebar() {
         <div
           className={cn('flex flex-col gap-3 shrink-0', sidebarCollapsed ? 'items-center pt-0 -mt-4' : 'pt-4')}
         >
-          {/* Currency segment control - full when expanded, compact when collapsed */}
           {sidebarCollapsed ? (
             <div
-              className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-xs font-medium overflow-hidden"
+              className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-xs font-medium"
               style={{
                 width: 40,
                 height: 40,
-                backgroundColor: 'var(--color-bg-active)',
+                backgroundColor: 'var(--color-active)',
                 color: 'var(--color-text-active)',
               }}
               title={`Viewing: ${viewingCurrency}`}
@@ -176,8 +177,8 @@ export function Sidebar() {
             </div>
           ) : (
             <div
-              className="flex p-0.5 rounded-[var(--radius-pill)] min-h-[40px]"
-              style={{ backgroundColor: 'var(--color-bg-tab)' }}
+              className="flex p-0.5 rounded-[var(--radius-medium)]"
+              style={{ backgroundColor: 'var(--color-bg-input)' }}
             >
               {CURRENCIES.map((c) => {
                 const isSelected = viewingCurrency === c;
@@ -185,9 +186,9 @@ export function Sidebar() {
                   <button
                     key={c}
                     type="button"
-                    className="flex-1 min-h-[36px] flex items-center justify-center text-sm font-medium cursor-pointer transition-colors rounded-[var(--radius-pill)]"
+                    className="flex-1 min-h-[calc(var(--control-height)-4px)] flex items-center justify-center text-[13px] font-medium cursor-pointer transition-colors rounded-[6px]"
                     style={{
-                      backgroundColor: isSelected ? 'var(--color-bg-active)' : 'transparent',
+                      backgroundColor: isSelected ? 'var(--color-active)' : 'transparent',
                       color: isSelected ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
                     }}
                     onClick={() => setViewingCurrency(c)}
@@ -206,66 +207,66 @@ export function Sidebar() {
           )}
 
           <div className={cn('flex', sidebarCollapsed ? 'flex-col gap-3' : 'flex-row justify-center gap-2')}>
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-pill)]',
-              sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
-            )}
-            style={{ color: 'var(--color-text-secondary)' }}
-            onClick={toggleMode}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-              e.currentTarget.style.color = 'var(--color-text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--color-text-secondary)';
-            }}
-            title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
-          >
-            {mode === 'dark' ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
-          </button>
+            <button
+              type="button"
+              className={cn(
+                'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
+                sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
+              )}
+              style={{ color: 'var(--color-text-secondary)' }}
+              onClick={toggleMode}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+                e.currentTarget.style.color = 'var(--color-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--color-text-secondary)';
+              }}
+              title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              {mode === 'dark' ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
+            </button>
 
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-pill)]',
-              sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
-            )}
-            style={{ color: 'var(--color-text-secondary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-              e.currentTarget.style.color = 'var(--color-text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--color-text-secondary)';
-            }}
-            title="Account"
-          >
-            <User size={20} strokeWidth={1.5} />
-          </button>
+            <button
+              type="button"
+              className={cn(
+                'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
+                sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
+              )}
+              style={{ color: 'var(--color-text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+                e.currentTarget.style.color = 'var(--color-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--color-text-secondary)';
+              }}
+              title="Account"
+            >
+              <User size={20} strokeWidth={1.5} />
+            </button>
 
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-pill)]',
-              sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
-            )}
-            style={{ color: 'var(--color-text-secondary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-              e.currentTarget.style.color = 'var(--color-text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--color-text-secondary)';
-            }}
-            title="Settings"
-          >
-            <Settings size={20} strokeWidth={1.5} />
-          </button>
+            <button
+              type="button"
+              className={cn(
+                'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
+                sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
+              )}
+              style={{ color: 'var(--color-text-secondary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+                e.currentTarget.style.color = 'var(--color-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--color-text-secondary)';
+              }}
+              title="Settings"
+            >
+              <Settings size={20} strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       </div>

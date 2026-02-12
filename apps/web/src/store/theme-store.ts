@@ -5,6 +5,7 @@ export interface ThemeColors {
   '--color-bg-page': string;
   '--color-bg-card': string;
   '--color-bg-hover': string;
+  '--color-active': string;
   '--color-border': string;
   '--color-shadow': string;
   '--color-text-primary': string;
@@ -20,38 +21,40 @@ export interface ThemeColors {
   '--color-chart-5': string;
 }
 
-const LIGHT_DEFAULTS: ThemeColors = {
-  '--color-bg-page': '#f5f5f7',
-  '--color-bg-card': '#ffffff',
-  '--color-bg-hover': '#86efac',
-  '--color-border': '#e5e5e7',
-  '--color-shadow': 'rgba(0, 0, 0, 0.06)',
-  '--color-text-primary': '#333333',
-  '--color-text-secondary': '#888888',
-  '--color-accent': '#1a1a1a',
-  '--color-accent-hover': '#333333',
+const DARK_DEFAULTS: ThemeColors = {
+  '--color-bg-page': '#1e1e1e',
+  '--color-bg-card': '#2d2d30',
+  '--color-bg-hover': '#2a2d2e',
+  '--color-active': '#22c55e',
+  '--color-border': '#444446',
+  '--color-shadow': 'rgba(0, 0, 0, 0.3)',
+  '--color-text-primary': '#e0e0e0',
+  '--color-text-secondary': '#bbbbbb',
+  '--color-accent': '#6c9dcb',
+  '--color-accent-hover': '#5a8aba',
   '--color-positive': '#4caf50',
-  '--color-negative': '#ff6b6b',
-  '--color-chart-1': '#1a1a1a',
-  '--color-chart-2': '#6366f1',
-  '--color-chart-3': '#06b6d4',
-  '--color-chart-4': '#f59e0b',
-  '--color-chart-5': '#ec4899',
+  '--color-negative': '#f87171',
+  '--color-chart-1': '#e0e0e0',
+  '--color-chart-2': '#a78bfa',
+  '--color-chart-3': '#22d3ee',
+  '--color-chart-4': '#fbbf24',
+  '--color-chart-5': '#f472b6',
 };
 
-const DARK_DEFAULTS: ThemeColors = {
-  '--color-bg-page': '#111111',
-  '--color-bg-card': '#1c1c1c',
-  '--color-bg-hover': 'rgba(34, 197, 94, 0.4)',
-  '--color-border': '#2a2a2a',
-  '--color-shadow': 'rgba(0, 0, 0, 0.3)',
-  '--color-text-primary': '#f0f0f0',
-  '--color-text-secondary': '#888888',
-  '--color-accent': '#f0f0f0',
-  '--color-accent-hover': '#cccccc',
-  '--color-positive': '#4ade80',
+const LIGHT_DEFAULTS: ThemeColors = {
+  '--color-bg-page': '#f3f3f3',
+  '--color-bg-card': '#ffffff',
+  '--color-bg-hover': '#e8e8ea',
+  '--color-active': '#22c55e',
+  '--color-border': '#e5e5e7',
+  '--color-shadow': 'rgba(0, 0, 0, 0.08)',
+  '--color-text-primary': '#333333',
+  '--color-text-secondary': '#666666',
+  '--color-accent': '#6c9dcb',
+  '--color-accent-hover': '#5a8aba',
+  '--color-positive': '#4caf50',
   '--color-negative': '#f87171',
-  '--color-chart-1': '#f0f0f0',
+  '--color-chart-1': '#e0e0e0',
   '--color-chart-2': '#a78bfa',
   '--color-chart-3': '#22d3ee',
   '--color-chart-4': '#fbbf24',
@@ -65,7 +68,6 @@ interface ThemeState {
   customColors: Partial<ThemeColors>;
   viewingCurrency: string;
 
-  // Actions
   toggleMode: () => void;
   setMode: (mode: ThemeMode) => void;
   setCustomColor: (key: keyof ThemeColors, value: string) => void;
@@ -78,7 +80,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      mode: 'light',
+      mode: 'dark',
       customColors: {},
       viewingCurrency: 'USD',
 
@@ -113,31 +115,19 @@ export const useThemeStore = create<ThemeState>()(
 
       setViewingCurrency: (currency) => set({ viewingCurrency: currency }),
 
-      getDefaults: () => {
-        return get().mode === 'dark' ? { ...DARK_DEFAULTS } : { ...LIGHT_DEFAULTS };
-      },
+      getDefaults: () =>
+        get().mode === 'dark' ? { ...DARK_DEFAULTS } : { ...LIGHT_DEFAULTS },
     }),
-    {
-      name: 'str-theme',
-    }
+    { name: 'str-theme' }
   )
 );
 
-/** Apply theme to the DOM */
+/** Apply theme: CSS class + custom color overrides */
 export function applyTheme(mode: ThemeMode, customColors: Partial<ThemeColors>) {
   const root = document.documentElement;
-
-  // Toggle dark class
-  if (mode === 'dark') {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
-  }
-
-  // Apply custom color overrides
+  root.classList.toggle('light', mode === 'light');
   const defaults = mode === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS;
   const merged = { ...defaults, ...customColors };
-
   for (const [key, value] of Object.entries(merged)) {
     root.style.setProperty(key, value);
   }

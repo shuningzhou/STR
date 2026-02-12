@@ -3,20 +3,24 @@ import { persist } from 'zustand/middleware';
 
 interface UIState {
   sidebarCollapsed: boolean;
-  activeStrategyId: string | null;
+  addStrategyModalOpen: boolean;
+  strategySettingsModalOpen: boolean;
 
   toggleSidebar: () => void;
-  setActiveStrategy: (id: string | null) => void;
+  setAddStrategyModalOpen: (open: boolean) => void;
+  setStrategySettingsModalOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
-      activeStrategyId: null,
+      addStrategyModalOpen: false,
+      strategySettingsModalOpen: false,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-      setActiveStrategy: (id) => set({ activeStrategyId: id }),
+      setAddStrategyModalOpen: (open) => set({ addStrategyModalOpen: open }),
+      setStrategySettingsModalOpen: (open) => set({ strategySettingsModalOpen: open }),
     }),
     { name: 'str-ui', partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }) }
   )
