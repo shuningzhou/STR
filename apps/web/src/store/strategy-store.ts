@@ -10,11 +10,20 @@ export interface SubviewPosition {
   h: number;
 }
 
-/** Subview in a strategy (Phase 3: layout only, pipeline in later phases) */
+/** Pipeline graph from React Flow (nodes, edges, viewport) */
+export interface PipelineGraph {
+  nodes: Array<{ id: string; type: string; position: { x: number; y: number }; data?: unknown }>;
+  edges: Array<{ id: string; source: string; target: string }>;
+  viewport?: { x: number; y: number; zoom: number };
+}
+
+/** Subview in a strategy */
 export interface Subview {
   id: string;
   name: string;
   position: SubviewPosition;
+  /** Pipeline graph (Phase 5); null = use template default */
+  pipeline?: PipelineGraph | null;
 }
 
 /** Minimal strategy shape for Phase 2–3 */
@@ -41,6 +50,11 @@ interface StrategyState {
   updateSubviewLayout: (strategyId: string, layout: Layout) => void;
   removeSubview: (strategyId: string, subviewId: string) => void;
   updateSubviewName: (strategyId: string, subviewId: string, name: string) => void;
+  updateSubviewPipeline: (
+    strategyId: string,
+    subviewId: string,
+    pipeline: PipelineGraph | null
+  ) => void;
 }
 
 function generateId(): string {
@@ -165,6 +179,21 @@ export const useStrategyStore = create<StrategyState>()(
           ),
         }));
       },
+
+      updateSubviewPipeline: (strategyId, subviewId, pipeline) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? {
+                  ...st,
+                  subviews: st.subviews.map((sv) =>
+                    sv.id === subviewId ? { ...sv, pipeline } : sv
+                  ),
+                }
+              : st
+          ),
+        }));
+      },
     }),
     {
       name: 'str-strategies',
@@ -176,7 +205,10 @@ export const useStrategyStore = create<StrategyState>()(
           ...current,
           strategies: p.strategies.map((st) => ({
             ...st,
-            subviews: st.subviews ?? [],
+            subviews: (st.subviews ?? []).map((sv) => ({
+              ...sv,
+              pipeline: sv.pipeline ?? null,
+            })),
           })),
         };
       },

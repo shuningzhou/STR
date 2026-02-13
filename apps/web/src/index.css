@@ -47,6 +47,7 @@
   /* Spacing: Cursor uses 20-24px padding */
   --space-modal: 20px;
   --space-section: 24px;
+  --space-gap: 8px;
   --space-sidebar: 16px;
   --space-button-x: 20px;
   --space-button-y: 10px;

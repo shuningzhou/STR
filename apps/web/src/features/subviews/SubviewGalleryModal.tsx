@@ -8,17 +8,23 @@ export function SubviewGalleryModal() {
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const addSubview = useStrategyStore((s) => s.addSubview);
 
-  const { subviewGalleryModalOpen, setSubviewGalleryModalOpen } = useUIStore();
+  const { subviewGalleryModalOpen, setSubviewGalleryModalOpen, setSubviewSettingsOpen } = useUIStore();
 
   const handleSelect = (templateId: string) => {
     if (!activeStrategyId) return;
     const template = SUBVIEW_TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
-    addSubview(activeStrategyId, {
+    const newSubview = addSubview(activeStrategyId, {
       name: template.name,
       defaultSize: template.defaultSize,
     });
     setSubviewGalleryModalOpen(false);
+    if (templateId === 'custom') {
+      setSubviewSettingsOpen({
+        strategyId: activeStrategyId,
+        subviewId: newSubview.id,
+      });
+    }
   };
 
   const handleClose = () => setSubviewGalleryModalOpen(false);

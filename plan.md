@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase5-pipeline-ui
     content: "Phase 5: React Flow node editor -- custom node components, palette sidebar, pipeline serialization, 'Custom' subview option"
-    status: pending
+    status: completed
   - id: phase6-pipeline-exec
     content: "Phase 6: Pipeline executor (browser-side) -- node executor functions, topological sort, SubviewRenderer with chart output (Recharts), mock transaction data"
     status: pending
@@ -571,7 +571,7 @@ todos:
     status: completed
   - id: phase5-pipeline-ui
     content: "Phase 5: React Flow node editor -- custom node components, palette sidebar, pipeline serialization, 'Custom' subview option"
-    status: pending
+    status: completed
   - id: phase6-pipeline-exec
     content: "Phase 6: Pipeline executor (browser-side) -- node executor functions, topological sort, SubviewRenderer with chart output (Recharts), mock transaction data"
     status: pending
