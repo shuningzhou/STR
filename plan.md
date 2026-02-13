@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: phase3-canvas-ui
     content: "Phase 3: Canvas area with react-grid-layout -- draggable/resizable subview cards, toolbar, layout state in Zustand, empty canvas state"
-    status: pending
+    status: completed
   - id: phase4-gallery-ui
     content: "Phase 4: Subview template gallery modal -- click empty space to open, pre-built templates, add subview to canvas"
     status: pending
@@ -565,7 +565,7 @@ todos:
     status: completed
   - id: phase3-canvas-ui
     content: "Phase 3: Canvas area with react-grid-layout -- draggable/resizable subview cards, toolbar, layout state in Zustand, empty canvas state"
-    status: pending
+    status: completed
   - id: phase4-gallery-ui
     content: "Phase 4: Subview template gallery modal -- click empty space to open, pre-built templates, add subview to canvas"
     status: pending

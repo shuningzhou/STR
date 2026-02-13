@@ -1,6 +1,7 @@
-import { Plus, Settings, List } from 'lucide-react';
+import { Receipt, SquarePlus, Settings, List } from 'lucide-react';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
+import { CanvasGrid } from '@/features/canvas/CanvasGrid';
 
 const floatingButton =
   'w-9 h-9 flex items-center justify-center rounded-[var(--radius-button)] cursor-pointer transition-colors';
@@ -8,8 +9,14 @@ const floatingButton =
 export function CanvasArea() {
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const strategies = useStrategyStore((s) => s.strategies);
+  const activeStrategy = useStrategyStore((s) =>
+    s.strategies.find((st) => st.id === s.activeStrategyId)
+  );
+  const addSubview = useStrategyStore((s) => s.addSubview);
   const { setStrategySettingsModalOpen } = useUIStore();
   const hasStrategies = strategies.length > 0;
+
+  const hasSubviews = (activeStrategy?.subviews?.length ?? 0) > 0;
 
   const handleGearClick = () => {
     if (activeStrategyId) {
@@ -17,100 +24,144 @@ export function CanvasArea() {
     }
   };
 
+  const handleAddSubview = () => {
+    if (activeStrategyId) {
+      addSubview(activeStrategyId);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
       {/* Floating buttons: top-right of canvas (only when strategy selected) */}
       {activeStrategyId && (
-      <div
-        className="absolute top-4 right-4 z-10 flex flex-col gap-2"
-        style={{ backgroundColor: 'transparent' }}
-      >
-        <button
-          type="button"
-          className={floatingButton}
-          style={{
-            backgroundColor: 'var(--color-bg-card)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
-          }}
-          title="Add Transaction"
+        <div
+          className="absolute top-4 right-4 z-10 flex flex-col gap-2"
+          style={{ backgroundColor: 'transparent' }}
         >
-          <Plus size={18} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          className={floatingButton}
-          style={{
-            backgroundColor: 'var(--color-bg-card)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)',
-          }}
-          onClick={handleGearClick}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
-          }}
-          title="Strategy settings (rename, delete)"
-        >
-          <Settings size={18} strokeWidth={1.5} />
-        </button>
-        <button
-          type="button"
-          className={floatingButton}
-          style={{
-            backgroundColor: 'var(--color-bg-card)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
-          }}
-          title="View All Transactions"
-        >
-          <List size={18} strokeWidth={1.5} />
-        </button>
-      </div>
+          <button
+            type="button"
+            className={floatingButton}
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+            onClick={handleAddSubview}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
+            }}
+            title="Add subview"
+          >
+            <SquarePlus size={18} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className={floatingButton}
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
+            }}
+            title="Add Transaction"
+          >
+            <Receipt size={18} strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            className={floatingButton}
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+            onClick={handleGearClick}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
+            }}
+            title="Strategy settings (rename, delete)"
+          >
+            <Settings size={18} strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            className={floatingButton}
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-card)';
+            }}
+            title="View All Transactions"
+          >
+            <List size={18} strokeWidth={1.5} />
+          </button>
+        </div>
       )}
 
-      {/* Canvas content */}
+      {/* Canvas content - extra right padding when tool buttons visible so subviews don't go under them */}
       <div
-        className="flex-1 flex items-center justify-center overflow-auto"
+        className="flex-1 flex flex-col min-h-0 overflow-auto relative"
         style={{
           padding: 'var(--space-section)',
+          paddingRight: activeStrategyId ? 60 : 'var(--space-section)',
           backgroundColor: 'var(--color-bg-page)',
         }}
       >
         {activeStrategyId ? (
-          <div className="text-center">
-            <p
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--color-text-primary)' }}
+          hasSubviews ? (
+            <div className="flex-1 min-h-[400px]">
+              <CanvasGrid strategyId={activeStrategyId} />
+            </div>
+          ) : (
+            <div
+              className="flex-1 flex flex-col items-center justify-center text-center cursor-pointer"
+              onClick={(e) => {
+                if (!(e.target as HTMLElement).closest('button')) handleAddSubview();
+              }}
             >
-              Canvas
-            </p>
-            <p
-              className="text-sm"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              Click empty space to add a subview
-            </p>
-          </div>
+              <p
+                className="text-lg font-semibold"
+                style={{ color: 'var(--color-text-primary)', marginBottom: 15 }}
+              >
+                Empty canvas
+              </p>
+                <p
+                className="text-sm flex items-center justify-center gap-1 flex-wrap"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Click anywhere or the
+                <SquarePlus
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 inline-block"
+                  style={{ color: 'var(--color-text-primary)' }}
+                />
+                button to add a subview
+              </p>
+            </div>
+          )
         ) : (
-          <div className="text-center">
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
             <p
-              className="text-xl font-semibold mb-2"
-              style={{ color: 'var(--color-text-primary)' }}
+              className="text-xl font-semibold"
+              style={{ color: 'var(--color-text-primary)', marginBottom: 15 }}
             >
               {hasStrategies ? 'No strategy selected' : 'Create your first strategy'}
             </p>

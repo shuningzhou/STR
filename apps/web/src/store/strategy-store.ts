@@ -1,11 +1,28 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Layout } from 'react-grid-layout';
 
-/** Minimal strategy shape for Phase 2 (no backend) */
+/** Subview position for grid layout */
+export interface SubviewPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Subview in a strategy (Phase 3: layout only, pipeline in later phases) */
+export interface Subview {
+  id: string;
+  name: string;
+  position: SubviewPosition;
+}
+
+/** Minimal strategy shape for Phase 2–3 */
 export interface Strategy {
   id: string;
   name: string;
   baseCurrency: string;
+  subviews: Subview[];
 }
 
 interface StrategyState {
@@ -16,10 +33,19 @@ interface StrategyState {
   updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency'>>) => void;
   deleteStrategy: (id: string) => void;
   setActiveStrategy: (id: string | null) => void;
+
+  addSubview: (strategyId: string, name?: string) => Subview;
+  updateSubviewLayout: (strategyId: string, layout: Layout) => void;
+  removeSubview: (strategyId: string, subviewId: string) => void;
+  updateSubviewName: (strategyId: string, subviewId: string, name: string) => void;
 }
 
 function generateId(): string {
   return crypto.randomUUID?.() ?? `s-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function generateSubviewId(): string {
+  return crypto.randomUUID?.() ?? `v-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 export const useStrategyStore = create<StrategyState>()(
@@ -33,6 +59,7 @@ export const useStrategyStore = create<StrategyState>()(
           id: generateId(),
           name,
           baseCurrency,
+          subviews: [],
         };
         set((s) => ({
           strategies: [...s.strategies, strategy],
@@ -63,10 +90,86 @@ export const useStrategyStore = create<StrategyState>()(
       },
 
       setActiveStrategy: (id) => set({ activeStrategyId: id }),
+
+      addSubview: (strategyId, name = 'Subview') => {
+        const subview: Subview = {
+          id: generateSubviewId(),
+          name,
+          position: { x: 0, y: 0, w: 4, h: 2 },
+        };
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? { ...st, subviews: [...st.subviews, subview] }
+              : st
+          ),
+        }));
+        return subview;
+      },
+
+      updateSubviewLayout: (strategyId, layout) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) => {
+            if (st.id !== strategyId) return st;
+            return {
+              ...st,
+              subviews: st.subviews.map((sv) => {
+                const item = layout.find((l) => l.i === sv.id);
+                if (!item) return sv;
+                return {
+                  ...sv,
+                  position: {
+                    x: item.x,
+                    y: item.y,
+                    w: item.w,
+                    h: item.h,
+                  },
+                };
+              }),
+            };
+          }),
+        }));
+      },
+
+      removeSubview: (strategyId, subviewId) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? { ...st, subviews: st.subviews.filter((sv) => sv.id !== subviewId) }
+              : st
+          ),
+        }));
+      },
+
+      updateSubviewName: (strategyId, subviewId, name) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? {
+                  ...st,
+                  subviews: st.subviews.map((sv) =>
+                    sv.id === subviewId ? { ...sv, name } : sv
+                  ),
+                }
+              : st
+          ),
+        }));
+      },
     }),
     {
       name: 'str-strategies',
       partialize: (s) => ({ strategies: s.strategies }),
+      merge: (persisted, current) => {
+        const p = persisted as { strategies?: Strategy[] };
+        if (!p?.strategies) return current;
+        return {
+          ...current,
+          strategies: p.strategies.map((st) => ({
+            ...st,
+            subviews: st.subviews ?? [],
+          })),
+        };
+      },
     }
   )
 );
