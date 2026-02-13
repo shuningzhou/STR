@@ -34,7 +34,10 @@ interface StrategyState {
   deleteStrategy: (id: string) => void;
   setActiveStrategy: (id: string | null) => void;
 
-  addSubview: (strategyId: string, name?: string) => Subview;
+  addSubview: (
+    strategyId: string,
+    options?: { name?: string; defaultSize?: { w: number; h: number } }
+  ) => Subview;
   updateSubviewLayout: (strategyId: string, layout: Layout) => void;
   removeSubview: (strategyId: string, subviewId: string) => void;
   updateSubviewName: (strategyId: string, subviewId: string, name: string) => void;
@@ -91,11 +94,18 @@ export const useStrategyStore = create<StrategyState>()(
 
       setActiveStrategy: (id) => set({ activeStrategyId: id }),
 
-      addSubview: (strategyId, name = 'Subview') => {
+      addSubview: (strategyId, options = {}) => {
+        const name = options.name ?? 'Subview';
+        const defaultSize = options.defaultSize ?? { w: 8, h: 2 };
+        const st = get().strategies.find((s) => s.id === strategyId);
+        const subviews = st?.subviews ?? [];
+        const maxBottom = subviews.length > 0
+          ? Math.max(...subviews.map((sv) => sv.position.y + sv.position.h))
+          : 0;
         const subview: Subview = {
           id: generateSubviewId(),
           name,
-          position: { x: 0, y: 0, w: 4, h: 2 },
+          position: { x: 0, y: maxBottom, w: defaultSize.w, h: defaultSize.h },
         };
         set((s) => ({
           strategies: s.strategies.map((st) =>

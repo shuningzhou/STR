@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: phase4-gallery-ui
     content: "Phase 4: Subview template gallery modal -- click empty space to open, pre-built templates, add subview to canvas"
-    status: pending
+    status: completed
   - id: phase5-pipeline-ui
     content: "Phase 5: React Flow node editor -- custom node components, palette sidebar, pipeline serialization, 'Custom' subview option"
     status: pending
@@ -568,7 +568,7 @@ todos:
     status: completed
   - id: phase4-gallery-ui
     content: "Phase 4: Subview template gallery modal -- click empty space to open, pre-built templates, add subview to canvas"
-    status: pending
+    status: completed
   - id: phase5-pipeline-ui
     content: "Phase 5: React Flow node editor -- custom node components, palette sidebar, pipeline serialization, 'Custom' subview option"
     status: pending

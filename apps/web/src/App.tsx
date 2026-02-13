@@ -4,6 +4,7 @@ import { CanvasArea } from '@/components/CanvasArea';
 import { AddStrategyModal } from '@/features/strategy/AddStrategyModal';
 import { StrategySettingsModal } from '@/features/strategy/StrategySettingsModal';
 import { SubviewSettingsModal } from '@/features/canvas/SubviewSettingsModal';
+import { SubviewGalleryModal } from '@/features/subviews/SubviewGalleryModal';
 import { initializeTheme } from '@/store/theme-store';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
       <AddStrategyModal />
       <StrategySettingsModal />
       <SubviewSettingsModal />
+      <SubviewGalleryModal />
     </div>
   );
 }

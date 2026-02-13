@@ -12,8 +12,7 @@ export function CanvasArea() {
   const activeStrategy = useStrategyStore((s) =>
     s.strategies.find((st) => st.id === s.activeStrategyId)
   );
-  const addSubview = useStrategyStore((s) => s.addSubview);
-  const { setStrategySettingsModalOpen } = useUIStore();
+  const { setStrategySettingsModalOpen, setSubviewGalleryModalOpen } = useUIStore();
   const hasStrategies = strategies.length > 0;
 
   const hasSubviews = (activeStrategy?.subviews?.length ?? 0) > 0;
@@ -24,9 +23,9 @@ export function CanvasArea() {
     }
   };
 
-  const handleAddSubview = () => {
+  const handleOpenGallery = () => {
     if (activeStrategyId) {
-      addSubview(activeStrategyId);
+      setSubviewGalleryModalOpen(true);
     }
   };
 
@@ -46,7 +45,7 @@ export function CanvasArea() {
               color: 'var(--color-text-primary)',
               border: '1px solid var(--color-border)',
             }}
-            onClick={handleAddSubview}
+            onClick={handleOpenGallery}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
             }}
@@ -133,7 +132,7 @@ export function CanvasArea() {
             <div
               className="flex-1 flex flex-col items-center justify-center text-center cursor-pointer"
               onClick={(e) => {
-                if (!(e.target as HTMLElement).closest('button')) handleAddSubview();
+                if (!(e.target as HTMLElement).closest('button')) handleOpenGallery();
               }}
             >
               <p
@@ -153,7 +152,7 @@ export function CanvasArea() {
                   className="shrink-0 inline-block"
                   style={{ color: 'var(--color-text-primary)' }}
                 />
-                button to add a subview
+                button to open the template gallery
               </p>
             </div>
           )
