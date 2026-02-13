@@ -42,8 +42,12 @@ const sizeStyles = {
   lg: 'px-6 text-sm',
 };
 
+const buttonBaseStyle = {
+  height: 'var(--control-height)',
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'secondary', size = 'md', className, children, disabled, type = 'button', ...props }, ref) => {
+  ({ variant = 'secondary', size = 'md', className, children, disabled, type = 'button', style, ...props }, ref) => {
     const base =
       'inline-flex items-center justify-center font-medium rounded-[var(--radius-button)] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
@@ -54,7 +58,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(base, sizeStyles[size], className)}
         style={{
           ...variantStyles[variant],
-          height: 'var(--control-height)',
+          ...buttonBaseStyle,
+          ...style,
         }}
         onMouseEnter={(e) => {
           if (disabled) return;

@@ -6,8 +6,17 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   className?: string;
 }
 
+const inputBaseStyle: React.CSSProperties = {
+  backgroundColor: 'var(--color-bg-input)',
+  color: 'var(--color-text-primary)',
+  border: '1px solid var(--color-border)',
+  paddingLeft: 8,
+  paddingRight: 16,
+  height: 'var(--control-height)',
+};
+
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ error, className, ...props }, ref) => {
+  ({ error, className, style, ...props }, ref) => {
     return (
       <div className="w-full">
         <input
@@ -17,19 +26,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             'placeholder:text-[var(--color-text-muted)]',
             className
           )}
-          style={{
-            backgroundColor: 'var(--color-bg-input)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid transparent',
-            paddingLeft: 4,
-            paddingRight: 16,
-            height: 'var(--control-height)',
-          }}
+          style={{ ...inputBaseStyle, ...style }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-border)';
+            e.currentTarget.style.borderColor = 'var(--color-active)';
+            e.currentTarget.style.boxShadow = '0 0 0 1px var(--color-active)';
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = 'transparent';
+            e.currentTarget.style.borderColor = 'var(--color-border)';
+            e.currentTarget.style.boxShadow = 'none';
           }}
           {...props}
         />

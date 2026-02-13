@@ -44,11 +44,20 @@ export interface SourceNodeConfig {
   type: PipelineNodeType.SOURCE;
 }
 
-export interface FilterNodeConfig {
-  type: PipelineNodeType.FILTER;
+export interface FilterConditionConfig {
   field: string;
   operator: FilterOperator;
   value: unknown;
+  /** 'static' = fixed value, 'input' = user-editable on subview canvas */
+  valueType?: 'static' | 'input';
+  /** When valueType is 'input': label shown on the subview card */
+  inputLabel?: string;
+}
+
+export interface FilterNodeConfig {
+  type: PipelineNodeType.FILTER;
+  /** Multiple conditions (all must match) */
+  conditions: FilterConditionConfig[];
 }
 
 export interface GroupByNodeConfig {

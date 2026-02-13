@@ -1,7 +1,10 @@
 import { Pencil } from 'lucide-react';
 import type { Subview } from '@/store/strategy-store';
+import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { cn } from '@/lib/utils';
+import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
+import { Input } from '@/components/ui';
 
 interface SubviewCardProps {
   subview: Subview;
@@ -10,11 +13,15 @@ interface SubviewCardProps {
 
 export function SubviewCard({ subview, strategyId }: SubviewCardProps) {
   const setSubviewSettingsOpen = useUIStore((s) => s.setSubviewSettingsOpen);
+  const updateSubviewInputValue = useStrategyStore((s) => s.updateSubviewInputValue);
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSubviewSettingsOpen({ strategyId, subviewId: subview.id });
   };
+
+  const pipelineInputs = getPipelineInputs(subview.pipeline);
+  const inputValues = subview.inputValues ?? {};
 
   return (
     <div
@@ -64,14 +71,52 @@ export function SubviewCard({ subview, strategyId }: SubviewCardProps) {
         </button>
       </div>
 
-      {/* Body placeholder (Phase 6: SubviewRenderer with charts) */}
-      <div
-        className="flex-1 flex items-center justify-center p-4 min-h-[60px] pt-12 gap-1"
-        style={{ color: 'var(--color-text-muted)' }}
-      >
-        <span className="text-xs">Click</span>
-        <Pencil size={14} strokeWidth={1.5} className="shrink-0" />
-        <span className="text-xs">to get started</span>
+      {/* Pipeline inputs (when filter has input-type conditions) + body */}
+      <div className="flex-1 flex flex-col min-h-0 pt-12">
+        {pipelineInputs.length > 0 && (
+          <div
+            className="flex flex-wrap gap-2 p-2 shrink-0"
+            style={{ gap: 'var(--space-gap)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {pipelineInputs.map((inp) => (
+              <div key={inp.inputKey} className="flex flex-col gap-0.5 min-w-[80px]">
+                <label
+                  className="text-[11px] font-medium"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {inp.label}
+                </label>
+                <Input
+                  value={String(inputValues[inp.inputKey] ?? inp.defaultValue)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    updateSubviewInputValue(strategyId, subview.id, inp.inputKey, v);
+                  }}
+                  className="text-[11px]"
+                  style={{ height: 26 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div
+          className={cn(
+            'flex-1 flex items-center justify-center p-4 min-h-[60px] gap-1',
+            pipelineInputs.length === 0 && 'flex'
+          )}
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          {pipelineInputs.length === 0 ? (
+            <>
+              <span className="text-xs">Click</span>
+              <Pencil size={14} strokeWidth={1.5} className="shrink-0" />
+              <span className="text-xs">to get started</span>
+            </>
+          ) : (
+            <span className="text-xs">Chart area (Phase 6)</span>
+          )}
+        </div>
       </div>
     </div>
   );

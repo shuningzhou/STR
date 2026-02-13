@@ -24,6 +24,8 @@ export interface Subview {
   position: SubviewPosition;
   /** Pipeline graph (Phase 5); null = use template default */
   pipeline?: PipelineGraph | null;
+  /** Runtime values for pipeline inputs (e.g. filter condition values set by user on canvas) */
+  inputValues?: Record<string, string | number>;
 }
 
 /** Minimal strategy shape for Phase 2–3 */
@@ -54,6 +56,12 @@ interface StrategyState {
     strategyId: string,
     subviewId: string,
     pipeline: PipelineGraph | null
+  ) => void;
+  updateSubviewInputValue: (
+    strategyId: string,
+    subviewId: string,
+    inputKey: string,
+    value: string | number
   ) => void;
 }
 
@@ -194,6 +202,23 @@ export const useStrategyStore = create<StrategyState>()(
           ),
         }));
       },
+
+      updateSubviewInputValue: (strategyId, subviewId, inputKey, value) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? {
+                  ...st,
+                  subviews: st.subviews.map((sv) => {
+                    if (sv.id !== subviewId) return sv;
+                    const next = { ...(sv.inputValues ?? {}), [inputKey]: value };
+                    return { ...sv, inputValues: next };
+                  }),
+                }
+              : st
+          ),
+        }));
+      },
     }),
     {
       name: 'str-strategies',
@@ -208,6 +233,7 @@ export const useStrategyStore = create<StrategyState>()(
             subviews: (st.subviews ?? []).map((sv) => ({
               ...sv,
               pipeline: sv.pipeline ?? null,
+              inputValues: sv.inputValues ?? {},
             })),
           })),
         };

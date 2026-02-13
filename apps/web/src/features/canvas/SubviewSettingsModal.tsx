@@ -167,7 +167,7 @@ export function SubviewSettingsModal() {
         </div>
 
         {/* Pipeline editor - padding-top to clear floating elements */}
-        <div className="flex-1 min-h-0 pt-12 px-4 pb-4">
+        <div className="flex-1 min-h-0 pt-12 px-4 pb-4 flex flex-col">
           <PipelineEditor
             ref={pipelineEditorRef}
             initialPipeline={subview.pipeline}

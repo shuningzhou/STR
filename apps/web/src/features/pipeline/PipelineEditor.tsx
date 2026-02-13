@@ -11,12 +11,12 @@ import {
   type ReactFlowInstance,
   Background,
   Controls,
-  Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { PipelineNode } from './PipelineNode';
+import { FilterNode } from './FilterNode';
 import { NODE_TYPE_LIST } from './nodeTypes';
 import type { PipelineGraph } from '@/store/strategy-store';
 
@@ -26,7 +26,7 @@ function generateNodeId(): string {
 
 const nodeTypes = {
   source: PipelineNode,
-  filter: PipelineNode,
+  filter: FilterNode,
   groupBy: PipelineNode,
   aggregate: PipelineNode,
   calculate: PipelineNode,
@@ -36,12 +36,17 @@ const nodeTypes = {
 
 function graphToFlow(pipeline: PipelineGraph | null | undefined): { nodes: Node[]; edges: Edge[] } {
   if (!pipeline?.nodes?.length) return { nodes: [], edges: [] };
-  const nodes: Node[] = pipeline.nodes.map((n) => ({
-    id: n.id,
-    type: (n.type as keyof typeof nodeTypes) ?? 'source',
-    position: n.position ?? { x: 0, y: 0 },
-    data: { label: (n.data as { label?: string })?.label ?? n.type },
-  }));
+  const nodes: Node[] = pipeline.nodes.map((n) => {
+    const d = n.data as Record<string, unknown> | undefined;
+    const baseData = { label: (d?.label as string) ?? n.type };
+    const filterData = n.type === 'filter' && d?.conditions ? { conditions: d.conditions } : {};
+    return {
+      id: n.id,
+      type: (n.type as keyof typeof nodeTypes) ?? 'source',
+      position: n.position ?? { x: 0, y: 0 },
+      data: { ...baseData, ...filterData },
+    };
+  });
   const edges: Edge[] = (pipeline.edges ?? []).map((e) => ({
     id: e.id,
     source: e.source,
@@ -159,44 +164,69 @@ const PipelineEditorInner = forwardRef<PipelineEditorHandle, PipelineEditorProps
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      <div className={cn('flex-1 min-h-0', fullHeight && 'min-h-[300px]')}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onInit={(inst) => { reactFlowRef.current = inst; }}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-        style={{ background: 'var(--color-bg-input)' }}
-      >
-        <Background gap={12} size={1} color="var(--color-border)" />
-        <Controls showZoom showFitView showInteractive={false} />
-        <Panel position="top-left" className="m-2">
-          <div
-            className="p-2 rounded-[var(--radius-medium)] flex flex-col gap-1"
-            style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
-          >
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Add node</span>
-            {NODE_TYPE_LIST.map(({ type, label }) => (
-              <div
-                key={type}
-                draggable
-                onDragStart={(e) => e.dataTransfer.setData('application/reactflow', type)}
-                className="px-2 py-1 rounded cursor-grab text-xs"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {label}
-              </div>
-            ))}
+      <div className={cn('relative flex-1 min-h-0', fullHeight && 'min-h-[300px]')}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onInit={(inst) => { reactFlowRef.current = inst; }}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.2}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          style={{ background: 'var(--color-bg-input)' }}
+        >
+          <Background gap={12} size={1} color="var(--color-border)" />
+          <Controls showZoom showFitView showInteractive={false} />
+        </ReactFlow>
+
+        {/* Add node panel - left side, vertically centered */}
+        <div
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 p-3 rounded-[var(--radius-medium)] flex flex-col gap-2 min-w-[120px]"
+          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+        >
+          <div>
+            <span className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>Add node</span>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+              Drag onto canvas
+            </p>
           </div>
-        </Panel>
-      </ReactFlow>
+          {NODE_TYPE_LIST.map(({ type, label }) => (
+            <div
+              key={type}
+              draggable
+              onDragStart={(e) => e.dataTransfer.setData('application/reactflow', type)}
+              className="px-2.5 py-1.5 rounded cursor-grab active:cursor-grabbing text-[13px] transition-colors hover:opacity-90"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Empty state - centered, no card, standard padding between title and message */}
+        {nodes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+            <div className="text-center">
+              <p
+                className="text-lg font-semibold"
+                style={{ color: 'var(--color-text-primary)', marginBottom: 15 }}
+              >
+                Drop nodes here
+              </p>
+              <p
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Drag from the left panel onto this area
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {!hideButtons && (
