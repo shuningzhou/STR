@@ -29,11 +29,11 @@ export function SubviewCard({ subview, strategyId }: SubviewCardProps) {
       {/* Top bar - only this area is draggable */}
       <div
         className="absolute top-0 left-0 right-0 z-10 flex items-center"
-        style={{ minHeight: 40, top: 2 }}
+        style={{ minHeight: 36, top: 0 }}
       >
         <div
           className="subview-drag-handle flex-1 flex items-center cursor-grab active:cursor-grabbing min-w-0"
-          style={{ padding: 4, paddingLeft: 8 }}
+          style={{ paddingTop: 6, paddingLeft: 10, paddingBottom: 2, paddingRight: 4 }}
         >
           <span
             className="text-[13px] font-medium truncate max-w-[150px]"
