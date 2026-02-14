@@ -1,6 +1,6 @@
 ---
 name: Strategy Investment App
-overview: Full-stack SaaS investment tracking app with strategy tabs, customizable drag-and-drop subview canvases, read-write subviews (developer-built) and read-only subviews (JSON templates + custom functions), email OTP auth, and transaction-driven analytics -- built as a TypeScript monorepo with Vite+React frontend and NestJS backend on MongoDB Atlas.
+overview: Full-stack SaaS investment tracking app with strategy tabs, customizable drag-and-drop subview canvases, JSON+Python subview system (readonly and readwrite; see subviews.md), email OTP auth, and transaction-driven analytics -- built as a TypeScript monorepo with Vite+React frontend and NestJS backend on MongoDB Atlas.
 todos:
   - id: phase1-scaffold
     content: "Phase 1: Scaffold monorepo (npm workspaces), Vite+React frontend, shared types package, run.sh, Tailwind + shadcn/ui setup, theming (dark/light + custom palette)"
@@ -15,10 +15,10 @@ todos:
     content: "Phase 4: Subview template gallery modal -- click empty space to open, pre-built templates, add subview to canvas"
     status: completed
   - id: phase5-readwrite-subviews
-    content: "Phase 5: Read-write subviews -- developer-built interactive subviews (forms, filters, editable tables), config persistence"
+    content: "Phase 5: Read-write subviews -- official premade JSON+Python subviews (Table with actions: addTransactionModal, editTransactionModal, etc.)"
     status: pending
   - id: phase6-readonly-subviews
-    content: "Phase 6: Read-only subviews -- JSON templates + custom functions, common built-in templates (Equity Curve, Win Rate, etc.), SubviewRenderer, user-defined JSON + custom functions"
+    content: "Phase 6: Read-only subviews -- JSON+Python subview renderer, Pyodide (browser) executor, built-in templates, Subview Editor (Monaco JSON+Python+Preview), user-created subviews, caching"
     status: pending
   - id: phase7-transactions-ui
     content: "Phase 7: Transaction UI -- add/edit form modal, transaction list modal with pagination/sort/filter, currency display"
@@ -75,7 +75,7 @@ Str/
 │   │   │   │   └── subviews/    # Read-write components, read-only renderers, gallery, JSON templates
 │   │   │   ├── hooks/           # Custom hooks (useAuth, useStrategy, useCurrency)
 │   │   │   ├── store/           # Zustand stores (auth, strategies, UI state)
-│   │   │   ├── lib/             # Read-only subview executor (template + custom functions), currency converter, utils
+│   │   │   ├── lib/             # Pyodide executor for subview Python, currency converter, utils
 │   │   │   └── App.tsx
 │   │   ├── package.json
 │   │   ├── vite.config.ts
@@ -137,7 +137,7 @@ enum CacheStatus { VALID, INVALID }
 enum SubscriptionStatus { FREE, ACTIVE, PAST_DUE, CANCELLED }
 
 // Model interfaces: IUser, IStrategy, ISubview, ITransaction, IInstrument, IWallet
-// Subview types: SubviewType (READ_WRITE | READ_ONLY), ReadOnlySubviewTemplate, ISubviewConfig
+// Subview: JSON spec (type, name, description, maker, size, inputs, layout, python_code, functions) — see subviews.md
 // DTOs: CreateTransactionDto, UpdateStrategyDto, LoginDto, VerifyOtpDto, etc.
 ```
 
@@ -198,10 +198,9 @@ sequenceDiagram
 
 **Subview (embedded in Strategy):**
 
-- `id` (UUID), `name`, `position` ({x, y, w, h}), `type` (enum: read_write | read_only)
-- **Read-write:** `config` (Mixed -- per-subview config defined by developer component)
-- **Read-only:** `templateId` (string), `config` (Mixed -- template-specific options), `customFunctionId` (optional)
-- `cacheData` (Mixed), `cachedAt`, `cacheVersion`, `cacheStatus` (enum: valid/invalid) -- used mainly by read-only subviews
+- `id` (UUID), `position` ({x, y, w, h})
+- Subview spec stored as JSON (see subviews.md): `type` (readonly | readwrite), `name`, `description`, `maker`, `size`, `inputs`, `layout`, `python_code`, `functions`
+- `cacheData` (Mixed), `cachedAt`, `cacheVersion`, `cacheStatus` (enum: valid/invalid) -- used mainly by readonly subviews
 
 **Wallet:**
 
@@ -240,7 +239,7 @@ sequenceDiagram
 - `DELETE /strategies/:id` -- delete strategy + cascade transactions
 - `PATCH /strategies/:id/subviews` -- update subview layout (batch position updates)
 - `POST /strategies/:id/subviews` -- add subview
-- `PATCH /strategies/:id/subviews/:subviewId` -- update subview config (read-write) or templateId/config (read-only)
+- `PATCH /strategies/:id/subviews/:subviewId` -- update subview JSON spec (full replace or partial)
 - `DELETE /strategies/:id/subviews/:subviewId` -- remove subview
 - `PUT /strategies/:id/subviews/:subviewId/cache` -- save computed cache from frontend
 
@@ -340,53 +339,63 @@ flowchart TD
 
 ---
 
-## 9. Subview Template Gallery
+## 9. Subview System (JSON + Python) — see subviews.md
 
-**Read-only subviews** are created from JSON-based templates plus optional custom functions. The gallery shows:
+The subview system is **unified**: both readonly and readwrite subviews use the same JSON structure. See `subviews.md` for the full spec. Summary:
 
-**Common built-in templates** (created by the developer):
+**Two types:**
+- `readonly` — display only (no actions, no side effects, no modals, no writes)
+- `readwrite` — allows actions to edit transactions/wallet; **only official premade subviews** (built-in to frontend)
 
-- **Equity Curve** -- cumulative P&L over time (line chart)
-- **Win Rate** -- % of profitable trades (single number + donut chart)
-- **Monthly Returns** -- bar chart grouped by month
-- **Exposure Breakdown** -- pie chart by asset type or sector
-- **Realized P&L Table** -- sortable table of closed trades
-- **Open Positions** -- current holdings derived from transactions
-- **Drawdown Chart** -- max drawdown over time (area chart)
-- **Risk/Reward Ratio** -- average win vs average loss
-- **Trade Frequency** -- histogram of trades per day/week/month
+**JSON structure (required fields):**
+- `type`, `name`, `description`, `maker` ("official" or user nickname for readonly)
+- `size` — string like `"2x1"`, `"4x2"` (initial placement hint)
+- `inputs` (optional) — controls with defined types/schemas: `time_range`, `ticker_selector`, `number_input`, `select`, `checkbox` (see subviews.md)
+- `layout` — 2D array of rows → cells with `weight`, `alignment`, `content` (text, number, Table, Chart, etc.)
+- `python_code` — all Python function definitions for this subview
+- `functions` — array of function names used (referenced via `py:functionName` in content)
 
-**User-defined read-only subviews:** Users can define their own JSON template and register a custom function to render the data. The template specifies `{ templateId, defaultSize: {w,h}, config: {...} }` and the custom function receives `(transactions, config) => chartData`.
+**Function calling:** Use `py:` prefix in content, e.g. `{ "number": { "value": "py:calc_win_rate" } }`. Without `py:` → literal value.
 
-Templates are stored in a `templates/` directory; custom functions are registered in a registry.
+**Readonly restrictions:** No `actions` field; functions return immutable values; no side effects.
 
----
+**Readwrite restrictions/allowances:** Only when `type === "readwrite"`; actions use predefined handler names (`addTransactionModal`, `editTransactionModal`, `closeTransactionModal`, `rollTransactionModal`, etc.); row/header actions in Table content.
 
-## 10. Read-Write vs Read-Only Subviews
-
-**Read-write subviews** (developer-built):
-
-- Built as React components by the developer
-- Allow user interaction: forms, filters, editable tables, inputs
-- Each has its own config shape (e.g. filter conditions, column visibility)
-- Config persisted in `subview.config`; no pipeline
-- Examples: Transaction filter with input fields, editable holdings table
-
-**Read-only subviews** (JSON templates + custom functions):
-
-- Defined by a `templateId` and `config` (template-specific options)
-- Optional `customFunctionId` to use a user-defined render function
-- Execution: `executeReadOnlySubview(templateId, config, transactions, customFunction?)` returns chart data
-- Common templates (Equity Curve, Win Rate, etc.) are built-in; users can add JSON templates and register custom functions
-- Caching applies to read-only subviews (stale when `transactionsVersion` changes)
+**Python rules:** Functions accept `(context, inputs)`; return serializable values; no I/O. `context.transactions` has **resolved** instrument data (instrumentSymbol, instrumentName); `context.wallet`; `inputs` from controls (see subviews.md for input type schemas).
 
 ---
 
-## 11. Subview Rendering and Caching
+## 10. Subview Gallery
 
-**Read-write subviews:** Render directly from component + `config`; no caching.
+Gallery shows:
+- **Official subviews** (`maker: "official"`) — built-in readonly and readwrite templates (Equity Curve, Win Rate, Open Options Positions, etc.)
+- **User-created readonly subviews** — users can create and add their own JSON + Python subviews (readwrite remains official-only)
 
-**Read-only subviews** use caching. Staleness check (SubviewRenderer):
+---
+
+## 11. Subview Editor UX (for creating/editing subviews)
+
+Three-column modal (desktop):
+
+| Column | Width | Content |
+|--------|-------|---------|
+| Left | 25–30% | **JSON Editor** — Monaco/CodeMirror, JSON mode, Zod validation, toolbar: Validate, Format, Reset, Load Example |
+| Middle | 35–40% | **Python Editor** — Monaco, Python mode, all functions for this subview; "Test Functions" runs with seed data; console below for results/errors |
+| Right | 35–40% | **Live Preview** — renders subview; debounced 500–800ms updates; size selector; "Refresh Preview" |
+
+**Seed data** for testing (injected): `context` with 10–20 fake transactions + wallet; `inputs` with timeRange, ticker.
+
+**Mobile:** Stacked tabs (JSON → Python → Preview).
+
+**Actions:** Save (validates → backend), Cancel/Discard. Status bar: "Valid JSON" / "Python syntax ok" / "Preview updated".
+
+---
+
+## 12. Subview Rendering and Caching
+
+**Readwrite subviews:** Render from JSON + Python; no caching (always fresh).
+
+**Readonly subviews** use caching. Staleness check:
 
 ```typescript
 const isStale =
@@ -395,20 +404,15 @@ const isStale =
   (subview.cachedAt && Date.now() - subview.cachedAt > TTL);
 ```
 
-**Rendering flow:**
+**Rendering flow:** (1) If cached and fresh → render from `cacheData`. (2) If stale → run Python with real context/inputs, render, save cache via `PUT .../cache`.
 
-1. If cached and fresh: render directly from `cacheData`
-2. If stale: fetch transactions, execute template + custom function, render, then save cache to backend
-3. Cache save: `PUT /strategies/:id/subviews/:subviewId/cache` with `{ cacheData, cacheVersion }`
+**Charts:** Line, bar, pie schemas defined in subviews.md. Python returns `{ labels, series }` for line/bar; `{ items: [{ label, value }] }` for pie. Expand to more chart types later.
 
-**Cache invalidation triggers:**
-
-- Transaction added/edited/deleted -> `transactionsVersion` bumps -> all read-only subviews become stale on next render
-- Read-only subview template/config changed -> that subview's `cacheStatus` set to `invalid`
+**Python execution:** Runs in **browser** via Pyodide. No backend Python service.
 
 ---
 
-## 12. Transaction Management
+## 13. Transaction Management
 
 **Add Transaction form:**
 
@@ -430,7 +434,7 @@ const isStale =
 
 ---
 
-## 13. Market Data Integration (FMP)
+## 14. Market Data Integration (FMP)
 
 **Backend MarketDataService:**
 
@@ -449,7 +453,7 @@ const isStale =
 
 ---
 
-## 14. Currency Conversion (UI-Only)
+## 15. Currency Conversion (UI-Only)
 
 - **Global setting** -- viewing currency dropdown lives in the top-level app bar (next to user menu), applies to all strategy tabs
 - All monetary values displayed go through `convertCurrency(amount, fromCurrency, toCurrency, rates)`
@@ -459,7 +463,7 @@ const isStale =
 
 ---
 
-## 15. UI Design Approach
+## 16. UI Design Approach
 
 **All UI must follow the existing design system** (see `apps/web/src/index.css`). Use the same design tokens for gaps, sizes, radii, and colors so new components visually match what's already built.
 
@@ -517,7 +521,7 @@ Semantic tokens (CSS variables on `:root` / `.dark`):
 
 ---
 
-## 16. Running and Deployment
+## 17. Running and Deployment
 
 **Local development -- single command:**
 
@@ -544,8 +548,8 @@ Semantic tokens (CSS variables on `:root` / `.dark`):
 **Phase 2 -- Strategy Tabs UI:** Tab bar, add/rename/delete, empty state (mock data in Zustand)
 **Phase 3 -- Canvas UI:** react-grid-layout, subview cards, toolbar, layout persistence in Zustand
 **Phase 4 -- Subview Gallery UI:** Template gallery modal, pre-built read-only templates, add to canvas
-**Phase 5 -- Read-Write Subviews:** Developer-built interactive subviews (forms, filters, editable tables), config persistence
-**Phase 6 -- Read-Only Subviews:** JSON templates + custom functions, common built-in templates, SubviewRenderer, user-defined JSON + custom functions
+**Phase 5 -- Read-Write Subviews:** Official premade JSON+Python subviews (Table with actions: addTransactionModal, editTransactionModal, closeTransactionModal, rollTransactionModal, etc.)
+**Phase 6 -- Read-Only Subviews:** JSON+Python subview renderer, Pyodide (browser) executor, built-in templates, Subview Editor (Monaco JSON+Python+Preview), user-created subviews, caching
 **Phase 7 -- Transaction UI:** Add/edit form, transaction list modal, pagination/sort/filter
 **Phase 8 -- Global Settings UI:** Viewing currency, dark/light toggle, theme customization panel
 **Phase 9 -- Backend Scaffold:** NestJS, Mongoose schemas, MongoDB Atlas connection
