@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Layout } from 'react-grid-layout';
+import type { SubviewSpec } from '@str/shared';
 
 /** Subview position for grid layout */
 export interface SubviewPosition {
@@ -22,9 +23,11 @@ export interface Subview {
   id: string;
   name: string;
   position: SubviewPosition;
-  /** Pipeline graph (Phase 5); null = use template default */
+  /** JSON+Python spec (Phase 5+); when present, takes precedence over pipeline */
+  spec?: SubviewSpec;
+  /** @deprecated Pipeline graph; legacy, replaced by spec */
   pipeline?: PipelineGraph | null;
-  /** Runtime values for pipeline inputs (e.g. filter condition values set by user on canvas) */
+  /** Runtime values for inputs (from spec.inputs or legacy pipeline) */
   inputValues?: Record<string, string | number>;
 }
 
@@ -57,6 +60,7 @@ interface StrategyState {
     subviewId: string,
     pipeline: PipelineGraph | null
   ) => void;
+  updateSubviewSpec: (strategyId: string, subviewId: string, spec: SubviewSpec) => void;
   updateSubviewInputValue: (
     strategyId: string,
     subviewId: string,
@@ -196,6 +200,23 @@ export const useStrategyStore = create<StrategyState>()(
                   ...st,
                   subviews: st.subviews.map((sv) =>
                     sv.id === subviewId ? { ...sv, pipeline } : sv
+                  ),
+                }
+              : st
+          ),
+        }));
+      },
+
+      updateSubviewSpec: (strategyId, subviewId, spec) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? {
+                  ...st,
+                  subviews: st.subviews.map((sv) =>
+                    sv.id === subviewId
+                      ? { ...sv, spec, name: spec.name, pipeline: undefined }
+                      : sv
                   ),
                 }
               : st
