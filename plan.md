@@ -14,12 +14,9 @@ todos:
   - id: phase4-gallery-ui
     content: "Phase 4: Subview template gallery modal -- click empty space to open, pre-built templates, add subview to canvas"
     status: completed
-  - id: phase5-subview-editor
-    content: "Phase 5: Subview Editor -- three-column modal (Monaco JSON, Monaco Python, Live Preview), Zod validation, Pyodide for Python execution, seed data for testing. Required to author any subview."
-    status: pending
-  - id: phase6-subview-rendering
-    content: "Phase 6: Subview rendering -- canvas renders JSON+Python subviews. Official read-write subviews are built using the Subview Editor (not hardcoded). User-created readonly subviews via editor. Pyodide executor, caching for readonly."
-    status: pending
+  - id: phase5-subview-editor-rendering
+    content: "Phase 5: Subview Editor + Rendering -- Editor modal (JSON, Python, Transactions, Wallet tabs, Live Preview). Same renderer used in editor preview and on canvas. Zod validation, Pyodide, seed data. Canvas renders JSON+Python subviews. Caching for readonly."
+    status: in_progress
   - id: phase7-transactions-ui
     content: "Phase 7: Transaction UI -- add/edit form modal, transaction list modal with pagination/sort/filter, currency display"
     status: pending
@@ -375,15 +372,16 @@ Gallery shows:
 
 ## 11. Subview Editor UX (for creating/editing subviews)
 
+*Editor and rendering are developed together (Phase 5). The Live Preview uses the same renderer as canvas cards.*
+
 The **Subview Editor** is the tool for authoring all subviews — official read-write and user-created readonly. No subviews are hand-coded in React.
 
-Three-column modal (desktop):
+Split-panel modal (desktop):
 
-| Column | Width | Content |
-|--------|-------|---------|
-| Left | 25–30% | **JSON Editor** — Monaco/CodeMirror, JSON mode, Zod validation, toolbar: Validate, Format, Reset, Load Example |
-| Middle | 35–40% | **Python Editor** — Monaco, Python mode, all functions for this subview; "Test Functions" runs with seed data; console below for results/errors |
-| Right | 35–40% | **Live Preview** — renders subview; debounced 500–800ms updates; size selector; "Refresh Preview" |
+| Panel | Content |
+|-------|---------|
+| Left (tabs) | **JSON**, **Python**, **Transactions** (seed data), **Wallet** (seed data) — Monaco editors, toolbar buttons |
+| Right | **Live Preview** — same renderer as canvas; MiniCanvasPreview with identical grid config |
 
 **Seed data** for testing (injected): `context` with 10–20 fake transactions + wallet; `inputs` with timeRange, ticker.
 
@@ -394,6 +392,8 @@ Three-column modal (desktop):
 ---
 
 ## 12. Subview Rendering and Caching
+
+*Shared by editor Live Preview and canvas SubviewCard. Same layout engine, Pyodide executor, and content rendering.*
 
 **Readwrite subviews:** Render from JSON + Python; no caching (always fresh).
 
@@ -550,8 +550,7 @@ Semantic tokens (CSS variables on `:root` / `.dark`):
 **Phase 2 -- Strategy Tabs UI:** Tab bar, add/rename/delete, empty state (mock data in Zustand)
 **Phase 3 -- Canvas UI:** react-grid-layout, subview cards, toolbar, layout persistence in Zustand
 **Phase 4 -- Subview Gallery UI:** Template gallery modal, pre-built read-only templates, add to canvas
-**Phase 5 -- Subview Editor:** Three-column modal (Monaco JSON, Monaco Python, Live Preview). Zod validation. Pyodide for Python execution. Seed data for testing. Required to author any subview — both official and user-created.
-**Phase 6 -- Subview Rendering:** Canvas renders JSON+Python subviews. Official read-write subviews are built using the Subview Editor (not hardcoded). User-created readonly subviews via editor. Pyodide executor. Caching for readonly.
+**Phase 5 -- Subview Editor + Rendering:** Editor modal (JSON, Python, Transactions, Wallet tabs) with Live Preview. Subview rendering is shared: the same layout engine and Pyodide executor power both the editor preview and canvas cards. Zod validation. Seed data for testing. Canvas renders JSON+Python subviews. Caching for readonly. Official read-write and user-created readonly subviews are all built via the editor.
 **Phase 7 -- Transaction UI:** Add/edit form, transaction list modal, pagination/sort/filter
 **Phase 8 -- Global Settings UI:** Viewing currency, dark/light toggle, theme customization panel
 **Phase 9 -- Backend Scaffold:** NestJS, Mongoose schemas, MongoDB Atlas connection
