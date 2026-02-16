@@ -47,10 +47,15 @@ const inputConfigSchema = z.discriminatedUnion('type', [
 ]);
 
 // --- Content items (text, number, Table, Chart) ---
+const fontSizeSchema = z.enum(['xs', 'sm', 'md', 'lg', 'xl']).optional();
+
 const textContentSchema = z.object({
   text: z.object({
     value: z.string(),
     alignment: z.string().optional(),
+    size: fontSizeSchema,
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
   }),
 });
 
@@ -58,6 +63,9 @@ const numberContentSchema = z.object({
   number: z.object({
     value: z.union([z.string(), z.number()]), // "py:fn" or literal
     alignment: z.string().optional(),
+    size: fontSizeSchema,
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
   }),
 });
 
@@ -98,18 +106,31 @@ const chartContentSchema = z.object({
   }),
 });
 
+/** References an input from spec.inputs; rendered in layout where placed */
+const inputContentSchema = z.object({
+  input: z.object({
+    ref: z.string(), // key in spec.inputs
+  }),
+});
+
 const contentItemSchema = z.union([
   textContentSchema,
   numberContentSchema,
   tableContentSchema,
   chartContentSchema,
+  inputContentSchema,
 ]);
 
 // --- Layout cell ---
 const layoutCellSchema = z.object({
-  weight: z.number().min(1),
+  weight: z.number().min(1).optional(), // when omitted, cell width is based on content size
   alignment: z.string(),
   content: z.array(contentItemSchema),
+});
+
+const sizeShapeSchema = z.object({
+  w: z.number().min(1),
+  h: z.number().min(1),
 });
 
 // --- Top-level spec ---
@@ -119,11 +140,18 @@ export const subviewSpecSchema = z
     name: z.string(),
     description: z.string(),
     maker: z.string(),
-    size: z.string(),
+    defaultSize: z.string().optional(), // "2x1" or "4x2" — initial placement hint
+    preferredSize: sizeShapeSchema.optional(), // user-resized; written when card is scaled
     inputs: z.record(z.string(), inputConfigSchema).optional(),
     layout: z.array(z.array(layoutCellSchema)),
     python_code: z.string(),
     functions: z.array(z.string()),
+  })
+  .transform((data) => {
+    const d = data as { size?: string; defaultSize?: string };
+    const defaultSize = d.defaultSize ?? d.size ?? '2x1';
+    const { size: _, ...rest } = d;
+    return { ...rest, defaultSize };
   })
   .refine(
     (data) => {

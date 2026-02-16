@@ -322,7 +322,7 @@ flowchart TD
 
 - Responsive breakpoints: lg (1200px), md (996px), sm (768px)
 - Columns: 12 (lg), 8 (md), 4 (sm)
-- Row height: 80px
+- Grid: 48 columns, 20px row height; min 10×5, max 48×40 units
 - Subview cards: draggable, resizable, with min/max constraints
 - On layout change: debounced PATCH to `/strategies/:id/subviews` with new positions
 - Empty canvas: large "+" button or click-anywhere to open subview gallery
@@ -346,9 +346,9 @@ The subview system is **unified**: both readonly and readwrite subviews use the 
 
 **JSON structure (required fields):**
 - `type`, `name`, `description`, `maker` ("official" or user nickname for readonly)
-- `size` — string like `"2x1"`, `"4x2"` (initial placement hint)
-- `inputs` (optional) — controls with defined types/schemas: `time_range`, `ticker_selector`, `number_input`, `select`, `checkbox` (see subviews.md)
-- `layout` — 2D array of rows → cells with `weight`, `alignment`, `content` (text, number, Table, Chart, etc.)
+- `defaultSize` — string like `"2x1"`, `"4x2"` (initial placement hint); `preferredSize` — optional `{ w, h }` (written when user scales card)
+- `inputs` (optional) — controls with defined types/schemas: `time_range`, `ticker_selector`, `number_input`, `select`, `checkbox` (see subviews.md). Inputs are **not** auto-rendered; place them in layout via `{ "input": { "ref": "key" } }` in a cell's content.
+- `layout` — 2D array of rows → cells with optional `weight` (omit for content-sized width), `alignment`, `content` (text, number, Table, Chart, etc.)
 - `python_code` — all Python function definitions for this subview
 - `functions` — array of function names used (referenced via `py:functionName` in content)
 
@@ -477,6 +477,21 @@ const isStale =
 - **Card styling:** `padding: var(--space-modal)`, `boxShadow: 0 4px 24px var(--color-shadow)`, `border: 1px solid var(--color-border)`
 - **SubviewCard:** Title area padding (top 6px, left 10px); pencil icon `marginRight: 5px`
 - **Filter-style layouts:** field 150px, operator 75px, segment 100px, value 150px; card padding 20px; gap 8px
+
+**Subview Card Styling Rules (Constant):**
+
+All subview cards — on canvas and in the Subview Editor Live Preview — use the same fixed layout. Do not change these without updating both `SubviewCard` and `LivePreview`.
+
+- **Card constants** (from `index.css`): `--subview-card-padding: 5px`, `--subview-top-bar-height: 40px`
+- **Top bar:** Fixed height `var(--subview-top-bar-height)`; no background; drag handle with title (truncate max 150px); pencil icon (8×8, marginRight 5px); drag-handle padding left 10px, right 4px; vertically centered content
+- **Subview content:** `paddingTop: var(--subview-top-bar-height)` to clear top bar; `paddingLeft: 10`, `paddingRight: 10`; `overflow-auto`; inputs row uses `gap: var(--space-gap)`, `p-2`
+- **Inputs in layout:** Inputs are not auto-rendered; reference them in layout via `{ "input": { "ref": "key" } }` in a cell's content array.
+- **Supported input types — fixed widths (px):** `time_range: 240`, `ticker_selector: 100`, `number_input: 120`, `select: 200`, `checkbox: 120` (fallback 160)
+- **Input value styling:** Right-aligned text; `paddingLeft: 12`, `paddingRight: 12`; height `var(--control-height)`; `rounded-[var(--radius-medium)]`; colors via `--color-bg-input`, `--color-border`, `--color-text-primary`
+- **Input labels:** `font-size: var(--font-size-label)` (11px), `font-medium`, `color: var(--color-text-secondary)`
+- **time_range:** Two date inputs side by side, `gap-1`; each `flex-1 min-w-0`; date inputs use `paddingLeft/Right: 8`
+- **ticker_selector:** Dropdown (`<select>`) populated from `context.transactions[].instrumentSymbol` (unique, sorted), plus `"all"` as first option
+- **Text/number content styling:** Optional in JSON — `size` (xs/sm/md/lg/xl → 11/13/15/18/24px), `bold`, `italic`; only applied when specified
 
 **Design language** (soft, rounded, shadow-driven -- per reference image):
 

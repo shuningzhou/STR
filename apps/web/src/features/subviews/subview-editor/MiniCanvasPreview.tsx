@@ -13,16 +13,25 @@ interface MiniCanvasPreviewProps {
   onInputChange?: (key: string, value: unknown) => void;
 }
 
-/** Parse spec.size "2x1" or "4x2" -> { w, h } — same grid units as strategy canvas */
-function parseSize(size: string): { w: number; h: number } {
-  const match = size.match(/^(\d+)x(\d+)$/);
+/** Parse spec.defaultSize "2x1" or "4x2" -> { w, h } — scaled 2x for canvas grid resolution */
+function parseDefaultSize(sizeStr: string): { w: number; h: number } {
+  const match = sizeStr.match(/^(\d+)x(\d+)$/);
   if (match) {
+    const sw = parseInt(match[1], 10) * 2;
+    const sh = parseInt(match[2], 10) * 2;
     return {
-      w: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxW, Math.max(1, parseInt(match[1], 10))),
-      h: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxH, Math.max(1, parseInt(match[2], 10))),
+      w: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxW, Math.max(CANVAS_LAYOUT_CONSTRAINTS.minW, sw)),
+      h: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxH, Math.max(CANVAS_LAYOUT_CONSTRAINTS.minH, sh)),
     };
   }
-  return { w: 8, h: 2 };
+  return { w: 16, h: 4 };
+}
+
+/** Effective size: preferredSize (user-resized) or parsed from defaultSize */
+function getEffectiveSize(spec: { preferredSize?: { w: number; h: number }; defaultSize?: string; size?: string }) {
+  if (spec.preferredSize) return spec.preferredSize;
+  const sizeStr = spec.defaultSize ?? spec.size ?? '2x1';
+  return parseDefaultSize(sizeStr);
 }
 
 export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange }: MiniCanvasPreviewProps) {
@@ -31,12 +40,12 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
 
   useEffect(() => {
     if (spec) {
-      const { w, h } = parseSize(spec.size);
+      const { w, h } = getEffectiveSize(spec);
       setLayout([{ i: 'preview-card', x: 0, y: 0, w, h, ...CANVAS_LAYOUT_CONSTRAINTS }]);
     } else {
       setLayout([]);
     }
-  }, [spec?.size]);
+  }, [spec?.preferredSize, spec?.defaultSize, spec?.size]);
 
   const handleLayoutChange = useCallback((newLayout: Layout) => {
     setLayout(newLayout);
@@ -53,7 +62,7 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
     );
   }
 
-  const { w, h } = parseSize(spec.size);
+  const { w, h } = getEffectiveSize(spec);
   const gridLayout =
     layout.length > 0 ? layout : [{ i: 'preview-card', x: 0, y: 0, w, h, ...CANVAS_LAYOUT_CONSTRAINTS }];
 

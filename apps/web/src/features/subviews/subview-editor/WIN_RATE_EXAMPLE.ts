@@ -6,7 +6,7 @@ export const WIN_RATE_EXAMPLE = {
   name: 'Win Rate Overview',
   description: 'Percentage of profitable closed trades',
   maker: 'peter',
-  size: '2x1',
+  defaultSize: '2x1',
   inputs: {
     timeRange: { type: 'time_range', title: 'Time Range' },
     ticker: { type: 'ticker_selector', title: 'Ticker', default: 'all' },
@@ -14,10 +14,12 @@ export const WIN_RATE_EXAMPLE = {
   layout: [
     [
       { weight: 1, alignment: 'left center', content: [{ text: { value: 'Win Rate', alignment: 'left' } }] },
+      { alignment: 'left center', content: [{ input: { ref: 'timeRange' } }] },
+      { alignment: 'left center', content: [{ input: { ref: 'ticker' } }] },
       {
         weight: 1,
         alignment: 'center middle',
-        content: [{ number: { value: 'py:calc_win_rate', alignment: 'center' } }],
+        content: [{ number: { value: 'py:calc_win_rate', alignment: 'center', size: 'xl', bold: true } }],
       },
     ],
   ],

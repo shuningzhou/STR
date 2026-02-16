@@ -70,7 +70,6 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange }
         pythonCode={pythonCode}
         context={context}
         inputs={inputs}
-        showInputs
         onInputChange={onInputChange}
       />
     </div>

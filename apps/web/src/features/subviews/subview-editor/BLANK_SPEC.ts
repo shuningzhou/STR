@@ -6,7 +6,7 @@ export const BLANK_SPEC = {
   name: 'New Subview',
   description: '',
   maker: 'official',
-  size: '2x1',
+  defaultSize: '2x1',
   inputs: {},
   layout: [[{ weight: 1, alignment: 'center middle', content: [{ text: { value: 'py:placeholder', alignment: 'center' } }] }]],
   python_code: 'def placeholder(context, inputs):\n    return "Hello"\n',

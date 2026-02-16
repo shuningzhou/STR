@@ -11,19 +11,26 @@
   - `name`: human-readable name (string)
   - `description`: human-readable description (show in the subview gallery)
   - `maker`: `"official"` (officially premades) or user nickname for readyonly subviews (e.g. `"peter"`) 
-  - `size`: string like `"2x1"`, `"4x2"` — used as initial/default placement hint
+  - `defaultSize`: string like `"2x1"`, `"4x2"` — initial placement hint
+  - `preferredSize`: optional `{ w, h }` — written when user scales the card on canvas; overrides defaultSize when present
   - `inputs`: object of controls (optional) — see **Input types and data schemas** below for allowed types and data shapes.
   - `layout`: 2D array of rows → each row is array of cells → each cell has:
-    - `weight`: number ≥ 1 (flex-grow style proportional width)
+    - `weight`: optional, number ≥ 1 (flex-grow style proportional width). When omitted, cell width is based on content size.
     - `alignment`: string like `"left center"`, `"center middle"`, `"right top"`, `"stretch center"`
-    - `content`: array of content items (text, number, Table, Chart, etc.)
+    - `content`: array of content items (text, number, Table, Chart, **input**, etc.)
+  - **Inputs in layout**: Inputs are **not** auto-rendered. Place them where desired using `{ "input": { "ref": "key" } }` in a cell's content. The `ref` must match a key in `spec.inputs`. This lets the user control input placement (e.g. same row as title, separate filter row).
   - `python_code`: single string containing **all** Python function definitions for this subview (combined)
   - `functions`: array of strings — **names only** of functions actually used in this subview (no prefix here)
 
-- **Function calling convention in content**:
+  - **Function calling convention in content**:
   - Use prefix `py:` to indicate a Python function call when used in the subview JSON structure
   - Example: `{ "number": { "value": "py:calc_win_rate" } }`
   - Without `py:` → literal value (string/number)
+
+- **Text and number styling** (optional on text/number content; only applies when specified in JSON):
+  - `size`: `"xs"` (11px) | `"sm"` (13px) | `"md"` (15px) | `"lg"` (18px) | `"xl"` (24px)
+  - `bold`: boolean
+  - `italic`: boolean
 
 - **Read-only restrictions**:
   - No `actions` field allowed anywhere (header or row)
@@ -119,13 +126,15 @@ Three-column layout (desktop):
 
 ### 3. Example: Read-only subview (win rate with filters)
 
+Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are not auto-rendered.
+
 ```json
 {
   "type": "readonly",
   "name": "Win Rate Overview",
   "description": "Percentage of profitable closed trades",
   "maker": "peter",
-  "size": "2x1",
+  "defaultSize": "2x1",
   "inputs": {
     "timeRange": {
       "type": "time_range",
@@ -147,10 +156,18 @@ Three-column layout (desktop):
         ]
       },
       {
+        "alignment": "left center",
+        "content": [{ "input": { "ref": "timeRange" } }]
+      },
+      {
+        "alignment": "left center",
+        "content": [{ "input": { "ref": "ticker" } }]
+      },
+      {
         "weight": 1,
         "alignment": "center middle",
         "content": [
-          { "number": { "value": "py:calc_win_rate", "alignment": "center" } }
+          { "number": { "value": "py:calc_win_rate", "alignment": "center", "size": "xl", "bold": true } }
         ]
       }
     ]
@@ -170,7 +187,7 @@ Three-column layout (desktop):
   "name": "Open Options Positions",
   "description": "Table of open option positions with add/edit/close/roll actions",
   "maker": "official",
-  "size": "4x2",
+  "defaultSize": "4x2",
   "inputs": {
     "timeRange": {
       "type": "time_range",
@@ -178,6 +195,13 @@ Three-column layout (desktop):
     }
   },
   "layout": [
+    [
+      {
+        "weight": 1,
+        "alignment": "left center",
+        "content": [{ "input": { "ref": "timeRange" } }]
+      }
+    ],
     [
       {
         "weight": 1,

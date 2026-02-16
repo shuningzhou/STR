@@ -107,7 +107,6 @@ export function SubviewCard({ subview, strategyId }: SubviewCardProps) {
           pythonCode={subview.spec.python_code}
           context={SEED_CONTEXT}
           inputs={specInputs}
-          showInputs
           onInputChange={(key, value) =>
             updateSubviewInputValue(strategyId, subview.id, key, value)
           }

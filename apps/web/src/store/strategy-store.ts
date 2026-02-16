@@ -123,11 +123,23 @@ export const useStrategyStore = create<StrategyState>()(
       addSubview: (strategyId, options = {}) => {
         const name = options.name ?? options.spec?.name ?? 'Subview';
         let defaultSize = options.defaultSize;
-        if (!defaultSize && options.spec?.size) {
-          const m = String(options.spec.size).match(/^(\d+)x(\d+)$/);
-          defaultSize = m ? { w: Math.min(24, parseInt(m[1], 10)), h: Math.min(10, parseInt(m[2], 10)) } : { w: 8, h: 2 };
+        if (!defaultSize && options.spec) {
+          const spec = options.spec as { preferredSize?: { w: number; h: number }; defaultSize?: string; size?: string };
+          if (spec.preferredSize) {
+            defaultSize = spec.preferredSize;
+          } else {
+            const sizeStr = spec.defaultSize ?? spec.size;
+            const m = String(sizeStr ?? '').match(/^(\d+)x(\d+)$/);
+            if (m) {
+              const sw = parseInt(m[1], 10) * 2;
+              const sh = parseInt(m[2], 10) * 2;
+              defaultSize = { w: Math.min(48, sw), h: Math.min(40, sh) };
+            } else {
+              defaultSize = { w: 16, h: 4 };
+            }
+          }
         }
-        defaultSize ??= { w: 8, h: 2 };
+        defaultSize ??= { w: 16, h: 4 };
         const st = get().strategies.find((s) => s.id === strategyId);
         const subviews = st?.subviews ?? [];
         const maxBottom = subviews.length > 0
@@ -158,8 +170,13 @@ export const useStrategyStore = create<StrategyState>()(
               subviews: st.subviews.map((sv) => {
                 const item = layout.find((l) => l.i === sv.id);
                 if (!item) return sv;
+                const updatedSpec =
+                  sv.spec != null
+                    ? { ...sv.spec, preferredSize: { w: item.w, h: item.h } }
+                    : undefined;
                 return {
                   ...sv,
+                  ...(updatedSpec && { spec: updatedSpec }),
                   position: {
                     x: item.x,
                     y: item.y,
