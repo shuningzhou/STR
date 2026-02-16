@@ -108,6 +108,9 @@ export function SubviewCard({ subview, strategyId }: SubviewCardProps) {
           context={SEED_CONTEXT}
           inputs={specInputs}
           showInputs
+          onInputChange={(key, value) =>
+            updateSubviewInputValue(strategyId, subview.id, key, value)
+          }
         />
       ) : (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingTop: 'var(--subview-top-bar-height)' }}>

@@ -5,6 +5,23 @@
 import { useState, useEffect } from 'react';
 import type { SubviewSpec, ContentItem } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
+import { Input } from '@/components/ui';
+
+/** Widths for input types (px) */
+const INPUT_WIDTHS: Record<string, number> = {
+  time_range: 240,
+  ticker_selector: 100,
+  number_input: 120,
+  select: 200,
+  checkbox: 120,
+};
+
+/** Shared value box styles: right-aligned text, proper padding */
+const VALUE_BOX_STYLE: React.CSSProperties = {
+  textAlign: 'right',
+  paddingLeft: 12,
+  paddingRight: 12,
+};
 
 function ContentRenderer({
   item,
@@ -74,8 +91,10 @@ export interface SubviewSpecRendererProps {
   pythonCode: string;
   context: unknown;
   inputs: Record<string, unknown>;
-  /** When true, render inputs row (for editor preview). When false, hide (canvas uses simplified display for now) */
+  /** When true, render inputs row. When false, hide. */
   showInputs?: boolean;
+  /** When provided, inputs are editable; onChange(key, value) where value is string | number (time_range stored as JSON string) */
+  onInputChange?: (key: string, value: string | number) => void;
 }
 
 export function SubviewSpecRenderer({
@@ -84,6 +103,7 @@ export function SubviewSpecRenderer({
   context,
   inputs,
   showInputs = true,
+  onInputChange,
 }: SubviewSpecRendererProps) {
   const [resolved, setResolved] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
@@ -133,41 +153,255 @@ export function SubviewSpecRenderer({
         className="flex-1 flex flex-col min-h-0 min-w-0 overflow-auto"
         role="region"
         aria-label="Subview content"
+        style={{ paddingLeft: 10, paddingRight: 10 }}
       >
         {showInputs && spec.inputs && Object.keys(spec.inputs).length > 0 && (
           <div
             className="flex flex-wrap gap-2 p-2 shrink-0"
             style={{ gap: 'var(--space-gap)' }}
           >
-            {Object.entries(spec.inputs).map(([key, cfg]) => (
-              <div key={key} className="flex flex-col gap-0.5 min-w-[80px]">
-                <label
-                  className="text-[11px] font-medium"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  {cfg.title}
-                </label>
-                <div
-                  className="rounded-[var(--radius-medium)] border px-2 text-[11px] truncate"
-                  style={{
-                    height: 'var(--control-height)',
-                    backgroundColor: 'var(--color-bg-input)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  {(() => {
-                    const v = inputs[key];
-                    if (v && typeof v === 'object' && 'start' in v && 'end' in v) {
-                      return `${(v as { start: string }).start} — ${(v as { end: string }).end}`;
-                    }
-                    return String(v ?? 'all');
-                  })()}
+            {Object.entries(spec.inputs).map(([key, cfg]) => {
+              const inputType = cfg.type as string;
+              const width = INPUT_WIDTHS[inputType] ?? 160;
+              const isEditable = !!onInputChange;
+
+              return (
+                <div key={key} className="flex flex-col gap-1" style={{ width, minWidth: width }}>
+                  <label
+                    className="text-[11px] font-medium shrink-0"
+                    style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-label)' }}
+                  >
+                    {cfg.title}
+                  </label>
+                  {inputType === 'time_range' ? (
+                    isEditable ? (
+                      <div className="flex gap-1">
+                        <input
+                          type="date"
+                          value={
+                            (inputs[key] as { start?: string })?.start ??
+                            new Date().toISOString().slice(0, 10)
+                          }
+                          onChange={(e) => {
+                            const tr = (inputs[key] as { start?: string; end?: string }) ?? {};
+                            const next = { ...tr, start: e.target.value };
+                            onInputChange(key, JSON.stringify(next));
+                          }}
+                          className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
+                          style={{
+                            height: 'var(--control-height)',
+                            backgroundColor: 'var(--color-bg-input)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-text-primary)',
+                            textAlign: 'right',
+                            paddingLeft: 8,
+                            paddingRight: 8,
+                          }}
+                        />
+                        <input
+                          type="date"
+                          value={
+                            (inputs[key] as { end?: string })?.end ??
+                            new Date().toISOString().slice(0, 10)
+                          }
+                          onChange={(e) => {
+                            const tr = (inputs[key] as { start?: string; end?: string }) ?? {};
+                            const next = { ...tr, end: e.target.value };
+                            onInputChange(key, JSON.stringify(next));
+                          }}
+                          className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
+                          style={{
+                            height: 'var(--control-height)',
+                            backgroundColor: 'var(--color-bg-input)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-text-primary)',
+                            textAlign: 'right',
+                            paddingLeft: 8,
+                            paddingRight: 8,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="rounded-[var(--radius-medium)] border text-[13px]"
+                        style={{
+                          height: 'var(--control-height)',
+                          backgroundColor: 'var(--color-bg-input)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          ...VALUE_BOX_STYLE,
+                        }}
+                      >
+                        {(() => {
+                          const v = inputs[key] as { start?: string; end?: string } | undefined;
+                          if (v && typeof v === 'object' && 'start' in v && 'end' in v) {
+                            return `${v.start} — ${v.end}`;
+                          }
+                          return '—';
+                        })()}
+                      </div>
+                    )
+                  ) : inputType === 'ticker_selector' ? (
+                    (() => {
+                      const txs = (context as { transactions?: { instrumentSymbol?: string }[] })
+                        ?.transactions ?? [];
+                      const symbols = [
+                        'all',
+                        ...Array.from(
+                          new Set(
+                            txs
+                              .map((tx) => tx?.instrumentSymbol)
+                              .filter((s): s is string => typeof s === 'string' && s.length > 0)
+                          )
+                        ).sort(),
+                      ];
+                      return isEditable ? (
+                        <select
+                          value={String(inputs[key] ?? (cfg.default ?? 'all'))}
+                          onChange={(e) => onInputChange!(key, e.target.value)}
+                          className="rounded-[var(--radius-medium)] border text-[13px] w-full outline-none"
+                          style={{
+                            height: 'var(--control-height)',
+                            backgroundColor: 'var(--color-bg-input)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-text-primary)',
+                            ...VALUE_BOX_STYLE,
+                          }}
+                        >
+                          {symbols.map((sym) => (
+                            <option key={sym} value={sym}>
+                              {sym}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div
+                          className="rounded-[var(--radius-medium)] border text-[13px]"
+                          style={{
+                            height: 'var(--control-height)',
+                            backgroundColor: 'var(--color-bg-input)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-text-primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            ...VALUE_BOX_STYLE,
+                          }}
+                        >
+                          {String(inputs[key] ?? 'all')}
+                        </div>
+                      );
+                    })()
+                  ) : inputType === 'number_input' ? (
+                    isEditable ? (
+                      <Input
+                        type="number"
+                        value={String(inputs[key] ?? (cfg as { default?: number }).default ?? 0)}
+                        onChange={(e) =>
+                          onInputChange!(key, parseFloat(e.target.value) || 0)
+                        }
+                        style={{ width: '100%', ...VALUE_BOX_STYLE }}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-[var(--radius-medium)] border text-[13px]"
+                        style={{
+                          height: 'var(--control-height)',
+                          backgroundColor: 'var(--color-bg-input)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          ...VALUE_BOX_STYLE,
+                        }}
+                      >
+                        {String(inputs[key] ?? (cfg as { default?: number }).default ?? 0)}
+                      </div>
+                    )
+                  ) : inputType === 'select' ? (
+                    isEditable ? (
+                      <select
+                        value={String(inputs[key] ?? (cfg as { default?: string }).default ?? '')}
+                        onChange={(e) => onInputChange!(key, e.target.value)}
+                        className="rounded-[var(--radius-medium)] border text-[13px] w-full outline-none"
+                        style={{
+                          height: 'var(--control-height)',
+                          backgroundColor: 'var(--color-bg-input)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                          ...VALUE_BOX_STYLE,
+                        }}
+                      >
+                        {((cfg as { options?: { value: string; label: string }[] }).options ?? []).map(
+                          (opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    ) : (
+                      <div
+                        className="rounded-[var(--radius-medium)] border text-[13px]"
+                        style={{
+                          height: 'var(--control-height)',
+                          backgroundColor: 'var(--color-bg-input)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          ...VALUE_BOX_STYLE,
+                        }}
+                      >
+                        {String(inputs[key] ?? (cfg as { default?: string }).default ?? '')}
+                      </div>
+                    )
+                  ) : inputType === 'checkbox' ? (
+                    isEditable ? (
+                      <label className="flex items-center gap-2 cursor-pointer h-[var(--control-height)]">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(inputs[key] ?? (cfg as { default?: boolean }).default)}
+                          onChange={(e) => onInputChange!(key, e.target.checked ? 1 : 0)}
+                          className="rounded"
+                        />
+                      </label>
+                    ) : (
+                      <div
+                        className="rounded-[var(--radius-medium)] border text-[13px]"
+                        style={{
+                          height: 'var(--control-height)',
+                          backgroundColor: 'var(--color-bg-input)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          ...VALUE_BOX_STYLE,
+                        }}
+                      >
+                        {String(inputs[key] ?? (cfg as { default?: boolean }).default ?? false)}
+                      </div>
+                    )
+                  ) : (
+                    <div
+                      className="rounded-[var(--radius-medium)] border text-[13px]"
+                      style={{
+                        height: 'var(--control-height)',
+                        backgroundColor: 'var(--color-bg-input)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        ...VALUE_BOX_STYLE,
+                      }}
+                    >
+                      {String(inputs[key] ?? '')}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

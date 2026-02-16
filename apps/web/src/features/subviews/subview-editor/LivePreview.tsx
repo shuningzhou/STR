@@ -8,13 +8,14 @@ interface LivePreviewProps {
   pythonCode: string;
   context: unknown;
   inputs: Record<string, unknown>;
+  onInputChange?: (key: string, value: unknown) => void;
 }
 
 /**
  * Renders a subview from its JSON spec — same structure as SubviewCard on canvas.
  * Live Preview is a mini canvas: the card looks identical to the real canvas card.
  */
-export function LivePreview({ spec, pythonCode, context, inputs }: LivePreviewProps) {
+export function LivePreview({ spec, pythonCode, context, inputs, onInputChange }: LivePreviewProps) {
   if (!spec) {
     return (
       <div
@@ -70,6 +71,7 @@ export function LivePreview({ spec, pythonCode, context, inputs }: LivePreviewPr
         context={context}
         inputs={inputs}
         showInputs
+        onInputChange={onInputChange}
       />
     </div>
   );

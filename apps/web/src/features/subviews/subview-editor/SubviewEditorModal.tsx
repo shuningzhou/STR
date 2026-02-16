@@ -58,6 +58,9 @@ export function SubviewEditorModal() {
   const [editMode, setEditMode] = useState<'json' | 'python' | 'transactions' | 'wallet'>('json');
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [seedDataKey, setSeedDataKey] = useState(0);
+  const [previewInputs, setPreviewInputs] = useState<Record<string, unknown>>(
+    () => SEED_INPUTS as Record<string, unknown>
+  );
   const splitterRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -574,7 +577,19 @@ export function SubviewEditorModal() {
                 spec={parseResult.success ? parseResult.data : null}
                 pythonCode={pythonText}
                 context={SEED_CONTEXT}
-                inputs={SEED_INPUTS as Record<string, unknown>}
+                inputs={previewInputs}
+                onInputChange={(key, value) => {
+                  setPreviewInputs((prev) => {
+                    if (key === 'timeRange' && typeof value === 'string') {
+                      try {
+                        return { ...prev, [key]: JSON.parse(value) as { start: string; end: string } };
+                      } catch {
+                        return prev;
+                      }
+                    }
+                    return { ...prev, [key]: value };
+                  });
+                }}
               />
           </div>
         </div>

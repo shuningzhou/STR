@@ -10,6 +10,7 @@ interface MiniCanvasPreviewProps {
   pythonCode: string;
   context: unknown;
   inputs: Record<string, unknown>;
+  onInputChange?: (key: string, value: unknown) => void;
 }
 
 /** Parse spec.size "2x1" or "4x2" -> { w, h } — same grid units as strategy canvas */
@@ -24,7 +25,7 @@ function parseSize(size: string): { w: number; h: number } {
   return { w: 8, h: 2 };
 }
 
-export function MiniCanvasPreview({ spec, pythonCode, context, inputs }: MiniCanvasPreviewProps) {
+export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange }: MiniCanvasPreviewProps) {
   const { width, containerRef } = useContainerWidth();
   const [layout, setLayout] = useState<Layout>([]);
 
@@ -67,7 +68,7 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs }: MiniCan
         onLayoutChange={handleLayoutChange}
       >
         <div key="preview-card" className="overflow-hidden">
-          <LivePreview spec={spec} pythonCode={pythonCode} context={context} inputs={inputs} />
+          <LivePreview spec={spec} pythonCode={pythonCode} context={context} inputs={inputs} onInputChange={onInputChange} />
         </div>
       </ReactGridLayout>
     </div>
