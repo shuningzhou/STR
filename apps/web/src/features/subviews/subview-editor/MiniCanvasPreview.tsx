@@ -25,7 +25,7 @@ function parseSize(size: string): { w: number; h: number } {
 }
 
 export function MiniCanvasPreview({ spec, pythonCode, context, inputs }: MiniCanvasPreviewProps) {
-  const { width, containerRef, mounted } = useContainerWidth();
+  const { width, containerRef } = useContainerWidth();
   const [layout, setLayout] = useState<Layout>([]);
 
   useEffect(() => {

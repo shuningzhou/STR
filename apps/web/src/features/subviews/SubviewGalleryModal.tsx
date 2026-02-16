@@ -17,6 +17,7 @@ export function SubviewGalleryModal() {
     const newSubview = addSubview(activeStrategyId, {
       name: template.name,
       defaultSize: template.defaultSize,
+      spec: template.spec,
     });
     setSubviewGalleryModalOpen(false);
     if (templateId === 'custom') {

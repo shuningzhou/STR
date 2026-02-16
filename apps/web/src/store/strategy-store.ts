@@ -50,7 +50,7 @@ interface StrategyState {
 
   addSubview: (
     strategyId: string,
-    options?: { name?: string; defaultSize?: { w: number; h: number } }
+    options?: { name?: string; defaultSize?: { w: number; h: number }; spec?: SubviewSpec }
   ) => Subview;
   updateSubviewLayout: (strategyId: string, layout: Layout) => void;
   removeSubview: (strategyId: string, subviewId: string) => void;
@@ -121,8 +121,13 @@ export const useStrategyStore = create<StrategyState>()(
       setActiveStrategy: (id) => set({ activeStrategyId: id }),
 
       addSubview: (strategyId, options = {}) => {
-        const name = options.name ?? 'Subview';
-        const defaultSize = options.defaultSize ?? { w: 8, h: 2 };
+        const name = options.name ?? options.spec?.name ?? 'Subview';
+        let defaultSize = options.defaultSize;
+        if (!defaultSize && options.spec?.size) {
+          const m = String(options.spec.size).match(/^(\d+)x(\d+)$/);
+          defaultSize = m ? { w: Math.min(24, parseInt(m[1], 10)), h: Math.min(10, parseInt(m[2], 10)) } : { w: 8, h: 2 };
+        }
+        defaultSize ??= { w: 8, h: 2 };
         const st = get().strategies.find((s) => s.id === strategyId);
         const subviews = st?.subviews ?? [];
         const maxBottom = subviews.length > 0
@@ -132,6 +137,7 @@ export const useStrategyStore = create<StrategyState>()(
           id: generateSubviewId(),
           name,
           position: { x: 0, y: maxBottom, w: defaultSize.w, h: defaultSize.h },
+          ...(options.spec && { spec: options.spec }),
         };
         set((s) => ({
           strategies: s.strategies.map((st) =>

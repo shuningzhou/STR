@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase5-subview-editor-rendering
     content: "Phase 5: Subview Editor + Rendering -- Editor modal (JSON, Python, Transactions, Wallet tabs, Live Preview). Same renderer used in editor preview and on canvas. Zod validation, Pyodide, seed data. Canvas renders JSON+Python subviews. Caching for readonly."
-    status: in_progress
+    status: completed
   - id: phase7-transactions-ui
     content: "Phase 7: Transaction UI -- add/edit form modal, transaction list modal with pagination/sort/filter, currency display"
     status: pending
