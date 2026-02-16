@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import type { SubviewSpec } from '@str/shared';
-import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS } from '@/features/canvas/canvas-grid-config';
+import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH, pixelsToGrid, gridToPixels } from '@/features/canvas/canvas-grid-config';
 import { LivePreview } from './LivePreview';
 
 interface MiniCanvasPreviewProps {
@@ -11,45 +11,57 @@ interface MiniCanvasPreviewProps {
   context: unknown;
   inputs: Record<string, unknown>;
   onInputChange?: (key: string, value: unknown) => void;
+  /** When user resizes the preview card, called with new size in pixels (stored as preferredSize in spec) */
+  onPreviewResize?: (preferredSize: { w: number; h: number }) => void;
 }
 
-/** Parse spec.defaultSize "2x1" or "4x2" -> { w, h } — scaled 2x for canvas grid resolution */
-function parseDefaultSize(sizeStr: string): { w: number; h: number } {
-  const match = sizeStr.match(/^(\d+)x(\d+)$/);
-  if (match) {
-    const sw = parseInt(match[1], 10) * 2;
-    const sh = parseInt(match[2], 10) * 2;
-    return {
-      w: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxW, Math.max(CANVAS_LAYOUT_CONSTRAINTS.minW, sw)),
-      h: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxH, Math.max(CANVAS_LAYOUT_CONSTRAINTS.minH, sh)),
-    };
-  }
-  return { w: 16, h: 4 };
+function parseSizeStr(s: string): { w: number; h: number } {
+  const m = s.match(/^(\d+)x(\d+)$/);
+  if (m) return { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 };
+  return { w: 400, h: 100 };
 }
 
-/** Effective size: preferredSize (user-resized) or parsed from defaultSize */
-function getEffectiveSize(spec: { preferredSize?: { w: number; h: number }; defaultSize?: string; size?: string }) {
+/** Effective pixel size: preferredSize or defaultSize (both in px) */
+function getEffectivePixelSize(spec: {
+  preferredSize?: { w: number; h: number };
+  defaultSize?: { w: number; h: number } | string;
+  size?: string;
+}): { w: number; h: number } {
   if (spec.preferredSize) return spec.preferredSize;
-  const sizeStr = spec.defaultSize ?? spec.size ?? '2x1';
-  return parseDefaultSize(sizeStr);
+  const ds = spec.defaultSize;
+  if (ds != null) return typeof ds === 'object' ? ds : parseSizeStr(ds);
+  if (spec.size) return parseSizeStr(spec.size);
+  return { w: 400, h: 100 };
 }
 
-export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange }: MiniCanvasPreviewProps) {
+export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange, onPreviewResize }: MiniCanvasPreviewProps) {
   const { width, containerRef } = useContainerWidth();
   const [layout, setLayout] = useState<Layout>([]);
 
   useEffect(() => {
     if (spec) {
-      const { w, h } = getEffectiveSize(spec);
+      const pixelSize = getEffectivePixelSize(spec);
+      const { w, h } = pixelsToGrid(pixelSize.w, pixelSize.h, REFERENCE_WIDTH);
       setLayout([{ i: 'preview-card', x: 0, y: 0, w, h, ...CANVAS_LAYOUT_CONSTRAINTS }]);
     } else {
       setLayout([]);
     }
   }, [spec?.preferredSize, spec?.defaultSize, spec?.size]);
 
-  const handleLayoutChange = useCallback((newLayout: Layout) => {
-    setLayout(newLayout);
-  }, []);
+  const handleLayoutChange = useCallback(
+    (newLayout: Layout) => {
+      setLayout(newLayout);
+      const item = newLayout.find((l) => l.i === 'preview-card');
+      if (item && onPreviewResize && spec) {
+        const pixelSize = gridToPixels(item.w, item.h, REFERENCE_WIDTH);
+        const currentPixel = getEffectivePixelSize(spec);
+        if (pixelSize.w !== currentPixel.w || pixelSize.h !== currentPixel.h) {
+          onPreviewResize(pixelSize);
+        }
+      }
+    },
+    [onPreviewResize, spec]
+  );
 
   if (!spec) {
     return (
@@ -62,12 +74,17 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
     );
   }
 
-  const { w, h } = getEffectiveSize(spec);
+  const pixelSize = getEffectivePixelSize(spec);
+  const { w, h } = pixelsToGrid(pixelSize.w, pixelSize.h, REFERENCE_WIDTH);
   const gridLayout =
     layout.length > 0 ? layout : [{ i: 'preview-card', x: 0, y: 0, w, h, ...CANVAS_LAYOUT_CONSTRAINTS }];
 
   return (
-    <div ref={containerRef} className="h-full min-h-[400px] w-full">
+    <div
+      ref={containerRef}
+      className="h-full min-h-[400px] overflow-auto"
+      style={{ width: REFERENCE_WIDTH, minWidth: REFERENCE_WIDTH }}
+    >
       <ReactGridLayout
         layout={gridLayout}
         width={width}

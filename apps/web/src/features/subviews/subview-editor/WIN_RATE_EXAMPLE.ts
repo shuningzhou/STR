@@ -3,23 +3,34 @@
  */
 export const WIN_RATE_EXAMPLE = {
   type: 'readonly',
-  name: 'Win Rate Overview',
+  name: 'Win Rate',
   description: 'Percentage of profitable closed trades',
   maker: 'peter',
-  defaultSize: '2x1',
+  defaultSize: { w: 400, h: 70 },
   inputs: {
     timeRange: { type: 'time_range', title: 'Time Range' },
     ticker: { type: 'ticker_selector', title: 'Ticker', default: 'all' },
   },
   layout: [
     [
-      { weight: 1, alignment: 'left center', content: [{ text: { value: 'Win Rate', alignment: 'left' } }] },
       { alignment: 'left center', content: [{ input: { ref: 'timeRange' } }] },
       { alignment: 'left center', content: [{ input: { ref: 'ticker' } }] },
+    ],
+    [
       {
         weight: 1,
         alignment: 'center middle',
-        content: [{ number: { value: 'py:calc_win_rate', alignment: 'center', size: 'xl', bold: true } }],
+        content: [
+          {
+            number: {
+              value: 'py:calc_win_rate',
+              alignment: 'center',
+              size: 'xxxl',
+              bold: true,
+              padding: { top: 20, bottom: 20 },
+            },
+          },
+        ],
       },
     ],
   ],

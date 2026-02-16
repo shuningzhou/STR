@@ -24,14 +24,29 @@ const VALUE_BOX_STYLE: React.CSSProperties = {
   paddingRight: 12,
 };
 
-/** Font sizes for text/number content: xs, sm, md, lg, xl */
+/** Font sizes for text/number content: xs, sm, md, lg, xl, xxl, xxxl */
 const FONT_SIZES: Record<string, string> = {
-  xs: 'var(--font-size-label)',   // 11px
-  sm: 'var(--font-size-body)',     // 13px
-  md: 'var(--font-size-title)',    // 15px
-  lg: 'var(--font-size-heading)',  // 18px
-  xl: 'var(--font-size-display)',  // 24px
+  xs: 'var(--font-size-label)',     // 11px
+  sm: 'var(--font-size-body)',      // 13px
+  md: 'var(--font-size-title)',     // 15px
+  lg: 'var(--font-size-heading)',   // 18px
+  xl: 'var(--font-size-display)',   // 24px
+  xxl: 'var(--font-size-xxl)',      // 32px
+  xxxl: 'var(--font-size-xxxl)',    // 40px
 };
+
+type PaddingValue = number | { top?: number; right?: number; bottom?: number; left?: number };
+
+function paddingToStyle(padding: PaddingValue | undefined): React.CSSProperties {
+  if (padding == null) return {};
+  if (typeof padding === 'number') return { padding };
+  const s: React.CSSProperties = {};
+  if (padding.top != null) s.paddingTop = padding.top;
+  if (padding.right != null) s.paddingRight = padding.right;
+  if (padding.bottom != null) s.paddingBottom = padding.bottom;
+  if (padding.left != null) s.paddingLeft = padding.left;
+  return s;
+}
 
 function InputControl({
   inputKey,
@@ -303,10 +318,11 @@ function ContentRenderer({
   context: unknown;
 }) {
   if ('input' in item) {
-    const ref = (item as { input: { ref: string } }).input.ref;
+    const inp = item.input as { ref: string; padding?: PaddingValue };
+    const ref = inp.ref;
     const cfg = spec.inputs?.[ref];
     if (!cfg) return <span className="text-xs text-red-500">[Unknown input: {ref}]</span>;
-    return (
+    const inner = (
       <InputControl
         key={ref}
         inputKey={ref}
@@ -316,6 +332,7 @@ function ContentRenderer({
         context={context}
       />
     );
+    return inp.padding != null ? <div style={paddingToStyle(inp.padding)}>{inner}</div> : inner;
   }
   if ('text' in item) {
     const val = item.text.value;
@@ -323,7 +340,7 @@ function ContentRenderer({
       typeof val === 'string' && val.startsWith('py:') ? resolved[val] ?? '…' : val;
     const t = item.text;
     const size = t.size ? (FONT_SIZES[t.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
-    return (
+    const inner = (
       <span
         style={{
           color: 'var(--color-text-primary)',
@@ -336,6 +353,11 @@ function ContentRenderer({
         {String(display)}
       </span>
     );
+    return t.padding != null ? (
+      <div style={paddingToStyle(t.padding)}>{inner}</div>
+    ) : (
+      inner
+    );
   }
   if ('number' in item) {
     const val = item.number.value;
@@ -343,7 +365,7 @@ function ContentRenderer({
       typeof val === 'string' && val.startsWith('py:') ? resolved[val] ?? '…' : val;
     const n = item.number;
     const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
-    return (
+    const inner = (
       <span
         style={{
           color: 'var(--color-text-primary)',
@@ -356,20 +378,29 @@ function ContentRenderer({
         {String(display)}
       </span>
     );
+    return n.padding != null ? (
+      <div style={paddingToStyle(n.padding)}>{inner}</div>
+    ) : (
+      inner
+    );
   }
   if ('Table' in item) {
-    return (
+    const p = item.Table.padding;
+    const inner = (
       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
         [Table: {item.Table.header.title}]
       </span>
     );
+    return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
   }
   if ('Chart' in item) {
-    return (
+    const p = item.Chart.padding;
+    const inner = (
       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
         [Chart: {item.Chart.type}]
       </span>
     );
+    return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
   }
   return null;
 }
@@ -465,6 +496,7 @@ export function SubviewSpecRenderer({
                     style={{
                       ...(cell.weight != null ? { flex: cell.weight } : { flex: '0 0 auto' }),
                       ...ALIGNMENT_MAP[cell.alignment],
+                      ...(cell.padding != null ? paddingToStyle(cell.padding) : {}),
                     }}
                   >
                     {cell.content.map((contentItem, ii) => (

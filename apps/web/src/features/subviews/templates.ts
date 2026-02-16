@@ -12,14 +12,14 @@ export interface SubviewTemplate {
 }
 
 export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
-  { id: 'equity-curve', name: 'Equity Curve', description: 'Cumulative P&L over time (line chart)', defaultSize: { w: 24, h: 6 } },
-  { id: 'win-rate', name: 'Win Rate', description: '% of profitable trades', defaultSize: { w: 12, h: 4 }, spec: WIN_RATE_EXAMPLE as unknown as SubviewSpec },
-  { id: 'monthly-returns', name: 'Monthly Returns', description: 'Bar chart grouped by month', defaultSize: { w: 24, h: 6 } },
-  { id: 'exposure-breakdown', name: 'Exposure Breakdown', description: 'Pie chart by asset type or sector', defaultSize: { w: 12, h: 4 } },
-  { id: 'realized-pnl-table', name: 'Realized P&L Table', description: 'Sortable table of closed trades', defaultSize: { w: 24, h: 6 } },
-  { id: 'open-positions', name: 'Open Positions', description: 'Current holdings from transactions', defaultSize: { w: 24, h: 6 } },
-  { id: 'drawdown-chart', name: 'Drawdown Chart', description: 'Max drawdown over time (area chart)', defaultSize: { w: 24, h: 4 } },
-  { id: 'risk-reward', name: 'Risk/Reward Ratio', description: 'Average win vs average loss', defaultSize: { w: 12, h: 4 } },
-  { id: 'trade-frequency', name: 'Trade Frequency', description: 'Histogram of trades per day/week/month', defaultSize: { w: 16, h: 4 } },
-  { id: 'custom', name: 'Custom', description: 'Build your own subview in the editor', defaultSize: { w: 16, h: 4 } },
+  { id: 'equity-curve', name: 'Equity Curve', description: 'Cumulative P&L over time (line chart)', defaultSize: { w: 600, h: 120 } },
+  { id: 'win-rate', name: 'Win Rate', description: '% of profitable trades', defaultSize: { w: 375, h: 100 }, spec: WIN_RATE_EXAMPLE as unknown as SubviewSpec },
+  { id: 'monthly-returns', name: 'Monthly Returns', description: 'Bar chart grouped by month', defaultSize: { w: 600, h: 120 } },
+  { id: 'exposure-breakdown', name: 'Exposure Breakdown', description: 'Pie chart by asset type or sector', defaultSize: { w: 300, h: 80 } },
+  { id: 'realized-pnl-table', name: 'Realized P&L Table', description: 'Sortable table of closed trades', defaultSize: { w: 600, h: 120 } },
+  { id: 'open-positions', name: 'Open Positions', description: 'Current holdings from transactions', defaultSize: { w: 600, h: 120 } },
+  { id: 'drawdown-chart', name: 'Drawdown Chart', description: 'Max drawdown over time (area chart)', defaultSize: { w: 600, h: 80 } },
+  { id: 'risk-reward', name: 'Risk/Reward Ratio', description: 'Average win vs average loss', defaultSize: { w: 300, h: 80 } },
+  { id: 'trade-frequency', name: 'Trade Frequency', description: 'Histogram of trades per day/week/month', defaultSize: { w: 400, h: 80 } },
+  { id: 'custom', name: 'Custom', description: 'Build your own subview in the editor', defaultSize: { w: 400, h: 80 } },
 ];

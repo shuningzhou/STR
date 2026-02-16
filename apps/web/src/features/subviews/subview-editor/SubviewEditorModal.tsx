@@ -590,6 +590,13 @@ export function SubviewEditorModal() {
                     return { ...prev, [key]: value };
                   });
                 }}
+                onPreviewResize={(preferredSize) => {
+                  if (parseResult.success) {
+                    const updatedSpec = { ...parseResult.data, preferredSize };
+                    setJsonText(JSON.stringify(updatedSpec, null, 2));
+                    setParseResult({ success: true, data: updatedSpec });
+                  }
+                }}
               />
           </div>
         </div>

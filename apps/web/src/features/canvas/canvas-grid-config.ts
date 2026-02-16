@@ -1,11 +1,11 @@
 /**
  * Grid config shared by strategy canvas and mini canvas preview.
- * Keep in sync — both canvases use the same column/row settings.
- * Resolution 2x: 48 cols, 40px row height for finer positioning.
+ * defaultSize and preferredSize in subview spec are in PIXELS.
+ * Position (x,y,w,h) for react-grid-layout is in grid units.
  */
 export const CANVAS_GRID_CONFIG = {
   cols: 48,
-  rowHeight: 20,
+  rowHeight: 5,
   margin: [12, 12] as [number, number],
   containerPadding: [0, 0] as [number, number],
 } as const;
@@ -16,3 +16,34 @@ export const CANVAS_LAYOUT_CONSTRAINTS = {
   maxW: 48,
   maxH: 40,
 } as const;
+
+/** Reference width for pixel→grid. Use consistently so preview and canvas match. */
+export const REFERENCE_WIDTH = 1200;
+
+/** Convert pixel size to grid units */
+export function pixelsToGrid(
+  pixelW: number,
+  pixelH: number,
+  containerWidth: number = REFERENCE_WIDTH
+): { w: number; h: number } {
+  const colWidth = containerWidth / CANVAS_GRID_CONFIG.cols;
+  const w = Math.round(pixelW / colWidth);
+  const h = Math.round(pixelH / CANVAS_GRID_CONFIG.rowHeight);
+  return {
+    w: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxW, Math.max(CANVAS_LAYOUT_CONSTRAINTS.minW, w)),
+    h: Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxH, Math.max(CANVAS_LAYOUT_CONSTRAINTS.minH, h)),
+  };
+}
+
+/** Convert grid units to pixel size */
+export function gridToPixels(
+  gridW: number,
+  gridH: number,
+  containerWidth: number
+): { w: number; h: number } {
+  const colWidth = containerWidth / CANVAS_GRID_CONFIG.cols;
+  return {
+    w: Math.round(gridW * colWidth),
+    h: Math.round(gridH * CANVAS_GRID_CONFIG.rowHeight),
+  };
+}

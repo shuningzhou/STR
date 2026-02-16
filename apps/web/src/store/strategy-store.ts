@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Layout } from 'react-grid-layout';
 import type { SubviewSpec } from '@str/shared';
+import { pixelsToGrid, gridToPixels, REFERENCE_WIDTH } from '@/features/canvas/canvas-grid-config';
 
 /** Subview position for grid layout */
 export interface SubviewPosition {
@@ -52,7 +53,7 @@ interface StrategyState {
     strategyId: string,
     options?: { name?: string; defaultSize?: { w: number; h: number }; spec?: SubviewSpec }
   ) => Subview;
-  updateSubviewLayout: (strategyId: string, layout: Layout) => void;
+  updateSubviewLayout: (strategyId: string, layout: Layout, containerWidth: number) => void;
   removeSubview: (strategyId: string, subviewId: string) => void;
   updateSubviewName: (strategyId: string, subviewId: string, name: string) => void;
   updateSubviewPipeline: (
@@ -122,24 +123,33 @@ export const useStrategyStore = create<StrategyState>()(
 
       addSubview: (strategyId, options = {}) => {
         const name = options.name ?? options.spec?.name ?? 'Subview';
-        let defaultSize = options.defaultSize;
-        if (!defaultSize && options.spec) {
-          const spec = options.spec as { preferredSize?: { w: number; h: number }; defaultSize?: string; size?: string };
+        let pixelSize: { w: number; h: number } | undefined = options.defaultSize;
+        if (!pixelSize && options.spec) {
+          const spec = options.spec as {
+            preferredSize?: { w: number; h: number };
+            defaultSize?: { w: number; h: number } | string;
+            size?: string;
+          };
           if (spec.preferredSize) {
-            defaultSize = spec.preferredSize;
+            pixelSize = spec.preferredSize;
+          } else if (spec.defaultSize != null) {
+            const ds = spec.defaultSize;
+            pixelSize =
+              typeof ds === 'object'
+                ? ds
+                : (() => {
+                    const m = String(ds).match(/^(\d+)x(\d+)$/);
+                    return m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
+                  })();
+          } else if (spec.size) {
+            const m = String(spec.size).match(/^(\d+)x(\d+)$/);
+            pixelSize = m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
           } else {
-            const sizeStr = spec.defaultSize ?? spec.size;
-            const m = String(sizeStr ?? '').match(/^(\d+)x(\d+)$/);
-            if (m) {
-              const sw = parseInt(m[1], 10) * 2;
-              const sh = parseInt(m[2], 10) * 2;
-              defaultSize = { w: Math.min(48, sw), h: Math.min(40, sh) };
-            } else {
-              defaultSize = { w: 16, h: 4 };
-            }
+            pixelSize = { w: 400, h: 100 };
           }
         }
-        defaultSize ??= { w: 16, h: 4 };
+        pixelSize ??= { w: 400, h: 100 };
+        const gridSize = pixelsToGrid(pixelSize.w, pixelSize.h);
         const st = get().strategies.find((s) => s.id === strategyId);
         const subviews = st?.subviews ?? [];
         const maxBottom = subviews.length > 0
@@ -148,7 +158,7 @@ export const useStrategyStore = create<StrategyState>()(
         const subview: Subview = {
           id: generateSubviewId(),
           name,
-          position: { x: 0, y: maxBottom, w: defaultSize.w, h: defaultSize.h },
+          position: { x: 0, y: maxBottom, w: gridSize.w, h: gridSize.h },
           ...(options.spec && { spec: options.spec }),
         };
         set((s) => ({
@@ -161,7 +171,7 @@ export const useStrategyStore = create<StrategyState>()(
         return subview;
       },
 
-      updateSubviewLayout: (strategyId, layout) => {
+      updateSubviewLayout: (strategyId, layout, containerWidth) => {
         set((s) => ({
           strategies: s.strategies.map((st) => {
             if (st.id !== strategyId) return st;
@@ -170,9 +180,10 @@ export const useStrategyStore = create<StrategyState>()(
               subviews: st.subviews.map((sv) => {
                 const item = layout.find((l) => l.i === sv.id);
                 if (!item) return sv;
+                const pixelSize = gridToPixels(item.w, item.h, containerWidth);
                 const updatedSpec =
                   sv.spec != null
-                    ? { ...sv.spec, preferredSize: { w: item.w, h: item.h } }
+                    ? { ...sv.spec, preferredSize: pixelSize }
                     : undefined;
                 return {
                   ...sv,
@@ -236,11 +247,15 @@ export const useStrategyStore = create<StrategyState>()(
             st.id === strategyId
               ? {
                   ...st,
-                  subviews: st.subviews.map((sv) =>
-                    sv.id === subviewId
-                      ? { ...sv, spec, name: spec.name, pipeline: undefined }
-                      : sv
-                  ),
+                  subviews: st.subviews.map((sv) => {
+                    if (sv.id !== subviewId) return sv;
+                    const updates: Partial<Subview> = { spec, name: spec.name, pipeline: undefined };
+                    if (spec.preferredSize) {
+                      const { w, h } = pixelsToGrid(spec.preferredSize.w, spec.preferredSize.h, REFERENCE_WIDTH);
+                      updates.position = { ...sv.position, w, h };
+                    }
+                    return { ...sv, ...updates };
+                  }),
                 }
               : st
           ),

@@ -47,7 +47,20 @@ const inputConfigSchema = z.discriminatedUnion('type', [
 ]);
 
 // --- Content items (text, number, Table, Chart) ---
-const fontSizeSchema = z.enum(['xs', 'sm', 'md', 'lg', 'xl']).optional();
+const fontSizeSchema = z.enum(['xs', 'sm', 'md', 'lg', 'xl', 'xxl', 'xxxl']).optional();
+
+/** Uniform (number) or per-side (top, right, bottom, left in px) */
+const paddingSchema = z
+  .union([
+    z.number(),
+    z.object({
+      top: z.number().optional(),
+      right: z.number().optional(),
+      bottom: z.number().optional(),
+      left: z.number().optional(),
+    }),
+  ])
+  .optional();
 
 const textContentSchema = z.object({
   text: z.object({
@@ -56,6 +69,7 @@ const textContentSchema = z.object({
     size: fontSizeSchema,
     bold: z.boolean().optional(),
     italic: z.boolean().optional(),
+    padding: paddingSchema,
   }),
 });
 
@@ -66,6 +80,7 @@ const numberContentSchema = z.object({
     size: fontSizeSchema,
     bold: z.boolean().optional(),
     italic: z.boolean().optional(),
+    padding: paddingSchema,
   }),
 });
 
@@ -87,6 +102,7 @@ const tableContentSchema = z.object({
     header: tableHeaderSchema,
     source: z.string(), // "py:fn"
     columns: z.array(z.string()),
+    padding: paddingSchema,
     rowActions: z
       .array(
         z.object({
@@ -103,6 +119,7 @@ const chartContentSchema = z.object({
   Chart: z.object({
     type: z.enum(['line', 'bar', 'pie']),
     source: z.string(), // "py:fn"
+    padding: paddingSchema,
   }),
 });
 
@@ -110,8 +127,10 @@ const chartContentSchema = z.object({
 const inputContentSchema = z.object({
   input: z.object({
     ref: z.string(), // key in spec.inputs
+    padding: paddingSchema,
   }),
 });
+
 
 const contentItemSchema = z.union([
   textContentSchema,
@@ -125,6 +144,7 @@ const contentItemSchema = z.union([
 const layoutCellSchema = z.object({
   weight: z.number().min(1).optional(), // when omitted, cell width is based on content size
   alignment: z.string(),
+  padding: paddingSchema,
   content: z.array(contentItemSchema),
 });
 
@@ -133,6 +153,12 @@ const sizeShapeSchema = z.object({
   h: z.number().min(1),
 });
 
+function parseSizeString(s: string): { w: number; h: number } {
+  const m = s.match(/^(\d+)x(\d+)$/);
+  if (m) return { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 };
+  return { w: 400, h: 100 };
+}
+
 // --- Top-level spec ---
 export const subviewSpecSchema = z
   .object({
@@ -140,16 +166,23 @@ export const subviewSpecSchema = z
     name: z.string(),
     description: z.string(),
     maker: z.string(),
-    defaultSize: z.string().optional(), // "2x1" or "4x2" — initial placement hint
-    preferredSize: sizeShapeSchema.optional(), // user-resized; written when card is scaled
+    defaultSize: z.union([sizeShapeSchema, z.string()]).optional(),
+    preferredSize: sizeShapeSchema.optional(),
     inputs: z.record(z.string(), inputConfigSchema).optional(),
     layout: z.array(z.array(layoutCellSchema)),
     python_code: z.string(),
     functions: z.array(z.string()),
   })
   .transform((data) => {
-    const d = data as { size?: string; defaultSize?: string };
-    const defaultSize = d.defaultSize ?? d.size ?? '2x1';
+    const d = data as { size?: string; defaultSize?: { w: number; h: number } | string };
+    let defaultSize: { w: number; h: number };
+    if (d.defaultSize != null) {
+      defaultSize = typeof d.defaultSize === 'object' ? d.defaultSize : parseSizeString(d.defaultSize);
+    } else if (d.size != null) {
+      defaultSize = parseSizeString(d.size);
+    } else {
+      defaultSize = { w: 400, h: 100 };
+    }
     const { size: _, ...rest } = d;
     return { ...rest, defaultSize };
   })

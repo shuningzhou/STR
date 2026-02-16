@@ -78,7 +78,7 @@ export function SubviewGalleryModal() {
               className="text-xs mt-1"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              {t.defaultSize.w}×{t.defaultSize.h} cols
+              {t.defaultSize.w}×{t.defaultSize.h} px
             </div>
           </button>
         ))}

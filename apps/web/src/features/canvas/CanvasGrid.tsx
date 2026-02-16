@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import { useStrategyStore } from '@/store/strategy-store';
-import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS } from './canvas-grid-config';
+import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH } from './canvas-grid-config';
 import { SubviewCard } from './SubviewCard';
 
 interface CanvasGridProps {
@@ -14,7 +14,7 @@ export function CanvasGrid({ strategyId }: CanvasGridProps) {
     s.strategies.find((st) => st.id === strategyId)
   );
   const updateSubviewLayout = useStrategyStore((s) => s.updateSubviewLayout);
-  const { width, containerRef, mounted } = useContainerWidth();
+  const { containerRef, mounted } = useContainerWidth();
 
   const layout: Layout = (strategy?.subviews ?? []).map((sv) => ({
     i: sv.id,
@@ -27,7 +27,7 @@ export function CanvasGrid({ strategyId }: CanvasGridProps) {
 
   const handleLayoutChange = useCallback(
     (newLayout: Layout) => {
-      updateSubviewLayout(strategyId, newLayout);
+      updateSubviewLayout(strategyId, newLayout, REFERENCE_WIDTH);
     },
     [strategyId, updateSubviewLayout]
   );
@@ -36,10 +36,14 @@ export function CanvasGrid({ strategyId }: CanvasGridProps) {
   if (strategy.subviews.length === 0) return null;
 
   return (
-    <div ref={containerRef} className="h-full w-full">
+    <div
+      ref={containerRef}
+      className="h-full overflow-auto"
+      style={{ width: REFERENCE_WIDTH, minWidth: REFERENCE_WIDTH }}
+    >
       <ReactGridLayout
         layout={layout}
-        width={width}
+        width={REFERENCE_WIDTH}
         gridConfig={CANVAS_GRID_CONFIG}
         compactor={verticalCompactor}
         dragConfig={{ handle: '.subview-drag-handle' }}

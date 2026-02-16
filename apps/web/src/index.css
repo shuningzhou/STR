@@ -63,6 +63,8 @@
   --font-size-title: 15px;
   --font-size-heading: 18px;
   --font-size-display: 24px;
+  --font-size-xxl: 32px;
+  --font-size-xxxl: 40px;
   --font-weight-label: 500;
   --letter-spacing-label: 0.5px;
 }

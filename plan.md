@@ -322,7 +322,7 @@ flowchart TD
 
 - Responsive breakpoints: lg (1200px), md (996px), sm (768px)
 - Columns: 12 (lg), 8 (md), 4 (sm)
-- Grid: 48 columns, 20px row height; min 10×5, max 48×40 units
+- Grid: 48 columns, 5px row height; min 10×5, max 48×40 units
 - Subview cards: draggable, resizable, with min/max constraints
 - On layout change: debounced PATCH to `/strategies/:id/subviews` with new positions
 - Empty canvas: large "+" button or click-anywhere to open subview gallery
@@ -346,7 +346,7 @@ The subview system is **unified**: both readonly and readwrite subviews use the 
 
 **JSON structure (required fields):**
 - `type`, `name`, `description`, `maker` ("official" or user nickname for readonly)
-- `defaultSize` — string like `"2x1"`, `"4x2"` (initial placement hint); `preferredSize` — optional `{ w, h }` (written when user scales card)
+- `defaultSize` — `{ w, h }` (absolute pixels); `preferredSize` — optional `{ w, h }` px (written when user scales card)
 - `inputs` (optional) — controls with defined types/schemas: `time_range`, `ticker_selector`, `number_input`, `select`, `checkbox` (see subviews.md). Inputs are **not** auto-rendered; place them in layout via `{ "input": { "ref": "key" } }` in a cell's content.
 - `layout` — 2D array of rows → cells with optional `weight` (omit for content-sized width), `alignment`, `content` (text, number, Table, Chart, etc.)
 - `python_code` — all Python function definitions for this subview
@@ -491,7 +491,7 @@ All subview cards — on canvas and in the Subview Editor Live Preview — use t
 - **Input labels:** `font-size: var(--font-size-label)` (11px), `font-medium`, `color: var(--color-text-secondary)`
 - **time_range:** Two date inputs side by side, `gap-1`; each `flex-1 min-w-0`; date inputs use `paddingLeft/Right: 8`
 - **ticker_selector:** Dropdown (`<select>`) populated from `context.transactions[].instrumentSymbol` (unique, sorted), plus `"all"` as first option
-- **Text/number content styling:** Optional in JSON — `size` (xs/sm/md/lg/xl → 11/13/15/18/24px), `bold`, `italic`; only applied when specified
+- **Text/number content styling:** Optional in JSON — `size` (xs/sm/md/lg/xl/xxl/xxxl → 11/13/15/18/24/32/40px), `bold`, `italic`; only applied when specified
 
 **Design language** (soft, rounded, shadow-driven -- per reference image):
 
