@@ -21,6 +21,14 @@ export const CANVAS_LAYOUT_CONSTRAINTS = {
 /** Reference width for pixel→grid. Use consistently so preview and canvas match. */
 export const REFERENCE_WIDTH = 1200;
 
+/**
+ * Optimized canvas width for 16:9 display with sidebar collapsed.
+ * 1500px. When smaller, horizontal scroll; when larger, cards scale.
+ * When viewport is smaller, use horizontal scroll instead of shrinking cards.
+ * When viewport is larger, cards scale and stretch.
+ */
+export const OPTIMIZED_CANVAS_WIDTH = 1400;
+
 /** Convert pixel size to grid units */
 export function pixelsToGrid(
   pixelW: number,

@@ -2,6 +2,7 @@ import { Receipt, SquarePlus, Settings, List, Pencil, PencilOff } from 'lucide-r
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { CanvasGrid } from '@/features/canvas/CanvasGrid';
+import { OPTIMIZED_CANVAS_WIDTH } from '@/features/canvas/canvas-grid-config';
 import { StrategyInputsBar } from '@/features/canvas/StrategyInputsBar';
 
 const floatingButton =
@@ -49,7 +50,10 @@ export function CanvasArea() {
           {activeStrategyId ? (
             <>
             {hasSubviews ? (
-              <div className="flex-1 min-h-[150px]">
+              <div
+                className="flex-1 min-h-[150px] shrink-0"
+                style={{ minWidth: OPTIMIZED_CANVAS_WIDTH, width: '100%' }}
+              >
                 <CanvasGrid strategyId={activeStrategyId} isEditMode={canvasEditMode} />
               </div>
             ) : (
