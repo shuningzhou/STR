@@ -160,6 +160,12 @@ body {
   background: var(--color-text-muted);
 }
 
+/* Date input calendar icon – visible in dark theme */
+html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+  cursor: pointer;
+}
+
 /* Remove padding from subview table - override any 8px padding from layout/card */
 .subview-card,
 .subview-spec-root,

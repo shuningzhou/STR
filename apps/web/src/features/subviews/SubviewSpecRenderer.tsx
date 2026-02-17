@@ -297,6 +297,8 @@ export interface SubviewSpecRendererProps {
   onInputChange?: (key: string, value: string | number) => void;
   /** Strategy-scoped inputs; subviews reference via global.xxx; passed to Python as inputs.global */
   globalInputsConfig?: Record<string, { type: string; title: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }>;
+  /** [{id, type}] so subview Python can resolve inputs by id (e.g. find time_range by type, use its id to get value) */
+  globalInputConfig?: Array<{ id: string; type: string }>;
   globalInputValues?: Record<string, unknown>;
   onGlobalInputChange?: (key: string, value: string | number) => void;
   /** For readwrite tables: strategyId to edit/delete transactions */
@@ -310,6 +312,7 @@ export function SubviewSpecRenderer({
   inputs,
   onInputChange,
   globalInputsConfig,
+  globalInputConfig,
   globalInputValues,
   onGlobalInputChange,
   strategyId,
@@ -370,10 +373,11 @@ export function SubviewSpecRenderer({
     }
     setLoading(true);
     (async () => {
-      const mergedInputs =
-        globalInputValues != null && Object.keys(globalInputValues).length > 0
-          ? { ...inputs, global: globalInputValues }
-          : inputs;
+      const mergedInputs: Record<string, unknown> = {
+        ...inputs,
+        global: globalInputValues ?? inputs.global ?? {},
+      };
+      if (globalInputConfig != null) mergedInputs.globalInputConfig = globalInputConfig;
       const next: Record<string, unknown> = {};
       for (const ref of pyRefs) {
         if (cancelled) return;
@@ -405,7 +409,7 @@ export function SubviewSpecRenderer({
     return () => {
       cancelled = true;
     };
-  }, [spec, pythonCode, context, inputs, globalInputValues, contextTxLen]);
+  }, [spec, pythonCode, context, inputs, globalInputConfig, globalInputValues, contextTxLen]);
 
   return (
     <div

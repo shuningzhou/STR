@@ -219,7 +219,7 @@ export function SubviewEditorModal() {
         for (const inp of strategy.inputs) {
           const raw = vals[inp.id] ?? inp.default;
           globalValues[inp.id] =
-            inp.id === 'timeRange' && typeof raw === 'string'
+            inp.type === 'time_range' && typeof raw === 'string'
               ? (() => {
                   try {
                     const p = JSON.parse(raw) as { start?: string; end?: string };
@@ -231,10 +231,13 @@ export function SubviewEditorModal() {
               : raw;
         }
       }
-      const mergedInputs =
+      const mergedInputs: Record<string, unknown> =
         Object.keys(globalValues).length > 0
           ? { ...previewInputs, global: globalValues }
-          : (previewInputs as Record<string, unknown>);
+          : { ...previewInputs };
+      if (strategy?.inputs?.length) {
+        mergedInputs.globalInputConfig = strategy.inputs.map((i) => ({ id: i.id, type: i.type }));
+      }
       const outputs: string[] = [];
       for (const fn of spec.functions) {
         const run = await runPythonFunction(

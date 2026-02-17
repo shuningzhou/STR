@@ -5,8 +5,8 @@ import type { Strategy } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
 import { SubviewSpecRenderer } from '../SubviewSpecRenderer';
 
-function normalizeInputValue(key: string, val: unknown): unknown {
-  if (key === 'timeRange' && typeof val === 'string') {
+function normalizeInputValue(inp: { id: string; type: string }, val: unknown): unknown {
+  if (inp.type === 'time_range' && typeof val === 'string') {
     try {
       const parsed = JSON.parse(val) as { start?: string; end?: string };
       if (parsed && typeof parsed === 'object') return parsed;
@@ -35,7 +35,7 @@ function buildGlobalInputs(strategy: Strategy | null | undefined): {
       max: inp.max,
     };
     const raw = inputValues[inp.id] ?? inp.default;
-    values[inp.id] = normalizeInputValue(inp.id, raw);
+    values[inp.id] = normalizeInputValue(inp, raw);
   }
   return { config, values };
 }
@@ -113,6 +113,7 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, 
         inputs={inputs}
         onInputChange={onInputChange}
         globalInputsConfig={globalInputs.config}
+        globalInputConfig={strategy?.inputs?.map((i) => ({ id: i.id, type: i.type }))}
         globalInputValues={globalInputs.values}
         onGlobalInputChange={onGlobalInputChange}
       />

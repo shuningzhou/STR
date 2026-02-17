@@ -19,8 +19,13 @@ interface SubviewCardProps {
 }
 
 /** Normalize input value (parse time_range JSON, etc.) */
-function normalizeInputValue(key: string, val: unknown): unknown {
-  if (key === 'timeRange' && typeof val === 'string') {
+function normalizeInputValueForKey(
+  key: string,
+  val: unknown,
+  type?: string
+): unknown {
+  const isTimeRange = type === 'time_range' || key === 'timeRange';
+  if (isTimeRange && typeof val === 'string') {
     try {
       const parsed = JSON.parse(val) as { start?: string; end?: string };
       if (parsed && typeof parsed === 'object') return parsed;
@@ -35,7 +40,7 @@ function normalizeInputValue(key: string, val: unknown): unknown {
 function buildInputs(inputValues: Record<string, string | number>): Record<string, unknown> {
   const base = { ...SEED_INPUTS } as Record<string, unknown>;
   for (const [key, val] of Object.entries(inputValues)) {
-    base[key] = normalizeInputValue(key, val);
+    base[key] = normalizeInputValueForKey(key, val);
   }
   return base;
 }
@@ -59,7 +64,7 @@ function buildGlobalInputs(strategy: Strategy | null | undefined): {
       max: inp.max,
     };
     const raw = inputValues[inp.id] ?? inp.default;
-    values[inp.id] = normalizeInputValue(inp.id, raw);
+    values[inp.id] = normalizeInputValueForKey(inp.id, raw, inp.type);
   }
   return { config, values };
 }
@@ -191,6 +196,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             updateSubviewInputValue(strategyId, subview.id, key, value)
           }
           globalInputsConfig={globalInputs.config}
+          globalInputConfig={strategy?.inputs?.map((i) => ({ id: i.id, type: i.type }))}
           globalInputValues={globalInputs.values}
           onGlobalInputChange={(key, value) =>
             updateStrategyInputValue(strategyId, key, value)

@@ -7,8 +7,8 @@ import { useStrategyStore } from '@/store/strategy-store';
 import { InputControl } from '@/features/subviews/InputControl';
 import { buildStrategyContext } from '@/lib/subview-seed-data';
 
-function normalizeInputValue(key: string, val: unknown): unknown {
-  if (key === 'timeRange' && typeof val === 'string') {
+function normalizeInputValue(inp: { id: string; type: string }, val: unknown): unknown {
+  if (inp.type === 'time_range' && typeof val === 'string') {
     try {
       const parsed = JSON.parse(val) as { start?: string; end?: string };
       if (parsed && typeof parsed === 'object') return parsed;
@@ -25,7 +25,7 @@ function buildValues(strategy: Strategy): Record<string, unknown> {
   const inputValues = strategy?.inputValues ?? {};
   for (const inp of inputs) {
     const raw = inputValues[inp.id] ?? inp.default;
-    values[inp.id] = normalizeInputValue(inp.id, raw);
+    values[inp.id] = normalizeInputValue(inp, raw);
   }
   return values;
 }

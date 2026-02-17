@@ -32,8 +32,13 @@ export const WIN_RATE_EXAMPLE = {
   python_code: `def calc_win_rate(context, inputs):
     txs = context['transactions']
     global_inputs = inputs.get('global') or {}
-    time_filter = global_inputs.get('timeRange') if global_inputs else None
-    ticker = global_inputs.get('ticker', 'all') if global_inputs else 'all'
+    global_config = inputs.get('globalInputConfig') or []
+    time_range_inp = next((c for c in global_config if c.get('type') == 'time_range'), None)
+    ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
+    time_range_id = time_range_inp.get('id') if time_range_inp else None
+    ticker_id = ticker_inp.get('id') if ticker_inp else None
+    time_filter = global_inputs.get(time_range_id) if time_range_id else None
+    ticker = global_inputs.get(ticker_id, 'all') if ticker_id else 'all'
     print(f"[calc_win_rate] inputs: timeRange={time_filter}, ticker={ticker}")
     if isinstance(time_filter, str):
         try:

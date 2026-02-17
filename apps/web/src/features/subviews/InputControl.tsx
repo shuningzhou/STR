@@ -2,6 +2,7 @@
  * Renders a single input control by type (time_range, ticker_selector, etc.).
  * Shared by SubviewSpecRenderer and StrategyInputsBar.
  */
+import { useEffect } from 'react';
 import { Input } from '@/components/ui';
 
 export const INPUT_WIDTHS: Record<string, number> = {
@@ -40,19 +41,36 @@ export function InputControl({
   const width = INPUT_WIDTHS[inputType] ?? 160;
   const isEditable = !!onInputChange;
 
+  // Persist corrected range when start > end (enforce start <= end)
+  useEffect(() => {
+    if (inputType !== 'time_range' || !onInputChange) return;
+    const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
+    const start = tr.start ?? '';
+    const end = tr.end ?? '';
+    if (start && end && start > end) {
+      onInputChange(inputKey, JSON.stringify({ start: end, end: start }));
+    }
+  }, [inputType, inputKey, inputs, onInputChange]);
+
   const content = inputType === 'time_range' ? (
         isEditable ? (
+          (() => {
+            const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
+            const start = tr.start ?? new Date().toISOString().slice(0, 10);
+            const end = tr.end ?? new Date().toISOString().slice(0, 10);
+            const normalizedEnd = end < start ? start : end;
+            const normalizedStart = start > normalizedEnd ? normalizedEnd : start;
+            return (
           <div className="flex gap-1">
             <input
               type="date"
-              value={
-                (inputs[inputKey] as { start?: string })?.start ??
-                new Date().toISOString().slice(0, 10)
-              }
+              value={normalizedStart}
+              max={normalizedEnd}
               onChange={(e) => {
+                const nextStart = e.target.value;
                 const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
-                const next = { ...tr, start: e.target.value };
-                onInputChange!(inputKey, JSON.stringify(next));
+                const nextEnd = nextStart > (tr.end ?? nextStart) ? nextStart : (tr.end ?? nextStart);
+                onInputChange!(inputKey, JSON.stringify({ start: nextStart, end: nextEnd }));
               }}
               className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
               style={{
@@ -67,14 +85,13 @@ export function InputControl({
             />
             <input
               type="date"
-              value={
-                (inputs[inputKey] as { end?: string })?.end ??
-                new Date().toISOString().slice(0, 10)
-              }
+              value={normalizedEnd}
+              min={normalizedStart}
               onChange={(e) => {
+                const nextEnd = e.target.value;
                 const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
-                const next = { ...tr, end: e.target.value };
-                onInputChange!(inputKey, JSON.stringify(next));
+                const nextStart = nextEnd < (tr.start ?? nextEnd) ? nextEnd : (tr.start ?? nextEnd);
+                onInputChange!(inputKey, JSON.stringify({ start: nextStart, end: nextEnd }));
               }}
               className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
               style={{
@@ -88,6 +105,8 @@ export function InputControl({
               }}
             />
           </div>
+            );
+          })()
         ) : (
           <div
             className="rounded-[var(--radius-medium)] border text-[13px]"
@@ -104,7 +123,11 @@ export function InputControl({
             {(() => {
               const v = inputs[inputKey] as { start?: string; end?: string } | undefined;
               if (v && typeof v === 'object' && 'start' in v && 'end' in v) {
-                return `${v.start} — ${v.end}`;
+                const a = v.start ?? '';
+                const b = v.end ?? '';
+                const lo = a && b && a > b ? b : a;
+                const hi = a && b && a > b ? a : b;
+                return lo && hi ? `${lo} — ${hi}` : '—';
               }
               return '—';
             })()}
