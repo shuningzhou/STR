@@ -33,6 +33,10 @@
   - `bold`: boolean
   - `italic`: boolean
 
+- **Number formatting** (optional on number content):
+  - `format`: `"$"` (prefix with $) | `"%"` (suffix with %)
+  - `decimals`: number of decimal places (default: 2)
+
 - **Padding** (optional; supported at all levels):
   - Uniform: `padding: 20` (all sides in px)
   - Per-side: `padding: { top?: number; right?: number; bottom?: number; left?: number }` (px)
@@ -80,6 +84,12 @@
 | `number_input` | `{ type: "number_input", title: string, default: number, min?: number, max?: number }` | `number` | `42` | |
 | `select` | `{ type: "select", title: string, options: { value: string, label: string }[], default: string }` | `string` — one of option values | `"monthly"` | Dropdown to pick one option (e.g. group-by: monthly/quarterly, view: compact/detailed) |
 | `checkbox` | `{ type: "checkbox", title: string, default: boolean }` | `boolean` | `true` | |
+
+**Strategy-scoped inputs:**
+- Configured in **Strategy settings** (per-strategy): add inputs with unique id, title, type.
+- **Displayed at the top of the strategy canvas** for the user to adjust.
+- Subviews reference them in layout via `{ "input": { "ref": "global.&lt;id&gt;" } }` (e.g. `global.timeRange`).
+- In Python: strategy inputs are in `inputs.global` (e.g. `inputs.global['timeRange']`). Subview’s own inputs are in `inputs` (e.g. `inputs['ticker']`).
 
 ### 2. Subview Editor UX Description
 
@@ -138,9 +148,9 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
 {
   "type": "readonly",
   "name": "Win Rate Overview",
-  "description": "Percentage of profitable closed trades",
+  "description": "Percentage of profitable closed option trades (matches open/close by contract)",
   "maker": "peter",
-  "defaultSize": { "w": 375, "h": 100 },
+  "defaultSize": { "w": 400, "h": 70 },
   "inputs": {
     "timeRange": {
       "type": "time_range",
@@ -178,7 +188,7 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
       }
     ]
   ],
-  "python_code": "def calc_win_rate(context, inputs):\n    txs = context['transactions']\n    time_filter = inputs.get('timeRange')\n    ticker = inputs.get('ticker', 'all')\n    closes = []\n    for tx in txs:\n        if tx['side'] not in ['sell', 'buy']:\n            continue\n        if time_filter and (tx['timestamp'] < time_filter['start'] or tx['timestamp'] > time_filter['end']):\n            continue\n        if ticker != 'all' and tx.get('instrumentSymbol') != ticker:\n            continue\n        closes.append(tx)\n    if not closes:\n        return 0.0\n    winners = [tx for tx in closes if tx['cashDelta'] > 0]\n    return round((len(winners) / len(closes)) * 100, 1)\n",
+  "python_code": "def calc_win_rate(context, inputs): ...",
   "functions": [
     "calc_win_rate"
   ]

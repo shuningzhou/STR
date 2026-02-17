@@ -17,6 +17,8 @@ export async function getPyodide(): Promise<PyodideInterface> {
 export interface RunResult {
   success: true;
   value: unknown;
+  /** Captured stdout/stderr from print() and logging */
+  log?: string;
 }
 
 export interface RunError {
@@ -39,20 +41,30 @@ export async function runPythonFunction(
 ): Promise<RunFunctionResult> {
   try {
     const pyodide = await getPyodide();
-    // Convert JS objects to native Python dicts/lists so subscript access works
-    pyodide.globals.set('context', pyodide.toPy(context));
-    pyodide.globals.set('inputs', pyodide.toPy(inputs));
+    const logLines: string[] = [];
+    const capture = (str: string) => logLines.push(str);
+    pyodide.setStdout({ batched: capture });
+    pyodide.setStderr({ batched: (str) => logLines.push(`[stderr] ${str}`) });
+    try {
+      // Convert JS objects to native Python dicts/lists so subscript access works
+      pyodide.globals.set('context', pyodide.toPy(context));
+      pyodide.globals.set('inputs', pyodide.toPy(inputs));
 
-    // Run the function definitions
-    await pyodide.runPythonAsync(pythonCode);
+      // Run the function definitions
+      await pyodide.runPythonAsync(pythonCode);
 
-    // Call the function
-    const result = await pyodide.runPythonAsync(`${functionName}(context, inputs)`);
+      // Call the function
+      const result = await pyodide.runPythonAsync(`${functionName}(context, inputs)`);
 
-    return {
-      success: true,
-      value: result?.toJs ? result.toJs() : result,
-    };
+      return {
+        success: true,
+        value: result?.toJs ? result.toJs() : result,
+        log: logLines.length > 0 ? logLines.join('\n') : undefined,
+      };
+    } finally {
+      pyodide.setStdout();
+      pyodide.setStderr();
+    }
   } catch (e) {
     const err = e instanceof Error ? e : String(e);
     const msg = err.toString();

@@ -1,7 +1,44 @@
+import { useMemo } from 'react';
 import { Pencil } from 'lucide-react';
 import type { SubviewSpec } from '@str/shared';
+import type { Strategy } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
 import { SubviewSpecRenderer } from '../SubviewSpecRenderer';
+
+function normalizeInputValue(key: string, val: unknown): unknown {
+  if (key === 'timeRange' && typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val) as { start?: string; end?: string };
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      return val;
+    }
+  }
+  return val;
+}
+
+function buildGlobalInputs(strategy: Strategy | null | undefined): {
+  config: Record<string, { type: string; title: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }>;
+  values: Record<string, unknown>;
+} {
+  const config: Record<string, { type: string; title: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }> = {};
+  const values: Record<string, unknown> = {};
+  const inputs = strategy?.inputs ?? [];
+  const inputValues = strategy?.inputValues ?? {};
+  for (const inp of inputs) {
+    config[inp.id] = {
+      type: inp.type,
+      title: inp.title,
+      default: inp.default,
+      options: inp.options,
+      min: inp.min,
+      max: inp.max,
+    };
+    const raw = inputValues[inp.id] ?? inp.default;
+    values[inp.id] = normalizeInputValue(inp.id, raw);
+  }
+  return { config, values };
+}
 
 interface LivePreviewProps {
   spec: SubviewSpec | null;
@@ -9,13 +46,17 @@ interface LivePreviewProps {
   context: unknown;
   inputs: Record<string, unknown>;
   onInputChange?: (key: string, value: unknown) => void;
+  strategy?: Strategy | null;
+  onGlobalInputChange?: (key: string, value: string | number) => void;
 }
 
 /**
  * Renders a subview from its JSON spec — same structure as SubviewCard on canvas.
  * Live Preview is a mini canvas: the card looks identical to the real canvas card.
  */
-export function LivePreview({ spec, pythonCode, context, inputs, onInputChange }: LivePreviewProps) {
+export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, strategy, onGlobalInputChange }: LivePreviewProps) {
+  const globalInputs = useMemo(() => buildGlobalInputs(strategy), [strategy]);
+
   if (!spec) {
     return (
       <div
@@ -71,6 +112,9 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange }
         context={context}
         inputs={inputs}
         onInputChange={onInputChange}
+        globalInputsConfig={globalInputs.config}
+        globalInputValues={globalInputs.values}
+        onGlobalInputChange={onGlobalInputChange}
       />
     </div>
   );

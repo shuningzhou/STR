@@ -1,47 +1,69 @@
+export interface SeedContext {
+  transactions: Array<{
+    id: number;
+    side: string;
+    cashDelta: number;
+    timestamp: string;
+    instrumentId: string;
+    instrumentSymbol: string;
+    instrumentName: string;
+    option: { expiration: string; strike: number; callPut: string } | null;
+    optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
+    customData: Record<string, unknown>;
+    quantity: number;
+    price: number;
+  }>;
+  wallet: { baseCurrency: string; initialBalance: number };
+}
+
 /**
  * Seed data for Subview Editor testing (from subviews.md).
  * Injected when "Test Functions" runs or Live Preview executes Python.
  */
-export const SEED_CONTEXT = {
+export const SEED_CONTEXT: SeedContext = {
   transactions: [
     {
       id: 1,
-      side: 'sell',
-      cashDelta: 120.5,
-      timestamp: '2025-12-01T10:00:00Z',
-      instrumentId: 'inst-1',
+      side: 'buy',
+      cashDelta: -350,
+      timestamp: '2025-11-01T10:00:00Z',
+      instrumentId: 'inst-AAPL-2026-01-17-175-call',
       instrumentSymbol: 'AAPL',
       instrumentName: 'Apple Inc.',
-      option: { expiration: '2026-03-20', strike: 150, callPut: 'call' },
+      option: { expiration: '2026-01-17', strike: 175, callPut: 'call' },
       customData: {},
       quantity: 1,
-      price: 120.5,
+      price: 3.5,
     },
     {
       id: 2,
-      side: 'buy',
-      cashDelta: -95.0,
-      timestamp: '2025-11-15T14:30:00Z',
-      instrumentId: 'inst-2',
-      instrumentSymbol: 'MSFT',
-      instrumentName: 'Microsoft Corporation',
-      option: null,
+      side: 'sell',
+      cashDelta: 420,
+      timestamp: '2025-11-20T14:30:00Z',
+      instrumentId: 'inst-AAPL-2026-01-17-175-call',
+      instrumentSymbol: 'AAPL',
+      instrumentName: 'Apple Inc.',
+      option: { expiration: '2026-01-17', strike: 175, callPut: 'call' },
       customData: {},
       quantity: 1,
-      price: 95,
+      price: 4.2,
     },
     {
       id: 3,
-      side: 'sell',
-      cashDelta: -25.0,
-      timestamp: '2025-12-10T09:00:00Z',
-      instrumentId: 'inst-1',
-      instrumentSymbol: 'AAPL',
-      instrumentName: 'Apple Inc.',
-      option: null,
+      side: 'option_roll',
+      cashDelta: 85,
+      timestamp: '2025-12-05T09:15:00Z',
+      instrumentId: 'inst-MSFT-roll-2026-02-20-2026-03-20',
+      instrumentSymbol: 'MSFT',
+      instrumentName: 'Microsoft Corporation',
+      option: { expiration: '2026-02-20', strike: 400, callPut: 'put' },
+      optionRoll: {
+        option: { expiration: '2026-02-20', strike: 400, callPut: 'put' },
+        optionRolledTo: { expiration: '2026-03-20', strike: 405, callPut: 'put' },
+      },
       customData: {},
       quantity: 1,
-      price: 95,
+      price: 0.85,
     },
   ],
   wallet: {

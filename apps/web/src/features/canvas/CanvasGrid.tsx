@@ -7,21 +7,22 @@ import { SubviewCard } from './SubviewCard';
 
 interface CanvasGridProps {
   strategyId: string;
+  isEditMode?: boolean;
 }
 
-export function CanvasGrid({ strategyId }: CanvasGridProps) {
+export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
   const strategy = useStrategyStore((s) =>
     s.strategies.find((st) => st.id === strategyId)
   );
   const updateSubviewLayout = useStrategyStore((s) => s.updateSubviewLayout);
-  const { containerRef, mounted } = useContainerWidth();
+  const { width, containerRef, mounted } = useContainerWidth();
 
   const layout: Layout = (strategy?.subviews ?? []).map((sv) => ({
     i: sv.id,
     x: sv.position.x,
     y: sv.position.y,
-    w: sv.position.w,
-    h: sv.position.h,
+    w: Math.max(CANVAS_LAYOUT_CONSTRAINTS.minW, Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxW, sv.position.w)),
+    h: Math.max(CANVAS_LAYOUT_CONSTRAINTS.minH, Math.min(CANVAS_LAYOUT_CONSTRAINTS.maxH, sv.position.h)),
     ...CANVAS_LAYOUT_CONSTRAINTS,
   }));
 
@@ -35,23 +36,25 @@ export function CanvasGrid({ strategyId }: CanvasGridProps) {
   if (!strategy || !mounted) return null;
   if (strategy.subviews.length === 0) return null;
 
+  const gridWidth = width ?? REFERENCE_WIDTH;
+
   return (
     <div
       ref={containerRef}
-      className="h-full overflow-auto"
-      style={{ width: REFERENCE_WIDTH, minWidth: REFERENCE_WIDTH }}
+      className="h-full min-h-0 w-full"
     >
       <ReactGridLayout
         layout={layout}
-        width={REFERENCE_WIDTH}
+        width={gridWidth}
         gridConfig={CANVAS_GRID_CONFIG}
         compactor={verticalCompactor}
-        dragConfig={{ handle: '.subview-drag-handle' }}
+        dragConfig={{ enabled: isEditMode, handle: '.subview-drag-handle' }}
+        resizeConfig={{ enabled: isEditMode }}
         onLayoutChange={handleLayoutChange}
       >
         {strategy.subviews.map((sv) => (
           <div key={sv.id} className="overflow-hidden">
-            <SubviewCard subview={sv} strategyId={strategyId} />
+            <SubviewCard subview={sv} strategyId={strategyId} strategy={strategy} isEditMode={isEditMode} />
           </div>
         ))}
       </ReactGridLayout>

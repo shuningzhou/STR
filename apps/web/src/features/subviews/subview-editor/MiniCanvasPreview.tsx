@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import type { SubviewSpec } from '@str/shared';
+import type { Strategy } from '@/store/strategy-store';
 import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH, pixelsToGrid, gridToPixels } from '@/features/canvas/canvas-grid-config';
 import { LivePreview } from './LivePreview';
 
@@ -13,6 +14,8 @@ interface MiniCanvasPreviewProps {
   onInputChange?: (key: string, value: unknown) => void;
   /** When user resizes the preview card, called with new size in pixels (stored as preferredSize in spec) */
   onPreviewResize?: (preferredSize: { w: number; h: number }) => void;
+  strategy?: Strategy | null;
+  onGlobalInputChange?: (key: string, value: string | number) => void;
 }
 
 function parseSizeStr(s: string): { w: number; h: number } {
@@ -34,7 +37,7 @@ function getEffectivePixelSize(spec: {
   return { w: 400, h: 100 };
 }
 
-export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange, onPreviewResize }: MiniCanvasPreviewProps) {
+export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange, onPreviewResize, strategy, onGlobalInputChange }: MiniCanvasPreviewProps) {
   const { width, containerRef } = useContainerWidth();
   const [layout, setLayout] = useState<Layout>([]);
 
@@ -94,7 +97,15 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
         onLayoutChange={handleLayoutChange}
       >
         <div key="preview-card" className="overflow-hidden">
-          <LivePreview spec={spec} pythonCode={pythonCode} context={context} inputs={inputs} onInputChange={onInputChange} />
+          <LivePreview
+            spec={spec}
+            pythonCode={pythonCode}
+            context={context}
+            inputs={inputs}
+            onInputChange={onInputChange}
+            strategy={strategy}
+            onGlobalInputChange={onGlobalInputChange}
+          />
         </div>
       </ReactGridLayout>
     </div>

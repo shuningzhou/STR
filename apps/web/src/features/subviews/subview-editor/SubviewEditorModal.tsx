@@ -5,6 +5,8 @@ import {
   X,
   AlertCircle,
   Braces,
+  ChevronDown,
+  ChevronUp,
   FileCode,
   Receipt,
   Wallet,
@@ -21,7 +23,8 @@ import { useUIStore } from '@/store/ui-store';
 import { Button } from '@/components/ui';
 import { safeParseSubviewSpec, type SubviewSpec } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
-import { SEED_CONTEXT, SEED_INPUTS } from '@/lib/subview-seed-data';
+import { SEED_CONTEXT, SEED_INPUTS, type SeedContext } from '@/lib/subview-seed-data';
+import { generateStockTransactions, generateOptionTransactions } from '@/lib/subview-seed-generators';
 import { BLANK_SPEC } from './BLANK_SPEC';
 import { WIN_RATE_EXAMPLE } from './WIN_RATE_EXAMPLE';
 import { MiniCanvasPreview } from './MiniCanvasPreview';
@@ -35,6 +38,7 @@ export function SubviewEditorModal() {
   const strategies = useStrategyStore((s) => s.strategies);
   const removeSubview = useStrategyStore((s) => s.removeSubview);
   const updateSubviewSpec = useStrategyStore((s) => s.updateSubviewSpec);
+  const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
   const { subviewSettingsOpen, setSubviewSettingsOpen } = useUIStore();
 
   const strategy = subviewSettingsOpen
@@ -58,6 +62,10 @@ export function SubviewEditorModal() {
   const [editMode, setEditMode] = useState<'json' | 'python' | 'transactions' | 'wallet'>('json');
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [seedDataKey, setSeedDataKey] = useState(0);
+  const [generateTxnCount, setGenerateTxnCount] = useState(16);
+  const [logPanelCollapsed, setLogPanelCollapsed] = useState(false);
+  const [logPanelHeight, setLogPanelHeight] = useState(120);
+  const [seedContext, setSeedContext] = useState<SeedContext>(() => ({ ...SEED_CONTEXT, transactions: [...SEED_CONTEXT.transactions] }));
   const [previewInputs, setPreviewInputs] = useState<Record<string, unknown>>(
     () => SEED_INPUTS as Record<string, unknown>
   );
@@ -88,6 +96,30 @@ export function SubviewEditorModal() {
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
   }, []);
+
+  const handleLogPanelResizePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const startY = e.clientY;
+    const startH = logPanelHeight;
+
+    const handlePointerMove = (ev: PointerEvent) => {
+      const delta = ev.clientY - startY;
+      setLogPanelHeight(Math.min(400, Math.max(48, startH - delta)));
+    };
+    const handlePointerUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+  }, [logPanelHeight]);
 
   const handleClose = useCallback(() => {
     setSubviewSettingsOpen(null);
@@ -140,10 +172,36 @@ export function SubviewEditorModal() {
     setParseResult({ success: true, data: WIN_RATE_EXAMPLE as unknown as SubviewSpec });
   }, []);
 
+  const syncTimeRangeFromTransactions = useCallback((txs: { timestamp?: string }[]) => {
+    if (txs.length === 0) return;
+    const dates = txs.map((t) => (t.timestamp || '').slice(0, 10)).filter(Boolean);
+    if (dates.length === 0) return;
+    const start = dates.reduce((a, b) => (a < b ? a : b));
+    const end = dates.reduce((a, b) => (a > b ? a : b));
+    setPreviewInputs((prev) => ({ ...prev, timeRange: { start, end } }));
+  }, []);
+
   const handleResetSeedData = useCallback(() => {
     if (!window.confirm('Reset seed data to default?')) return;
+    const ctx = { ...SEED_CONTEXT, transactions: [...SEED_CONTEXT.transactions] };
+    setSeedContext(ctx);
+    syncTimeRangeFromTransactions(ctx.transactions);
     setSeedDataKey((k) => k + 1);
-  }, []);
+  }, [syncTimeRangeFromTransactions]);
+
+  const handleGenerateStockTransactions = useCallback(() => {
+    const txs = generateStockTransactions(generateTxnCount);
+    setSeedContext((prev) => ({ ...prev, transactions: txs }));
+    syncTimeRangeFromTransactions(txs);
+    setSeedDataKey((k) => k + 1);
+  }, [generateTxnCount, syncTimeRangeFromTransactions]);
+
+  const handleGenerateOptionTransactions = useCallback(() => {
+    const txs = generateOptionTransactions(generateTxnCount);
+    setSeedContext((prev) => ({ ...prev, transactions: txs }));
+    syncTimeRangeFromTransactions(txs);
+    setSeedDataKey((k) => k + 1);
+  }, [generateTxnCount, syncTimeRangeFromTransactions]);
 
   const handleTestFunctions = useCallback(async () => {
     const result = safeParseSubviewSpec(jsonText);
@@ -155,16 +213,42 @@ export function SubviewEditorModal() {
     setTestLoading(true);
     setTestResult(null);
     try {
+      const globalValues: Record<string, unknown> = {};
+      if (strategy?.inputs?.length) {
+        const vals = strategy.inputValues ?? {};
+        for (const inp of strategy.inputs) {
+          const raw = vals[inp.id] ?? inp.default;
+          globalValues[inp.id] =
+            inp.id === 'timeRange' && typeof raw === 'string'
+              ? (() => {
+                  try {
+                    const p = JSON.parse(raw) as { start?: string; end?: string };
+                    return p && typeof p === 'object' ? p : raw;
+                  } catch {
+                    return raw;
+                  }
+                })()
+              : raw;
+        }
+      }
+      const mergedInputs =
+        Object.keys(globalValues).length > 0
+          ? { ...previewInputs, global: globalValues }
+          : (previewInputs as Record<string, unknown>);
       const outputs: string[] = [];
       for (const fn of spec.functions) {
         const run = await runPythonFunction(
           pythonText,
           fn,
-          SEED_CONTEXT,
-          SEED_INPUTS as Record<string, unknown>
+          seedContext,
+          mergedInputs
         );
         if (run.success) {
-          outputs.push(`${fn}() => ${JSON.stringify(run.value)}`);
+          let line = `${fn}() => ${JSON.stringify(run.value)}`;
+          if (run.log?.trim()) {
+            line += `\n${run.log.trim()}`;
+          }
+          outputs.push(line);
         } else {
           outputs.push(`${fn}() ERROR: ${run.error}`);
           break;
@@ -176,7 +260,7 @@ export function SubviewEditorModal() {
     } finally {
       setTestLoading(false);
     }
-  }, [jsonText, pythonText]);
+  }, [jsonText, pythonText, seedContext, previewInputs, strategy]);
 
   const handleSave = useCallback(() => {
     const result = safeParseSubviewSpec(jsonText);
@@ -427,10 +511,54 @@ export function SubviewEditorModal() {
               )}
               {editMode === 'transactions' && (
                 <div className="flex items-center gap-[10px]">
+                  <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    <span>Count</span>
+                    <input
+                      type="number"
+                      min={4}
+                      max={128}
+                      value={generateTxnCount}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v)) setGenerateTxnCount(Math.max(4, Math.min(128, v)));
+                      }}
+                      className="w-14 px-1.5 py-0.5 rounded text-right"
+                      style={{
+                        backgroundColor: 'var(--color-bg-input)',
+                        color: 'var(--color-text-primary)',
+                        border: '1px solid var(--color-border)',
+                        fontSize: 12,
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateStockTransactions}
+                    title="Generate stock transactions (5 stocks, 1 year)"
+                    className="px-2 py-1 text-xs cursor-pointer rounded transition-colors hover:bg-[var(--color-bg-hover)]"
+                    style={{
+                      backgroundColor: 'var(--color-bg-input)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    Generate stocks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGenerateOptionTransactions}
+                    title="Generate option transactions (5 stocks, 1 year)"
+                    className="px-2 py-1 text-xs cursor-pointer rounded transition-colors hover:bg-[var(--color-bg-hover)]"
+                    style={{
+                      backgroundColor: 'var(--color-bg-input)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    Generate options
+                  </button>
                   <button
                     type="button"
                     onClick={handleResetSeedData}
-                    title="Reset"
+                    title="Reset to default"
                     className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
                   >
                     <RotateCcw size={16} />
@@ -499,14 +627,56 @@ export function SubviewEditorModal() {
                   </div>
                   {testResult && (
                     <div
-                      className="px-2 py-1.5 text-xs font-mono shrink-0 overflow-auto max-h-24"
+                      className="flex flex-col shrink-0 border-t"
                       style={{
+                        borderColor: 'var(--color-border)',
                         backgroundColor: 'var(--color-bg-input)',
-                        color: 'var(--color-text-primary)',
-                        borderTop: '1px solid var(--color-border)',
+                        height: logPanelCollapsed ? 32 : logPanelHeight,
+                        minHeight: logPanelCollapsed ? 32 : 48,
                       }}
                     >
-                      <pre className="whitespace-pre-wrap">{testResult}</pre>
+                      <div
+                        className="flex items-center justify-between shrink-0 px-2 py-1"
+                        style={{
+                          borderBottom: logPanelCollapsed ? 'none' : '1px solid var(--color-border)',
+                          backgroundColor: 'var(--color-bg-hover)',
+                        }}
+                      >
+                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                          Output
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setLogPanelCollapsed((c) => !c)}
+                          className="p-1 rounded hover:bg-[var(--color-bg-input)] transition-colors"
+                          style={{ color: 'var(--color-text-muted)' }}
+                          title={logPanelCollapsed ? 'Expand' : 'Collapse'}
+                        >
+                          {logPanelCollapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      </div>
+                      {!logPanelCollapsed && (
+                        <>
+                          <div
+                            role="separator"
+                            onPointerDown={handleLogPanelResizePointerDown}
+                            className="h-1 shrink-0 cursor-row-resize flex items-center justify-center hover:bg-[var(--color-border)] transition-colors"
+                            style={{ backgroundColor: 'var(--color-border)' }}
+                            title="Drag to resize"
+                          >
+                            <div
+                              className="w-8 h-0.5 rounded-full"
+                              style={{ backgroundColor: 'var(--color-text-muted)' }}
+                            />
+                          </div>
+                          <div
+                            className="flex-1 min-h-0 overflow-auto px-2 py-1.5 text-xs font-mono"
+                            style={{ color: 'var(--color-text-primary)' }}
+                          >
+                            <pre className="whitespace-pre-wrap">{testResult}</pre>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </>
@@ -516,7 +686,7 @@ export function SubviewEditorModal() {
                   <Editor
                     height="100%"
                     defaultLanguage="json"
-                    value={JSON.stringify(SEED_CONTEXT.transactions, null, 2)}
+                    value={JSON.stringify(seedContext.transactions, null, 2)}
                     options={{
                       readOnly: true,
                       minimap: { enabled: false },
@@ -533,7 +703,7 @@ export function SubviewEditorModal() {
                   <Editor
                     height="100%"
                     defaultLanguage="json"
-                    value={JSON.stringify(SEED_CONTEXT.wallet, null, 2)}
+                    value={JSON.stringify(seedContext.wallet, null, 2)}
                     options={{
                       readOnly: true,
                       minimap: { enabled: false },
@@ -576,7 +746,7 @@ export function SubviewEditorModal() {
             <MiniCanvasPreview
                 spec={parseResult.success ? parseResult.data : null}
                 pythonCode={pythonText}
-                context={SEED_CONTEXT}
+                context={seedContext}
                 inputs={previewInputs}
                 onInputChange={(key, value) => {
                   setPreviewInputs((prev) => {
@@ -597,6 +767,8 @@ export function SubviewEditorModal() {
                     setParseResult({ success: true, data: updatedSpec });
                   }
                 }}
+                strategy={strategy}
+                onGlobalInputChange={strategy ? (key, value) => updateStrategyInputValue(strategy.id, key, value) : undefined}
               />
           </div>
         </div>

@@ -9,6 +9,7 @@ export enum TransactionType {
   OPTION_EXERCISE = 'option_exercise',
   OPTION_ASSIGN = 'option_assign',
   OPTION_EXPIRE = 'option_expire',
+  OPTION_ROLL = 'option_roll',
 }
 
 export enum AssetType {

@@ -7,22 +7,7 @@ import { useState, useEffect } from 'react';
 import type { SubviewSpec, ContentItem } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { Input } from '@/components/ui';
-
-/** Widths for input types (px) */
-const INPUT_WIDTHS: Record<string, number> = {
-  time_range: 240,
-  ticker_selector: 100,
-  number_input: 120,
-  select: 200,
-  checkbox: 120,
-};
-
-/** Shared value box styles: right-aligned text, proper padding */
-const VALUE_BOX_STYLE: React.CSSProperties = {
-  textAlign: 'right',
-  paddingLeft: 12,
-  paddingRight: 12,
-};
+import { InputControl } from './InputControl';
 
 /** Font sizes for text/number content: xs, sm, md, lg, xl, xxl, xxxl */
 const FONT_SIZES: Record<string, string> = {
@@ -48,266 +33,15 @@ function paddingToStyle(padding: PaddingValue | undefined): React.CSSProperties 
   return s;
 }
 
-function InputControl({
-  inputKey,
-  cfg,
-  inputs,
-  onInputChange,
-  context,
-}: {
-  inputKey: string;
-  cfg: { type: string; title: string; default?: unknown; options?: { value: string; label: string }[] };
-  inputs: Record<string, unknown>;
-  onInputChange?: (key: string, value: string | number) => void;
-  context: unknown;
-}) {
-  const inputType = cfg.type;
-  const width = INPUT_WIDTHS[inputType] ?? 160;
-  const isEditable = !!onInputChange;
-
-  return (
-    <div className="flex flex-col gap-1 shrink-0" style={{ width, minWidth: width }}>
-      <label
-        className="text-[11px] font-medium shrink-0"
-        style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-label)' }}
-      >
-        {cfg.title}
-      </label>
-      {inputType === 'time_range' ? (
-        isEditable ? (
-          <div className="flex gap-1">
-            <input
-              type="date"
-              value={
-                (inputs[inputKey] as { start?: string })?.start ??
-                new Date().toISOString().slice(0, 10)
-              }
-              onChange={(e) => {
-                const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
-                const next = { ...tr, start: e.target.value };
-                onInputChange!(inputKey, JSON.stringify(next));
-              }}
-              className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
-              style={{
-                height: 'var(--control-height)',
-                backgroundColor: 'var(--color-bg-input)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                textAlign: 'right',
-                paddingLeft: 8,
-                paddingRight: 8,
-              }}
-            />
-            <input
-              type="date"
-              value={
-                (inputs[inputKey] as { end?: string })?.end ??
-                new Date().toISOString().slice(0, 10)
-              }
-              onChange={(e) => {
-                const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
-                const next = { ...tr, end: e.target.value };
-                onInputChange!(inputKey, JSON.stringify(next));
-              }}
-              className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
-              style={{
-                height: 'var(--control-height)',
-                backgroundColor: 'var(--color-bg-input)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                textAlign: 'right',
-                paddingLeft: 8,
-                paddingRight: 8,
-              }}
-            />
-          </div>
-        ) : (
-          <div
-            className="rounded-[var(--radius-medium)] border text-[13px]"
-            style={{
-              height: 'var(--control-height)',
-              backgroundColor: 'var(--color-bg-input)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              ...VALUE_BOX_STYLE,
-            }}
-          >
-            {(() => {
-              const v = inputs[inputKey] as { start?: string; end?: string } | undefined;
-              if (v && typeof v === 'object' && 'start' in v && 'end' in v) {
-                return `${v.start} — ${v.end}`;
-              }
-              return '—';
-            })()}
-          </div>
-        )
-      ) : inputType === 'ticker_selector' ? (
-        (() => {
-          const txs = (context as { transactions?: { instrumentSymbol?: string }[] })?.transactions ?? [];
-          const symbols = [
-            'all',
-            ...Array.from(
-              new Set(
-                txs
-                  .map((tx) => tx?.instrumentSymbol)
-                  .filter((s): s is string => typeof s === 'string' && s.length > 0)
-              )
-            ).sort(),
-          ];
-          return isEditable ? (
-            <select
-              value={String(inputs[inputKey] ?? (cfg.default ?? 'all'))}
-              onChange={(e) => onInputChange!(inputKey, e.target.value)}
-              className="rounded-[var(--radius-medium)] border text-[13px] w-full outline-none"
-              style={{
-                height: 'var(--control-height)',
-                backgroundColor: 'var(--color-bg-input)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                ...VALUE_BOX_STYLE,
-              }}
-            >
-              {symbols.map((sym) => (
-                <option key={sym} value={sym}>
-                  {sym}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div
-              className="rounded-[var(--radius-medium)] border text-[13px]"
-              style={{
-                height: 'var(--control-height)',
-                backgroundColor: 'var(--color-bg-input)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                ...VALUE_BOX_STYLE,
-              }}
-            >
-              {String(inputs[inputKey] ?? 'all')}
-            </div>
-          );
-        })()
-      ) : inputType === 'number_input' ? (
-        isEditable ? (
-          <Input
-            type="number"
-            value={String(inputs[inputKey] ?? (cfg as { default?: number }).default ?? 0)}
-            onChange={(e) =>
-              onInputChange!(inputKey, parseFloat(e.target.value) || 0)
-            }
-            style={{ width: '100%', ...VALUE_BOX_STYLE }}
-          />
-        ) : (
-          <div
-            className="rounded-[var(--radius-medium)] border text-[13px]"
-            style={{
-              height: 'var(--control-height)',
-              backgroundColor: 'var(--color-bg-input)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              ...VALUE_BOX_STYLE,
-            }}
-          >
-            {String(inputs[inputKey] ?? (cfg as { default?: number }).default ?? 0)}
-          </div>
-        )
-      ) : inputType === 'select' ? (
-        isEditable ? (
-          <select
-            value={String(inputs[inputKey] ?? (cfg as { default?: string }).default ?? '')}
-            onChange={(e) => onInputChange!(inputKey, e.target.value)}
-            className="rounded-[var(--radius-medium)] border text-[13px] w-full outline-none"
-            style={{
-              height: 'var(--control-height)',
-              backgroundColor: 'var(--color-bg-input)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-              ...VALUE_BOX_STYLE,
-            }}
-          >
-            {((cfg as { options?: { value: string; label: string }[] }).options ?? []).map(
-              (opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              )
-            )}
-          </select>
-        ) : (
-          <div
-            className="rounded-[var(--radius-medium)] border text-[13px]"
-            style={{
-              height: 'var(--control-height)',
-              backgroundColor: 'var(--color-bg-input)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              ...VALUE_BOX_STYLE,
-            }}
-          >
-            {String(inputs[inputKey] ?? (cfg as { default?: string }).default ?? '')}
-          </div>
-        )
-      ) : inputType === 'checkbox' ? (
-        isEditable ? (
-          <label className="flex items-center gap-2 cursor-pointer h-[var(--control-height)]">
-            <input
-              type="checkbox"
-              checked={Boolean(inputs[inputKey] ?? (cfg as { default?: boolean }).default)}
-              onChange={(e) => onInputChange!(inputKey, e.target.checked ? 1 : 0)}
-              className="rounded"
-            />
-          </label>
-        ) : (
-          <div
-            className="rounded-[var(--radius-medium)] border text-[13px]"
-            style={{
-              height: 'var(--control-height)',
-              backgroundColor: 'var(--color-bg-input)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              ...VALUE_BOX_STYLE,
-            }}
-          >
-            {String(inputs[inputKey] ?? (cfg as { default?: boolean }).default ?? false)}
-          </div>
-        )
-      ) : (
-        <div
-          className="rounded-[var(--radius-medium)] border text-[13px]"
-          style={{
-            height: 'var(--control-height)',
-            backgroundColor: 'var(--color-bg-input)',
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-text-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            ...VALUE_BOX_STYLE,
-          }}
-        >
-          {String(inputs[inputKey] ?? '')}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ContentRenderer({
   item,
   resolved,
   spec,
   inputs,
   onInputChange,
+  globalInputsConfig,
+  globalInputValues,
+  onGlobalInputChange,
   context,
 }: {
   item: ContentItem;
@@ -315,20 +49,29 @@ function ContentRenderer({
   spec: SubviewSpec;
   inputs: Record<string, unknown>;
   onInputChange?: (key: string, value: string | number) => void;
+  globalInputsConfig?: Record<string, { type: string; title: string; default?: unknown; options?: { value: string; label: string }[] }>;
+  globalInputValues?: Record<string, unknown>;
+  onGlobalInputChange?: (key: string, value: string | number) => void;
   context: unknown;
 }) {
   if ('input' in item) {
     const inp = item.input as { ref: string; padding?: PaddingValue };
     const ref = inp.ref;
-    const cfg = spec.inputs?.[ref];
+    const isGlobal = ref.startsWith('global.');
+    const key = isGlobal ? ref.slice(7) : ref;
+    const cfg = isGlobal
+      ? globalInputsConfig?.[key]
+      : spec.inputs?.[ref];
+    const values = isGlobal ? (globalInputValues ?? {}) : inputs;
+    const changeHandler = isGlobal ? onGlobalInputChange : onInputChange;
     if (!cfg) return <span className="text-xs text-red-500">[Unknown input: {ref}]</span>;
     const inner = (
       <InputControl
         key={ref}
-        inputKey={ref}
+        inputKey={key}
         cfg={cfg as { type: string; title: string; default?: unknown; options?: { value: string; label: string }[] }}
-        inputs={inputs}
-        onInputChange={onInputChange}
+        inputs={values}
+        onInputChange={changeHandler}
         context={context}
       />
     );
@@ -361,9 +104,19 @@ function ContentRenderer({
   }
   if ('number' in item) {
     const val = item.number.value;
-    const display =
+    const raw =
       typeof val === 'string' && val.startsWith('py:') ? resolved[val] ?? '…' : val;
     const n = item.number;
+    const decimals = n.decimals ?? 2;
+    const format = n.format;
+    let display: string;
+    const num = typeof raw === 'number' ? raw : parseFloat(String(raw));
+    if (format != null && !Number.isNaN(num)) {
+      const fixed = num.toFixed(decimals);
+      display = format === '$' ? `$${fixed}` : `${fixed}%`;
+    } else {
+      display = String(raw);
+    }
     const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
     const inner = (
       <span
@@ -375,7 +128,7 @@ function ContentRenderer({
           textAlign: (n.alignment as React.CSSProperties['textAlign']) ?? 'center',
         }}
       >
-        {String(display)}
+        {display}
       </span>
     );
     return n.padding != null ? (
@@ -420,6 +173,10 @@ export interface SubviewSpecRendererProps {
   inputs: Record<string, unknown>;
   /** When provided, inputs are editable; onChange(key, value) where value is string | number (time_range stored as JSON string) */
   onInputChange?: (key: string, value: string | number) => void;
+  /** Strategy-scoped inputs; subviews reference via global.xxx; passed to Python as inputs.global */
+  globalInputsConfig?: Record<string, { type: string; title: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }>;
+  globalInputValues?: Record<string, unknown>;
+  onGlobalInputChange?: (key: string, value: string | number) => void;
 }
 
 export function SubviewSpecRenderer({
@@ -428,6 +185,9 @@ export function SubviewSpecRenderer({
   context,
   inputs,
   onInputChange,
+  globalInputsConfig,
+  globalInputValues,
+  onGlobalInputChange,
 }: SubviewSpecRendererProps) {
   const [resolved, setResolved] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
@@ -451,10 +211,14 @@ export function SubviewSpecRenderer({
     }
     setLoading(true);
     (async () => {
+      const mergedInputs =
+        globalInputValues != null && Object.keys(globalInputValues).length > 0
+          ? { ...inputs, global: globalInputValues }
+          : inputs;
       const next: Record<string, string | number> = {};
       for (const ref of pyRefs) {
         const fn = ref.slice(3);
-        const result = await runPythonFunction(pythonCode, fn, context, inputs);
+        const result = await runPythonFunction(pythonCode, fn, context, mergedInputs);
         if (result.success) {
           const v = result.value;
           next[ref] = typeof v === 'string' || typeof v === 'number' ? v : String(v);
@@ -465,7 +229,7 @@ export function SubviewSpecRenderer({
       setResolved(next);
       setLoading(false);
     })();
-  }, [spec, pythonCode, context, inputs]);
+  }, [spec, pythonCode, context, inputs, globalInputValues]);
 
   return (
     <div
@@ -507,6 +271,9 @@ export function SubviewSpecRenderer({
                         spec={spec}
                         inputs={inputs}
                         onInputChange={onInputChange}
+                        globalInputsConfig={globalInputsConfig}
+                        globalInputValues={globalInputValues}
+                        onGlobalInputChange={onGlobalInputChange}
                         context={context}
                       />
                     ))}

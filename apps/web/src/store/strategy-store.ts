@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Layout } from 'react-grid-layout';
-import type { SubviewSpec } from '@str/shared';
+import type { SubviewSpec, InputConfig } from '@str/shared';
 import { pixelsToGrid, gridToPixels, REFERENCE_WIDTH } from '@/features/canvas/canvas-grid-config';
 
 /** Subview position for grid layout */
@@ -32,11 +32,26 @@ export interface Subview {
   inputValues?: Record<string, string | number>;
 }
 
+/** Strategy-scoped inputs (shared by all subviews in this strategy) */
+export interface StrategyInputConfig {
+  id: string; // unique key (e.g. "timeRange")
+  title: string; // display label
+  type: InputConfig['type'];
+  default?: unknown;
+  options?: { value: string; label: string }[];
+  min?: number;
+  max?: number;
+}
+
 /** Minimal strategy shape for Phase 2–3 */
 export interface Strategy {
   id: string;
   name: string;
   baseCurrency: string;
+  /** Strategy-scoped inputs; subviews reference via global.xxx */
+  inputs?: StrategyInputConfig[];
+  /** Values for strategy inputs */
+  inputValues?: Record<string, string | number>;
   subviews: Subview[];
 }
 
@@ -45,7 +60,8 @@ interface StrategyState {
   activeStrategyId: string | null;
 
   addStrategy: (name: string, baseCurrency: string) => Strategy;
-  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency'>>) => void;
+  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'inputs' | 'inputValues'>>) => void;
+  updateStrategyInputValue: (strategyId: string, inputId: string, value: string | number) => void;
   deleteStrategy: (id: string) => void;
   setActiveStrategy: (id: string | null) => void;
 
@@ -103,6 +119,16 @@ export const useStrategyStore = create<StrategyState>()(
           strategies: s.strategies.map((st) =>
             st.id === id ? { ...st, ...updates } : st
           ),
+        }));
+      },
+
+      updateStrategyInputValue: (strategyId, inputId, value) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) => {
+            if (st.id !== strategyId) return st;
+            const next = { ...(st.inputValues ?? {}), [inputId]: value };
+            return { ...st, inputValues: next };
+          }),
         }));
       },
 
@@ -289,6 +315,8 @@ export const useStrategyStore = create<StrategyState>()(
           ...current,
           strategies: p.strategies.map((st) => ({
             ...st,
+            inputs: st.inputs ?? [],
+            inputValues: st.inputValues ?? {},
             subviews: (st.subviews ?? []).map((sv) => ({
               ...sv,
               pipeline: sv.pipeline ?? null,

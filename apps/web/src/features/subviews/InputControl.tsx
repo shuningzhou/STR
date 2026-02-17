@@ -1,0 +1,287 @@
+/**
+ * Renders a single input control by type (time_range, ticker_selector, etc.).
+ * Shared by SubviewSpecRenderer and StrategyInputsBar.
+ */
+import { Input } from '@/components/ui';
+
+export const INPUT_WIDTHS: Record<string, number> = {
+  time_range: 240,
+  ticker_selector: 100,
+  number_input: 120,
+  select: 200,
+  checkbox: 120,
+};
+
+const VALUE_BOX_STYLE: React.CSSProperties = {
+  textAlign: 'right',
+  paddingLeft: 5,
+  paddingRight: 5,
+};
+
+export interface InputControlProps {
+  inputKey: string;
+  cfg: { type: string; title: string; default?: unknown; options?: { value: string; label: string }[] };
+  inputs: Record<string, unknown>;
+  onInputChange?: (key: string, value: string | number) => void;
+  context: unknown;
+  /** When true, hide the label and show title as tooltip on hover */
+  compact?: boolean;
+}
+
+export function InputControl({
+  inputKey,
+  cfg,
+  inputs,
+  onInputChange,
+  context,
+  compact = false,
+}: InputControlProps) {
+  const inputType = cfg.type;
+  const width = INPUT_WIDTHS[inputType] ?? 160;
+  const isEditable = !!onInputChange;
+
+  const content = inputType === 'time_range' ? (
+        isEditable ? (
+          <div className="flex gap-1">
+            <input
+              type="date"
+              value={
+                (inputs[inputKey] as { start?: string })?.start ??
+                new Date().toISOString().slice(0, 10)
+              }
+              onChange={(e) => {
+                const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
+                const next = { ...tr, start: e.target.value };
+                onInputChange!(inputKey, JSON.stringify(next));
+              }}
+              className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                textAlign: 'right',
+                paddingLeft: 5,
+                paddingRight: 5,
+              }}
+            />
+            <input
+              type="date"
+              value={
+                (inputs[inputKey] as { end?: string })?.end ??
+                new Date().toISOString().slice(0, 10)
+              }
+              onChange={(e) => {
+                const tr = (inputs[inputKey] as { start?: string; end?: string }) ?? {};
+                const next = { ...tr, end: e.target.value };
+                onInputChange!(inputKey, JSON.stringify(next));
+              }}
+              className="flex-1 min-w-0 rounded-[var(--radius-medium)] border text-[13px] outline-none"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                textAlign: 'right',
+                paddingLeft: 5,
+                paddingRight: 5,
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            className="rounded-[var(--radius-medium)] border text-[13px]"
+            style={{
+              height: 'var(--control-height)',
+              backgroundColor: 'var(--color-bg-input)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              ...VALUE_BOX_STYLE,
+            }}
+          >
+            {(() => {
+              const v = inputs[inputKey] as { start?: string; end?: string } | undefined;
+              if (v && typeof v === 'object' && 'start' in v && 'end' in v) {
+                return `${v.start} — ${v.end}`;
+              }
+              return '—';
+            })()}
+          </div>
+        )
+      ) : inputType === 'ticker_selector' ? (
+        (() => {
+          const txs = (context as { transactions?: { instrumentSymbol?: string }[] })?.transactions ?? [];
+          const symbols = [
+            'all',
+            ...Array.from(
+              new Set(
+                txs
+                  .map((tx) => tx?.instrumentSymbol)
+                  .filter((s): s is string => typeof s === 'string' && s.length > 0)
+              )
+            ).sort(),
+          ];
+          return isEditable ? (
+            <select
+              value={String(inputs[inputKey] ?? (cfg.default ?? 'all'))}
+              onChange={(e) => onInputChange!(inputKey, e.target.value)}
+              className="rounded-[var(--radius-medium)] border text-[13px] w-full outline-none"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                ...VALUE_BOX_STYLE,
+              }}
+            >
+              {symbols.map((sym) => (
+                <option key={sym} value={sym}>
+                  {sym}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div
+              className="rounded-[var(--radius-medium)] border text-[13px]"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                ...VALUE_BOX_STYLE,
+              }}
+            >
+              {String(inputs[inputKey] ?? 'all')}
+            </div>
+          );
+        })()
+      ) : inputType === 'number_input' ? (
+        isEditable ? (
+          <Input
+            type="number"
+            value={String(inputs[inputKey] ?? (cfg as { default?: number }).default ?? 0)}
+            onChange={(e) =>
+              onInputChange!(inputKey, parseFloat(e.target.value) || 0)
+            }
+            style={{ width: '100%', ...VALUE_BOX_STYLE }}
+          />
+        ) : (
+          <div
+            className="rounded-[var(--radius-medium)] border text-[13px]"
+            style={{
+              height: 'var(--control-height)',
+              backgroundColor: 'var(--color-bg-input)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              ...VALUE_BOX_STYLE,
+            }}
+          >
+            {String(inputs[inputKey] ?? (cfg as { default?: number }).default ?? 0)}
+          </div>
+        )
+      ) : inputType === 'select' ? (
+        isEditable ? (
+          <select
+            value={String(inputs[inputKey] ?? (cfg as { default?: string }).default ?? '')}
+            onChange={(e) => onInputChange!(inputKey, e.target.value)}
+            className="rounded-[var(--radius-medium)] border text-[13px] w-full outline-none"
+            style={{
+              height: 'var(--control-height)',
+              backgroundColor: 'var(--color-bg-input)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+              ...VALUE_BOX_STYLE,
+            }}
+          >
+            {((cfg as { options?: { value: string; label: string }[] }).options ?? []).map(
+              (opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              )
+            )}
+          </select>
+        ) : (
+          <div
+            className="rounded-[var(--radius-medium)] border text-[13px]"
+            style={{
+              height: 'var(--control-height)',
+              backgroundColor: 'var(--color-bg-input)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              ...VALUE_BOX_STYLE,
+            }}
+          >
+            {String(inputs[inputKey] ?? (cfg as { default?: string }).default ?? '')}
+          </div>
+        )
+      ) : inputType === 'checkbox' ? (
+        isEditable ? (
+          <label className="flex items-center gap-2 cursor-pointer h-[var(--control-height)]">
+            <input
+              type="checkbox"
+              checked={Boolean(inputs[inputKey] ?? (cfg as { default?: boolean }).default)}
+              onChange={(e) => onInputChange!(inputKey, e.target.checked ? 1 : 0)}
+              className="rounded"
+            />
+          </label>
+        ) : (
+          <div
+            className="rounded-[var(--radius-medium)] border text-[13px]"
+            style={{
+              height: 'var(--control-height)',
+              backgroundColor: 'var(--color-bg-input)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              ...VALUE_BOX_STYLE,
+            }}
+          >
+            {String(inputs[inputKey] ?? (cfg as { default?: boolean }).default ?? false)}
+          </div>
+        )
+      ) : (
+        <div
+          className="rounded-[var(--radius-medium)] border text-[13px]"
+          style={{
+            height: 'var(--control-height)',
+            backgroundColor: 'var(--color-bg-input)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            ...VALUE_BOX_STYLE,
+          }}
+        >
+          {String(inputs[inputKey] ?? '')}
+        </div>
+      );
+
+  return (
+    <div
+      className={`flex flex-col shrink-0 ${compact ? 'gap-0' : ''}`}
+      style={{ width, minWidth: width, ...(!compact && { gap: 8 }) }}
+    >
+      {!compact && (
+        <label
+          className="text-[11px] font-medium shrink-0"
+          style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-label)' }}
+        >
+          {cfg.title}
+        </label>
+      )}
+      <div {...(compact ? { title: cfg.title } : {})} className={compact ? 'flex flex-col gap-1' : ''}>
+        {content}
+      </div>
+    </div>
+  );
+}

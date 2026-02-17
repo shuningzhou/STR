@@ -10,11 +10,12 @@ export const CANVAS_GRID_CONFIG = {
   containerPadding: [0, 0] as [number, number],
 } as const;
 
+/** Subview min size in grid units (100px width, 35px height at REFERENCE_WIDTH) */
 export const CANVAS_LAYOUT_CONSTRAINTS = {
-  minW: 10,
-  minH: 5,
+  minW: 4,   // 100px
+  minH: 7,   // 35px
   maxW: 48,
-  maxH: 40,
+  maxH: 80,  // 400px
 } as const;
 
 /** Reference width for pixel→grid. Use consistently so preview and canvas match. */

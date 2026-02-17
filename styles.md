@@ -39,6 +39,13 @@ Design tokens (e.g. `--color-bg-card`) are app-wide CSS variables and are **not*
 |----------|--------|
 | `italic` | `true`, `false` (omit = normal) |
 
+### Number formatting (number content only)
+
+| Property | Values | Description |
+|----------|--------|-------------|
+| `format` | `"$"`, `"%"` | Prefix `$` or suffix `%` |
+| `decimals` | number (default: 2) | Decimal places |
+
 ---
 
 ## Alignment

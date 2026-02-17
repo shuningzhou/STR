@@ -81,6 +81,8 @@ const numberContentSchema = z.object({
     bold: z.boolean().optional(),
     italic: z.boolean().optional(),
     padding: paddingSchema,
+    format: z.enum(['$', '%']).optional(), // prefix $ or suffix %
+    decimals: z.number().int().min(0).optional(), // default 2
   }),
 });
 
@@ -197,6 +199,7 @@ export const subviewSpecSchema = z
 export type SubviewSpec = z.infer<typeof subviewSpecSchema>;
 export type LayoutCell = z.infer<typeof layoutCellSchema>;
 export type ContentItem = z.infer<typeof contentItemSchema>;
+export type InputConfig = z.infer<typeof inputConfigSchema>;
 
 /** Parse and validate a subview spec from JSON string */
 export function parseSubviewSpec(json: string): SubviewSpec {

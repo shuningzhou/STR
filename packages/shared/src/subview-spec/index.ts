@@ -5,4 +5,5 @@ export {
   type SubviewSpec,
   type LayoutCell,
   type ContentItem,
+  type InputConfig,
 } from './schema';
