@@ -1,8 +1,6 @@
 export enum TransactionType {
   BUY = 'buy',
   SELL = 'sell',
-  SELL_SHORT = 'sell_short',
-  BUY_TO_COVER = 'buy_to_cover',
   DIVIDEND = 'dividend',
   DEPOSIT = 'deposit',
   WITHDRAWAL = 'withdrawal',

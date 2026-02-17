@@ -40,7 +40,7 @@ export const WIN_RATE_EXAMPLE = {
     ticker = inputs.get('ticker', 'all')
     closes = []
     for tx in txs:
-        if tx['side'] not in ['sell', 'buy_to_cover']:
+        if tx['side'] not in ['sell', 'buy']:
             continue
         if time_filter and (tx['timestamp'] < time_filter['start'] or tx['timestamp'] > time_filter['end']):
             continue

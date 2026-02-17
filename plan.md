@@ -205,7 +205,7 @@ sequenceDiagram
 
 **Transaction:**
 
-- `strategyId` (ref, indexed), `instrumentId` (ref), `type` (enum), `quantity`, `price`, `cashDelta`, `timestamp`, `metadata` (Mixed), `fee`, `optionData` (Mixed -- expiration, strike, etc.), `createdAt`
+- `strategyId` (ref, indexed), `instrumentId` (ref), `type` (enum), `quantity`, `price`, `cashDelta`, `timestamp`, `customData` (Mixed), `fee`, `option` (expiration, strike, callPut, etc.), `createdAt`
 - Compound index: `{ strategyId: 1, timestamp: -1 }` for efficient queries
 
 **Instrument:**
@@ -419,7 +419,7 @@ const isStale =
 **Add Transaction form:**
 
 - Instrument search (autocomplete, hits `/instruments/search`)
-- Type dropdown (buy, sell, sell_short, etc.)
+- Type dropdown (buy, sell, dividend, etc.)
 - Quantity, Price, Fee fields
 - Cash delta: auto-calculated or manual override
 - Timestamp: date+time picker, defaults to now

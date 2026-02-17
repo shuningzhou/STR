@@ -62,12 +62,18 @@ export interface IInstrument {
 }
 
 // ── Transaction ───────────────────────────────────────
-export interface IOptionData {
-  strike?: number;
-  expiration?: string;
-  contractType?: 'call' | 'put';
+/** Option-specific data; present when transaction involves an option contract */
+export interface IOption {
+  /** Expiration date (YYYY-MM-DD) */
+  expiration: string;
+  /** Strike price */
+  strike: number;
+  /** Call or put */
+  callPut: 'call' | 'put';
+  /** Contract multiplier (default 100 for equity options) */
   multiplier?: number;
-  [key: string]: unknown;
+  /** Underlying symbol (e.g. "AAPL") */
+  underlyingSymbol?: string;
 }
 
 export interface ITransaction {
@@ -79,8 +85,12 @@ export interface ITransaction {
   price: number;
   cashDelta: number;
   timestamp: string;
-  metadata: Record<string, unknown>;
+  customData: Record<string, unknown>;
   fee: number;
-  optionData: IOptionData | null;
+  /** Option contract details; present when transaction involves an option */
+  option: IOption | null;
   createdAt: string;
 }
+
+/** @deprecated Use option instead */
+export type IOptionData = IOption;

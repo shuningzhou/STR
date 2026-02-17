@@ -103,7 +103,7 @@ Three-column layout (desktop):
     ```python
     context = {
         'transactions': [  # 10–20 fake transactions
-            {'id': 1, 'side': 'sell', 'cashDelta': 120.5, 'timestamp': '2025-12-01T10:00:00Z', 'instrumentId': '...', 'instrumentSymbol': 'AAPL', 'instrumentName': 'Apple Inc.', 'metadata': {'isOption': True, 'expiration': '2026-03-20'}},
+            {'id': 1, 'side': 'sell', 'cashDelta': 120.5, 'timestamp': '2025-12-01T10:00:00Z', 'instrumentId': '...', 'instrumentSymbol': 'AAPL', 'instrumentName': 'Apple Inc.', 'option': {'expiration': '2026-03-20', 'strike': 150, 'callPut': 'call'}},
             # ...
         ],
         'wallet': {'baseCurrency': 'CAD', 'initialBalance': 25000.0}
@@ -178,7 +178,7 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
       }
     ]
   ],
-  "python_code": "def calc_win_rate(context, inputs):\n    txs = context['transactions']\n    time_filter = inputs.get('timeRange')\n    ticker = inputs.get('ticker', 'all')\n    closes = []\n    for tx in txs:\n        if tx['side'] not in ['sell', 'buy_to_cover']:\n            continue\n        if time_filter and (tx['timestamp'] < time_filter['start'] or tx['timestamp'] > time_filter['end']):\n            continue\n        if ticker != 'all' and tx.get('instrumentSymbol') != ticker:\n            continue\n        closes.append(tx)\n    if not closes:\n        return 0.0\n    winners = [tx for tx in closes if tx['cashDelta'] > 0]\n    return round((len(winners) / len(closes)) * 100, 1)\n",
+  "python_code": "def calc_win_rate(context, inputs):\n    txs = context['transactions']\n    time_filter = inputs.get('timeRange')\n    ticker = inputs.get('ticker', 'all')\n    closes = []\n    for tx in txs:\n        if tx['side'] not in ['sell', 'buy']:\n            continue\n        if time_filter and (tx['timestamp'] < time_filter['start'] or tx['timestamp'] > time_filter['end']):\n            continue\n        if ticker != 'all' and tx.get('instrumentSymbol') != ticker:\n            continue\n        closes.append(tx)\n    if not closes:\n        return 0.0\n    winners = [tx for tx in closes if tx['cashDelta'] > 0]\n    return round((len(winners) / len(closes)) * 100, 1)\n",
   "functions": [
     "calc_win_rate"
   ]
@@ -224,9 +224,9 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
               "source": "py:get_open_options",
               "columns": [
                 "instrumentId",
-                "metadata.expiration",
-                "metadata.strike",
-                "metadata.callPut",
+                "option.expiration",
+                "option.strike",
+                "option.callPut",
                 "quantity",
                 "price",
                 "cashDelta"
@@ -242,7 +242,7 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
       }
     ]
   ],
-  "python_code": "def get_open_options(context, inputs):\n    txs = context['transactions']\n    result = []\n    for tx in txs:\n        meta = tx.get('metadata', {})\n        if not meta.get('isOption', False):\n            continue\n        if meta.get('expiration') and meta['expiration'] < '2026-02-13':  # simplistic check\n            continue\n        result.append(tx)\n    return result\n",
+  "python_code": "def get_open_options(context, inputs):\n    txs = context['transactions']\n    result = []\n    for tx in txs:\n        opt = tx.get('option')\n        if not opt:\n            continue\n        if opt.get('expiration') and opt['expiration'] < '2026-02-13':  # simplistic check\n            continue\n        result.append(tx)\n    return result\n",
   "functions": [
     "get_open_options"
   ]
