@@ -159,3 +159,43 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
+/* Remove padding from subview table - override any 8px padding from layout/card */
+.subview-card,
+.subview-spec-root,
+.canvas-grid-item,
+.subview-spec-content,
+.subview-spec-layout,
+.subview-layout-cell,
+.subview-table-body,
+.react-grid-item > div {
+  padding: 0 !important;
+}
+.subview-table-container,
+.subview-table-header,
+.subview-table-body {
+  padding: 0 !important;
+}
+/* Ensure header row background spans full width of table */
+.subview-table-body table thead tr,
+.subview-table-body table thead th {
+  background: var(--color-bg-hover) !important;
+}
+.subview-spec-root {
+  padding-top: var(--subview-top-bar-height) !important;
+}
+
+/* Ensure table spans full card width with no horizontal gap */
+.subview-spec-root,
+.subview-spec-content,
+.subview-spec-layout,
+.subview-layout-cell,
+.subview-table-container,
+.subview-table-body,
+.subview-table-container table {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}

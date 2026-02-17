@@ -5,6 +5,8 @@ import { AddStrategyModal } from '@/features/strategy/AddStrategyModal';
 import { StrategySettingsModal } from '@/features/strategy/StrategySettingsModal';
 import { SubviewSettingsModal } from '@/features/canvas/SubviewSettingsModal';
 import { SubviewGalleryModal } from '@/features/subviews/SubviewGalleryModal';
+import { AddTransactionModal } from '@/features/transactions/AddTransactionModal';
+import { EditTransactionModal } from '@/features/transactions/EditTransactionModal';
 import { initializeTheme } from '@/store/theme-store';
 
 export default function App() {
@@ -20,6 +22,8 @@ export default function App() {
       <StrategySettingsModal />
       <SubviewSettingsModal />
       <SubviewGalleryModal />
+      <AddTransactionModal />
+      <EditTransactionModal />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import type { Strategy, Subview } from '@/store/strategy-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
 import { Input } from '@/components/ui';
 import { SubviewSpecRenderer } from '@/features/subviews/SubviewSpecRenderer';
+import { STOCK_ETF_TRANSACTIONS_TABLE } from '@/features/subviews/subview-editor/STOCK_ETF_TRANSACTIONS_TABLE';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
+import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
   subview: Subview;
@@ -64,6 +66,7 @@ function buildGlobalInputs(strategy: Strategy | null | undefined): {
 
 export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }: SubviewCardProps) {
   const setSubviewSettingsOpen = useUIStore((s) => s.setSubviewSettingsOpen);
+  const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
   const updateSubviewInputValue = useStrategyStore((s) => s.updateSubviewInputValue);
   const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
 
@@ -75,9 +78,19 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const pipelineInputs = getPipelineInputs(subview.pipeline);
   const inputValues = subview.inputValues ?? {};
 
+  // Use latest Stock & ETF template spec so existing subviews get updates (e.g. delete button)
+  const effectiveSpec: SubviewSpec | undefined = useMemo(() => {
+    const s = subview.spec;
+    if (!s) return undefined;
+    if (s.name === 'Stock & ETF Transactions') {
+      return STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec;
+    }
+    return s;
+  }, [subview.spec]);
+
   const specInputs = useMemo(
-    () => (subview.spec ? buildInputs(inputValues) : null),
-    [subview.spec, inputValues]
+    () => (effectiveSpec ? buildInputs(inputValues) : null),
+    [effectiveSpec, inputValues]
   );
 
   const globalInputs = useMemo(
@@ -90,43 +103,64 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
-  const hasSpec = !!subview.spec;
+  const hasSpec = !!effectiveSpec;
+  const showAddTransaction = effectiveSpec?.type === 'readwrite';
 
   return (
     <div
       className={cn(
-        'h-full flex flex-col rounded-[var(--radius-card)] overflow-hidden relative',
+        'subview-card h-full flex flex-col rounded-[var(--radius-card)] overflow-hidden relative',
         'border border-[var(--color-border)]'
       )}
       style={{
         backgroundColor: 'var(--color-bg-card)',
-        padding: 'var(--subview-card-padding)',
+        padding: 0,
       }}
     >
       {/* Top bar - draggable, no background; above content */}
       <div
-        className="absolute top-0 left-0 right-0 z-20 flex items-center"
-        style={{ minHeight: 'var(--subview-top-bar-height)', height: 'var(--subview-top-bar-height)' }}
+        className="absolute top-0 left-0 right-0 z-20 flex items-center w-full"
+        style={{ minHeight: 'var(--subview-top-bar-height)', height: 'var(--subview-top-bar-height)', paddingLeft: 5, paddingRight: 5 }}
       >
         <div
           className={cn(
             'subview-drag-handle flex-1 flex items-center min-w-0 h-full',
             isEditMode && 'cursor-grab active:cursor-grabbing'
           )}
-          style={{ paddingLeft: 10, paddingRight: 4 }}
+          style={{ paddingLeft: 5, paddingRight: 4 }}
         >
           <span
-            className="text-[13px] font-medium truncate max-w-[150px]"
+            className="min-w-0 flex-1 truncate text-[13px] font-medium"
             style={{ color: 'var(--color-text-primary)' }}
           >
             {subview.name}
           </span>
         </div>
+        {showAddTransaction && (
+          <button
+            type="button"
+            className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors"
+            style={{ marginRight: 5, backgroundColor: 'var(--color-active)', color: 'var(--color-text-on-primary)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-primary-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-active)';
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAddTransactionModalOpen({ strategyId, mode: 'stock-etf' });
+            }}
+            title="Add transaction"
+          >
+            <Plus size={12} strokeWidth={1.5} />
+          </button>
+        )}
         {isEditMode && (
           <button
             type="button"
             onClick={handleMenuClick}
-            className="w-8 h-8 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors"
+            className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors"
             style={{
               marginRight: 5,
               color: 'var(--color-text-secondary)',
@@ -141,16 +175,16 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             }}
             title="Subview settings"
           >
-            <Pencil size={16} strokeWidth={1.5} />
+            <Pencil size={12} strokeWidth={1.5} />
           </button>
         )}
       </div>
 
       {/* Spec-based body or pipeline placeholder */}
-      {hasSpec && subview.spec && specInputs ? (
+      {hasSpec && effectiveSpec && specInputs ? (
         <SubviewSpecRenderer
-          spec={subview.spec}
-          pythonCode={subview.spec.python_code}
+          spec={effectiveSpec}
+          pythonCode={effectiveSpec.python_code}
           context={strategyContext}
           inputs={specInputs}
           onInputChange={(key, value) =>
@@ -161,6 +195,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
           onGlobalInputChange={(key, value) =>
             updateStrategyInputValue(strategyId, key, value)
           }
+          strategyId={strategyId}
         />
       ) : (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingTop: 'var(--subview-top-bar-height)' }}>

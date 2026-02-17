@@ -79,6 +79,9 @@ interface StrategyState {
 
   addStrategy: (name: string, baseCurrency: string) => Strategy;
   updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'inputs' | 'inputValues' | 'transactions'>>) => void;
+  addTransaction: (strategyId: string, transaction: Omit<StrategyTransaction, 'id'>) => StrategyTransaction;
+  updateTransaction: (strategyId: string, transactionId: number, updates: Partial<Omit<StrategyTransaction, 'id'>>) => void;
+  removeTransaction: (strategyId: string, transactionId: number) => void;
   updateStrategyInputValue: (strategyId: string, inputId: string, value: string | number) => void;
   deleteStrategy: (id: string) => void;
   setActiveStrategy: (id: string | null) => void;
@@ -165,6 +168,52 @@ export const useStrategyStore = create<StrategyState>()(
       },
 
       setActiveStrategy: (id) => set({ activeStrategyId: id }),
+
+      addTransaction: (strategyId, tx) => {
+        const st = get().strategies.find((s) => s.id === strategyId);
+        if (!st) {
+          throw new Error(`Strategy not found: ${strategyId}. Available: ${get().strategies.map((s) => s.id).join(', ') || 'none'}`);
+        }
+        const existing = st.transactions ?? [];
+        const maxId = existing.length > 0 ? Math.max(...existing.map((t) => t.id)) : 0;
+        const newTx: StrategyTransaction = {
+          ...tx,
+          id: maxId + 1,
+          option: tx.option ?? null,
+        };
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? { ...st, transactions: [...(st.transactions ?? []), newTx] }
+              : st
+          ),
+        }));
+        return newTx;
+      },
+
+      updateTransaction: (strategyId, transactionId, updates) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) => {
+            if (st.id !== strategyId) return st;
+            const txs = st.transactions ?? [];
+            const idx = txs.findIndex((t) => t.id === transactionId);
+            if (idx < 0) return st;
+            const next = [...txs];
+            next[idx] = { ...next[idx], ...updates };
+            return { ...st, transactions: next };
+          }),
+        }));
+      },
+
+      removeTransaction: (strategyId, transactionId) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? { ...st, transactions: (st.transactions ?? []).filter((t) => t.id !== transactionId) }
+              : st
+          ),
+        }));
+      },
 
       addSubview: (strategyId, options = {}) => {
         const name = options.name ?? options.spec?.name ?? 'Subview';
@@ -326,23 +375,33 @@ export const useStrategyStore = create<StrategyState>()(
     }),
     {
       name: 'str-strategies',
-      partialize: (s) => ({ strategies: s.strategies }),
+      partialize: (s) => ({
+        strategies: s.strategies,
+        activeStrategyId: s.activeStrategyId,
+      }),
       merge: (persisted, current) => {
-        const p = persisted as { strategies?: Strategy[] };
+        const p = persisted as { strategies?: Strategy[]; activeStrategyId?: string | null };
         if (!p?.strategies) return current;
+        const strategies = p.strategies.map((st) => ({
+          ...st,
+          inputs: st.inputs ?? [],
+          inputValues: st.inputValues ?? {},
+          transactions: st.transactions ?? [],
+          subviews: (st.subviews ?? []).map((sv) => ({
+            ...sv,
+            pipeline: sv.pipeline ?? null,
+            inputValues: sv.inputValues ?? {},
+          })),
+        }));
+        // Restore activeStrategyId, or default to first strategy if we have strategies but none selected
+        const activeStrategyId =
+          p.activeStrategyId != null && strategies.some((s) => s.id === p.activeStrategyId)
+            ? p.activeStrategyId
+            : strategies[0]?.id ?? null;
         return {
           ...current,
-          strategies: p.strategies.map((st) => ({
-            ...st,
-            inputs: st.inputs ?? [],
-            inputValues: st.inputValues ?? {},
-            transactions: st.transactions ?? [],
-            subviews: (st.subviews ?? []).map((sv) => ({
-              ...sv,
-              pipeline: sv.pipeline ?? null,
-              inputValues: sv.inputValues ?? {},
-            })),
-          })),
+          strategies,
+          activeStrategyId,
         };
       },
     }

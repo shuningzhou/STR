@@ -14,7 +14,7 @@ export function CanvasArea() {
   const activeStrategy = useStrategyStore((s) =>
     s.strategies.find((st) => st.id === s.activeStrategyId)
   );
-  const { canvasEditMode, toggleCanvasEditMode, setStrategySettingsModalOpen, setSubviewGalleryModalOpen } = useUIStore();
+  const { canvasEditMode, toggleCanvasEditMode, setStrategySettingsModalOpen, setSubviewGalleryModalOpen, setAddTransactionModalOpen } = useUIStore();
   const hasStrategies = strategies.length > 0;
 
   const hasSubviews = (activeStrategy?.subviews?.length ?? 0) > 0;
@@ -155,6 +155,7 @@ export function CanvasArea() {
               style={{
                 color: 'var(--color-text-primary)',
               }}
+              onClick={() => activeStrategyId && setAddTransactionModalOpen({ strategyId: activeStrategyId, mode: 'full' })}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
               }}

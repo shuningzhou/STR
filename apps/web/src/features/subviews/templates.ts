@@ -1,5 +1,6 @@
 import type { SubviewSpec } from '@str/shared';
 import { WIN_RATE_EXAMPLE } from './subview-editor/WIN_RATE_EXAMPLE';
+import { STOCK_ETF_TRANSACTIONS_TABLE } from './subview-editor/STOCK_ETF_TRANSACTIONS_TABLE';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -14,6 +15,7 @@ export interface SubviewTemplate {
 export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'equity-curve', name: 'Equity Curve', description: 'Cumulative P&L over time (line chart)', defaultSize: { w: 600, h: 120 } },
   { id: 'win-rate', name: 'Win Rate', description: '% of profitable trades', defaultSize: { w: 400, h: 70 }, spec: WIN_RATE_EXAMPLE as unknown as SubviewSpec },
+  { id: 'stock-etf-transactions', name: 'Stock & ETF Transactions', description: 'Table of stock and ETF transactions (no options)', defaultSize: { w: 700, h: 180 }, spec: STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec },
   { id: 'monthly-returns', name: 'Monthly Returns', description: 'Bar chart grouped by month', defaultSize: { w: 600, h: 120 } },
   { id: 'exposure-breakdown', name: 'Exposure Breakdown', description: 'Pie chart by asset type or sector', defaultSize: { w: 300, h: 80 } },
   { id: 'realized-pnl-table', name: 'Realized P&L Table', description: 'Sortable table of closed trades', defaultSize: { w: 600, h: 120 } },

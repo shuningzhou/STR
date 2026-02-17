@@ -53,7 +53,7 @@ export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
         onLayoutChange={handleLayoutChange}
       >
         {strategy.subviews.map((sv) => (
-          <div key={sv.id} className="overflow-hidden">
+          <div key={sv.id} className="canvas-grid-item overflow-hidden" style={{ padding: 0 }}>
             <SubviewCard subview={sv} strategyId={strategyId} strategy={strategy} isEditMode={isEditMode} />
           </div>
         ))}
