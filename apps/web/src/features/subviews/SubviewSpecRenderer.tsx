@@ -188,8 +188,8 @@ function ContentRenderer({
 
     const cellPadding = 5;
     const inner = (
-      <div className="subview-table-container flex flex-col min-w-full w-full border overflow-hidden" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-input)', width: '100%', minWidth: '100%' }}>
-        <div className="overflow-y-scroll min-h-0 flex-1 subview-table-body w-full" style={{ maxHeight: 200, width: '100%' }}>
+      <div className="subview-table-container flex flex-col min-w-full w-full overflow-hidden" style={{ borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-input)', width: '100%', minWidth: '100%' }}>
+        <div className="overflow-auto min-h-0 min-w-0 flex-1 subview-table-body w-full" style={{ maxHeight: 200, width: '100%' }}>
           <table className="w-full border-collapse text-[12px]" style={{ tableLayout: 'fixed', width: '100%' }}>
             <colgroup>
               {columns.map((col) => (
@@ -202,7 +202,7 @@ function ContentRenderer({
             <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <tr style={{ backgroundColor: 'var(--color-bg-hover)' }}>
                 {columns.map((col, i) => (
-                  <th key={col} className="text-left font-medium" style={{ color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', borderRight: '1px solid var(--color-border)', padding: cellPadding }}>
+                  <th key={col} className="text-left font-medium" style={{ color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
                     {COLUMN_LABELS[col] ?? col}
                   </th>
                 ))}
@@ -214,15 +214,15 @@ function ContentRenderer({
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length + (tbl.rowActions?.length ? 1 : 0)} className="text-center" style={{ color: 'var(--color-text-muted)', padding: cellPadding, borderRight: '1px solid var(--color-border)' }}>
+                  <td colSpan={columns.length + (tbl.rowActions?.length ? 1 : 0)} className="text-center" style={{ color: 'var(--color-text-muted)', padding: cellPadding }}>
                     No transactions
                   </td>
                 </tr>
               ) : (
                 data.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    {columns.map((col) => (
-                      <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: '1px solid var(--color-border)', padding: cellPadding }}>
+                    {columns.map((col, i) => (
+                      <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
                         {formatCellValue(getNested(row as Record<string, unknown>, col), col)}
                       </td>
                     ))}
