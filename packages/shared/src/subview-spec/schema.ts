@@ -99,11 +99,19 @@ const tableHeaderSchema = z.object({
     .optional(),
 });
 
+const columnFormatSchema = z.enum(['currency', 'percent', 'number']);
+
 const tableContentSchema = z.object({
   Table: z.object({
     header: tableHeaderSchema,
     source: z.string(), // "py:fn"
     columns: z.array(z.string()),
+    /** Column key -> display label. If absent, humanized key used */
+    columnLabels: z.record(z.string(), z.string()).optional(),
+    /** Column key -> format: currency ($), percent (%), or number */
+    columnFormats: z.record(z.string(), columnFormatSchema).optional(),
+    /** Message when table has no rows */
+    emptyMessage: z.string().optional(),
     padding: paddingSchema,
     rowActions: z
       .array(
@@ -161,6 +169,12 @@ function parseSizeString(s: string): { w: number; h: number } {
   return { w: 400, h: 100 };
 }
 
+const headerActionSchema = z.object({
+  title: z.string(),
+  icon: z.string(),
+  handler: z.string(),
+});
+
 // --- Top-level spec ---
 export const subviewSpecSchema = z
   .object({
@@ -170,6 +184,8 @@ export const subviewSpecSchema = z
     maker: z.string(),
     defaultSize: z.union([sizeShapeSchema, z.string()]).optional(),
     preferredSize: sizeShapeSchema.optional(),
+    /** Buttons in subview card header (e.g. Add, Deposit, Withdraw) */
+    headerActions: z.array(headerActionSchema).optional(),
     inputs: z.record(z.string(), inputConfigSchema).optional(),
     layout: z.array(z.array(layoutCellSchema)),
     python_code: z.string(),

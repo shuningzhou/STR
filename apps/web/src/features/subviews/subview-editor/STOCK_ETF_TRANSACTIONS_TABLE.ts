@@ -28,6 +28,16 @@ export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
               },
               source: 'py:get_stock_etf_transactions',
               columns: ['date', 'instrumentSymbol', 'side', 'quantity', 'price', 'cashDelta'],
+              columnLabels: {
+                date: 'Date',
+                instrumentSymbol: 'Symbol',
+                side: 'Side',
+                quantity: 'Qty',
+                price: 'Price',
+                cashDelta: 'Amount',
+              },
+              columnFormats: { price: 'currency', cashDelta: 'currency' },
+              emptyMessage: 'No transactions',
               rowActions: [
                 { title: 'Edit', icon: 'pencil', handler: 'editTransactionModal' },
                 { title: 'Delete', icon: 'trash', handler: 'deleteTransaction' },

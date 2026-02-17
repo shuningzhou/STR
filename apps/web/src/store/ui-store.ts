@@ -15,6 +15,8 @@ interface UIState {
   addTransactionModalOpen: { strategyId: string; mode: AddTransactionModalMode } | null;
   /** When open: { strategyId, transaction } for editing */
   editTransactionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
+  /** When open: { strategyId, mode: 'deposit' | 'withdraw' } for wallet */
+  depositWithdrawModalOpen: { strategyId: string; mode: 'deposit' | 'withdraw' } | null;
 
   toggleSidebar: () => void;
   toggleCanvasEditMode: () => void;
@@ -24,6 +26,7 @@ interface UIState {
   setSubviewGalleryModalOpen: (open: boolean) => void;
   setAddTransactionModalOpen: (value: { strategyId: string; mode: AddTransactionModalMode } | null) => void;
   setEditTransactionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setDepositWithdrawModalOpen: (value: { strategyId: string; mode: 'deposit' | 'withdraw' } | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -37,6 +40,7 @@ export const useUIStore = create<UIState>()(
       subviewGalleryModalOpen: false,
       addTransactionModalOpen: null,
       editTransactionModalOpen: null,
+      depositWithdrawModalOpen: null,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       toggleCanvasEditMode: () => set((s) => ({ canvasEditMode: !s.canvasEditMode })),
@@ -46,6 +50,7 @@ export const useUIStore = create<UIState>()(
       setSubviewGalleryModalOpen: (open) => set({ subviewGalleryModalOpen: open }),
       setAddTransactionModalOpen: (value) => set({ addTransactionModalOpen: value }),
       setEditTransactionModalOpen: (value) => set({ editTransactionModalOpen: value }),
+      setDepositWithdrawModalOpen: (value) => set({ depositWithdrawModalOpen: value }),
     }),
     { name: 'str-ui', partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }) }
   )

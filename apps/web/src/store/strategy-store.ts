@@ -24,6 +24,8 @@ export interface Subview {
   id: string;
   name: string;
   position: SubviewPosition;
+  /** Template id when added from gallery; used to resolve latest spec from templates */
+  templateId?: string;
   /** JSON+Python spec (Phase 5+); when present, takes precedence over pipeline */
   spec?: SubviewSpec;
   /** @deprecated Pipeline graph; legacy, replaced by spec */
@@ -64,6 +66,8 @@ export interface Strategy {
   id: string;
   name: string;
   baseCurrency: string;
+  /** Starting cash balance for non-margin account */
+  initialBalance?: number;
   /** Strategy-scoped inputs; subviews reference via global.xxx */
   inputs?: StrategyInputConfig[];
   /** Values for strategy inputs */
@@ -88,7 +92,7 @@ interface StrategyState {
 
   addSubview: (
     strategyId: string,
-    options?: { name?: string; defaultSize?: { w: number; h: number }; spec?: SubviewSpec }
+    options?: { name?: string; defaultSize?: { w: number; h: number }; spec?: SubviewSpec; templateId?: string }
   ) => Subview;
   updateSubviewLayout: (strategyId: string, layout: Layout, containerWidth: number) => void;
   removeSubview: (strategyId: string, subviewId: string) => void;
@@ -253,6 +257,7 @@ export const useStrategyStore = create<StrategyState>()(
           id: generateSubviewId(),
           name,
           position: { x: 0, y: maxBottom, w: gridSize.w, h: gridSize.h },
+          ...(options.templateId && { templateId: options.templateId }),
           ...(options.spec && { spec: options.spec }),
         };
         set((s) => ({
@@ -343,7 +348,7 @@ export const useStrategyStore = create<StrategyState>()(
                   ...st,
                   subviews: st.subviews.map((sv) => {
                     if (sv.id !== subviewId) return sv;
-                    const updates: Partial<Subview> = { spec, name: spec.name, pipeline: undefined };
+                    const updates: Partial<Subview> = { spec, name: spec.name, pipeline: undefined, templateId: undefined };
                     if (spec.preferredSize) {
                       const { w, h } = pixelsToGrid(spec.preferredSize.w, spec.preferredSize.h, REFERENCE_WIDTH);
                       updates.position = { ...sv.position, w, h };

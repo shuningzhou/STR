@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pencil, Plus } from 'lucide-react';
+import { Pencil, Plus, Minus } from 'lucide-react';
 import type { Strategy, Subview } from '@/store/strategy-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
@@ -7,8 +7,9 @@ import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
 import { Input } from '@/components/ui';
 import { SubviewSpecRenderer } from '@/features/subviews/SubviewSpecRenderer';
-import { STOCK_ETF_TRANSACTIONS_TABLE } from '@/features/subviews/subview-editor/STOCK_ETF_TRANSACTIONS_TABLE';
+import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
+import { useStrategyPrices } from '@/hooks/useStrategyPrices';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -72,6 +73,7 @@ function buildGlobalInputs(strategy: Strategy | null | undefined): {
 export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }: SubviewCardProps) {
   const setSubviewSettingsOpen = useUIStore((s) => s.setSubviewSettingsOpen);
   const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
+  const setDepositWithdrawModalOpen = useUIStore((s) => s.setDepositWithdrawModalOpen);
   const updateSubviewInputValue = useStrategyStore((s) => s.updateSubviewInputValue);
   const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
 
@@ -83,15 +85,16 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const pipelineInputs = getPipelineInputs(subview.pipeline);
   const inputValues = subview.inputValues ?? {};
 
-  // Use latest Stock & ETF template spec so existing subviews get updates (e.g. delete button)
-  const effectiveSpec: SubviewSpec | undefined = useMemo(() => {
-    const s = subview.spec;
-    if (!s) return undefined;
-    if (s.name === 'Stock & ETF Transactions') {
-      return STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec;
+  // Resolve spec: templateId → latest from templates; else use stored spec
+  const effectiveSpec = useMemo((): SubviewSpec | undefined => {
+    if (subview.templateId) {
+      const template = SUBVIEW_TEMPLATES.find((t) => t.id === subview.templateId);
+      const spec = template?.spec;
+      return spec ? (spec as SubviewSpec) : undefined;
     }
-    return s;
-  }, [subview.spec]);
+    const s = subview.spec;
+    return s ? (s as SubviewSpec) : undefined;
+  }, [subview.templateId, subview.spec]);
 
   const specInputs = useMemo(
     () => (effectiveSpec ? buildInputs(inputValues) : null),
@@ -103,13 +106,34 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
-  const strategyContext = useMemo(
-    () => buildStrategyContext(strategy),
+  const baseContext = useMemo(
+    () => buildStrategyContext(strategy ?? null),
     [strategy]
+  );
+  const currentPrices = useStrategyPrices(strategy?.transactions);
+  const strategyContext = useMemo(
+    () => ({ ...baseContext, currentPrices }),
+    [baseContext, currentPrices]
   );
 
   const hasSpec = !!effectiveSpec;
-  const showAddTransaction = effectiveSpec?.type === 'readwrite';
+  type SpecLike = { headerActions?: { title: string; icon: string; handler: string }[]; type?: string; python_code?: string };
+  const specLike = effectiveSpec as SpecLike | undefined;
+  const headerActions =
+    specLike?.headerActions ??
+    (specLike?.type === 'readwrite'
+      ? [{ title: 'Add', icon: 'plus', handler: 'addTransactionModal' as const }]
+      : []);
+
+  const handleHeaderAction = (handler: string) => {
+    if (handler === 'addTransactionModal') {
+      setAddTransactionModalOpen({ strategyId, mode: 'stock-etf' });
+    } else if (handler === 'depositWallet') {
+      setDepositWithdrawModalOpen({ strategyId, mode: 'deposit' });
+    } else if (handler === 'withdrawWallet') {
+      setDepositWithdrawModalOpen({ strategyId, mode: 'withdraw' });
+    }
+  };
 
   return (
     <div
@@ -141,26 +165,36 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             {subview.name}
           </span>
         </div>
-        {showAddTransaction && (
-          <button
-            type="button"
-            className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors"
-            style={{ marginRight: 5, backgroundColor: 'var(--color-active)', color: 'var(--color-text-on-primary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg-primary-hover)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-active)';
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setAddTransactionModalOpen({ strategyId, mode: 'stock-etf' });
-            }}
-            title="Add transaction"
-          >
-            <Plus size={12} strokeWidth={1.5} />
-          </button>
-        )}
+        {headerActions.map((action: { title: string; icon: string; handler: string }, i: number) => {
+          const iconName = action.icon?.toLowerCase();
+          const isSecondary = action.handler === 'withdrawWallet' || iconName === 'minus';
+          return (
+            <button
+              key={i}
+              type="button"
+              className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors"
+              style={{
+                marginRight: 5,
+                backgroundColor: isSecondary ? 'transparent' : 'var(--color-active)',
+                color: isSecondary ? 'var(--color-text-secondary)' : 'var(--color-text-on-primary)',
+                border: isSecondary ? '1px solid var(--color-border)' : undefined,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isSecondary ? 'var(--color-bg-hover)' : 'var(--color-bg-primary-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = isSecondary ? 'transparent' : 'var(--color-active)';
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleHeaderAction(action.handler);
+              }}
+              title={action.title}
+            >
+              {iconName === 'minus' ? <Minus size={12} strokeWidth={1.5} /> : <Plus size={12} strokeWidth={1.5} />}
+            </button>
+          );
+        })}
         {isEditMode && (
           <button
             type="button"
@@ -188,8 +222,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       {/* Spec-based body or pipeline placeholder */}
       {hasSpec && effectiveSpec && specInputs ? (
         <SubviewSpecRenderer
-          spec={effectiveSpec}
-          pythonCode={effectiveSpec.python_code}
+          spec={effectiveSpec as SubviewSpec}
+          pythonCode={specLike!.python_code ?? ''}
           context={strategyContext}
           inputs={specInputs}
           onInputChange={(key, value) =>

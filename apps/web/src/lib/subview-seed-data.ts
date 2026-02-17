@@ -1,4 +1,9 @@
 export interface SeedContext {
+  /** Current price per symbol; backend provides when ready */
+  currentPrices?: Record<string, number>;
+  /** Wallet: baseCurrency, balance (initialBalance + sum cashDelta), initialBalance */
+  /** Wallet: baseCurrency, balance (initialBalance + sum cashDelta), initialBalance */
+  wallet: { baseCurrency: string; initialBalance: number; balance: number };
   transactions: Array<{
     id: number;
     side: string;
@@ -13,7 +18,6 @@ export interface SeedContext {
     quantity: number;
     price: number;
   }>;
-  wallet: { baseCurrency: string; initialBalance: number };
 }
 
 /**
@@ -21,6 +25,7 @@ export interface SeedContext {
  * Injected when "Test Functions" runs or Live Preview executes Python.
  */
 export const SEED_CONTEXT: SeedContext = {
+  currentPrices: { AAPL: 185.5, VOO: 405.0 },
   transactions: [
     {
       id: 1,
@@ -65,7 +70,7 @@ export const SEED_CONTEXT: SeedContext = {
       quantity: 1,
       price: 0.85,
     },
-    // Stock/ETF transactions for Stock & ETF Transactions subview
+    // Stock/ETF transactions
     {
       id: 10,
       side: 'buy',
@@ -109,6 +114,7 @@ export const SEED_CONTEXT: SeedContext = {
   wallet: {
     baseCurrency: 'CAD',
     initialBalance: 25000.0,
+    balance: 25000.0,
   },
 };
 
@@ -138,9 +144,19 @@ export type ResolvedTransaction = SeedContext['transactions'][number];
 export function buildStrategyContext(strategy: {
   transactions?: ResolvedTransaction[];
   baseCurrency?: string;
+  initialBalance?: number;
 } | null): SeedContext {
+  const txs = strategy?.transactions ?? [];
+  const initialBalance = strategy?.initialBalance ?? 0;
+  const balance =
+    initialBalance +
+    txs.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
   return {
-    transactions: strategy?.transactions ?? [],
-    wallet: { baseCurrency: strategy?.baseCurrency ?? 'USD', initialBalance: 0 },
+    transactions: txs,
+    wallet: {
+      baseCurrency: strategy?.baseCurrency ?? 'USD',
+      initialBalance,
+      balance,
+    },
   };
 }

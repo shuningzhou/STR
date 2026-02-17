@@ -5,9 +5,9 @@
  */
 import { useState, useEffect } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { SubviewSpec, ContentItem } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
-import { Input } from '@/components/ui';
 import { InputControl } from './InputControl';
 import { useUIStore } from '@/store/ui-store';
 import { useStrategyStore } from '@/store/strategy-store';
@@ -47,26 +47,30 @@ function getNested(obj: Record<string, unknown>, path: string): unknown {
   return v;
 }
 
-/** Format cell value for display */
-function formatCellValue(val: unknown, key: string): string {
+/** Humanize column key for display when columnLabels not specified in spec */
+function humanizeColumnKey(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^\s+/, '')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Format cell value; format from spec.columnFormats or inferred for numbers */
+function formatCellValue(
+  val: unknown,
+  key: string,
+  format?: 'currency' | 'percent' | 'number'
+): string {
   if (val == null || val === '') return '—';
   if (typeof val === 'number') {
-    if (key === 'cashDelta' || key === 'price') return `$${val.toFixed(2)}`;
+    if (format === 'currency') return `$${val.toFixed(2)}`;
+    if (format === 'percent') return `${val.toFixed(1)}%`;
     if (Number.isInteger(val)) return String(val);
     return val.toFixed(2);
   }
   return String(val);
 }
-
-const COLUMN_LABELS: Record<string, string> = {
-  date: 'Date',
-  instrumentSymbol: 'Symbol',
-  side: 'Side',
-  quantity: 'Qty',
-  price: 'Price',
-  cashDelta: 'Amount',
-  timestamp: 'Date',
-};
 
 function ContentRenderer({
   item,
@@ -203,7 +207,7 @@ function ContentRenderer({
               <tr style={{ backgroundColor: 'var(--color-bg-hover)' }}>
                 {columns.map((col, i) => (
                   <th key={col} className="text-left font-medium" style={{ color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
-                    {COLUMN_LABELS[col] ?? col}
+                    {(tbl.columnLabels as Record<string, string> | undefined)?.[col] ?? humanizeColumnKey(col)}
                   </th>
                 ))}
                 {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
@@ -215,7 +219,7 @@ function ContentRenderer({
               {data.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length + (tbl.rowActions?.length ? 1 : 0)} className="text-center" style={{ color: 'var(--color-text-muted)', padding: cellPadding }}>
-                    No transactions
+                    {(tbl as { emptyMessage?: string }).emptyMessage ?? 'No data'}
                   </td>
                 </tr>
               ) : (
@@ -223,7 +227,7 @@ function ContentRenderer({
                   <tr key={ri} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     {columns.map((col, i) => (
                       <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
-                        {formatCellValue(getNested(row as Record<string, unknown>, col), col)}
+                        {formatCellValue(getNested(row as Record<string, unknown>, col), col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col])}
                       </td>
                     ))}
                     {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
@@ -269,12 +273,57 @@ function ContentRenderer({
     return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
   }
   if ('Chart' in item) {
-    const p = item.Chart.padding;
-    const inner = (
-      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        [Chart: {item.Chart.type}]
-      </span>
-    );
+    const chart = item.Chart;
+    const p = chart.padding;
+    const source = chart.source;
+    const data = resolved[source] as { items?: { label: string; value: number }[] } | undefined;
+    const items = data?.items ?? [];
+
+    let inner: React.ReactNode;
+    if (chart.type === 'pie' && items.length > 0) {
+      const CHART_COLORS = [
+        'var(--color-chart-1)',
+        'var(--color-chart-2)',
+        'var(--color-chart-3)',
+        'var(--color-chart-4)',
+        'var(--color-chart-5)',
+      ];
+      inner = (
+        <div className="w-full min-h-[180px]" style={{ height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={items}
+                dataKey="value"
+                nameKey="label"
+                cx="50%"
+                cy="50%"
+                outerRadius="75%"
+                label={({ label, value }) => `${label} ${value}%`}
+              >
+                {items.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: number) => [`${v}%`, '% of portfolio']} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    } else if (chart.type === 'pie' && items.length === 0) {
+      inner = (
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          No holdings
+        </span>
+      );
+    } else {
+      inner = (
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          [Chart: {chart.type}]
+        </span>
+      );
+    }
     return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
   }
   return null;
@@ -353,6 +402,7 @@ export function SubviewSpecRenderer({
     let cancelled = false;
     const pyRefs = new Set<string>();
     const tableSources = new Set<string>();
+    const chartSources = new Set<string>();
     for (const row of spec.layout) {
       for (const cell of row) {
         for (const c of cell.content) {
@@ -367,6 +417,10 @@ export function SubviewSpecRenderer({
           if ('Table' in c) {
             const src = (c as { Table: { source: string } }).Table.source;
             if (typeof src === 'string' && src.startsWith('py:')) tableSources.add(src);
+          }
+          if ('Chart' in c) {
+            const src = (c as { Chart: { source: string } }).Chart.source;
+            if (typeof src === 'string' && src.startsWith('py:')) chartSources.add(src);
           }
         }
       }
@@ -399,6 +453,17 @@ export function SubviewSpecRenderer({
           next[ref] = result.value;
         } else {
           next[ref] = [];
+        }
+      }
+      for (const ref of chartSources) {
+        if (cancelled) return;
+        if (next[ref] != null) continue;
+        const fn = ref.slice(3);
+        const result = await runPythonFunction(pythonCode, fn, context, mergedInputs);
+        if (result.success && result.value != null) {
+          next[ref] = result.value;
+        } else {
+          next[ref] = { items: [] };
         }
       }
       if (!cancelled) {

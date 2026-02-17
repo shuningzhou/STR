@@ -18,6 +18,7 @@ export function SubviewGalleryModal() {
       name: template.name,
       defaultSize: template.defaultSize,
       spec: template.spec,
+      templateId: templateId !== 'custom' ? templateId : undefined,
     });
     setSubviewGalleryModalOpen(false);
     if (templateId === 'custom') {
