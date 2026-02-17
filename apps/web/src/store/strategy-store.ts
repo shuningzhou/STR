@@ -43,6 +43,22 @@ export interface StrategyInputConfig {
   max?: number;
 }
 
+/** Resolved transaction for Python context (instrumentSymbol, option, etc.) */
+export interface StrategyTransaction {
+  id: number;
+  side: string;
+  cashDelta: number;
+  timestamp: string;
+  instrumentId: string;
+  instrumentSymbol: string;
+  instrumentName: string;
+  option: { expiration: string; strike: number; callPut: string } | null;
+  optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
+  customData: Record<string, unknown>;
+  quantity: number;
+  price: number;
+}
+
 /** Minimal strategy shape for Phase 2–3 */
 export interface Strategy {
   id: string;
@@ -52,6 +68,8 @@ export interface Strategy {
   inputs?: StrategyInputConfig[];
   /** Values for strategy inputs */
   inputValues?: Record<string, string | number>;
+  /** Resolved transactions for Python subviews (from API or mock) */
+  transactions?: StrategyTransaction[];
   subviews: Subview[];
 }
 
@@ -60,7 +78,7 @@ interface StrategyState {
   activeStrategyId: string | null;
 
   addStrategy: (name: string, baseCurrency: string) => Strategy;
-  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'inputs' | 'inputValues'>>) => void;
+  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'inputs' | 'inputValues' | 'transactions'>>) => void;
   updateStrategyInputValue: (strategyId: string, inputId: string, value: string | number) => void;
   deleteStrategy: (id: string) => void;
   setActiveStrategy: (id: string | null) => void;
@@ -105,6 +123,7 @@ export const useStrategyStore = create<StrategyState>()(
           id: generateId(),
           name,
           baseCurrency,
+          transactions: [],
           subviews: [],
         };
         set((s) => ({
@@ -317,6 +336,7 @@ export const useStrategyStore = create<StrategyState>()(
             ...st,
             inputs: st.inputs ?? [],
             inputValues: st.inputValues ?? {},
+            transactions: st.transactions ?? [],
             subviews: (st.subviews ?? []).map((sv) => ({
               ...sv,
               pipeline: sv.pipeline ?? null,

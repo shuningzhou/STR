@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
 import { Input } from '@/components/ui';
 import { SubviewSpecRenderer } from '@/features/subviews/SubviewSpecRenderer';
-import { SEED_CONTEXT, SEED_INPUTS } from '@/lib/subview-seed-data';
+import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 
 interface SubviewCardProps {
   subview: Subview;
@@ -85,6 +85,11 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
+  const strategyContext = useMemo(
+    () => buildStrategyContext(strategy),
+    [strategy]
+  );
+
   const hasSpec = !!subview.spec;
 
   return (
@@ -146,7 +151,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
         <SubviewSpecRenderer
           spec={subview.spec}
           pythonCode={subview.spec.python_code}
-          context={SEED_CONTEXT}
+          context={strategyContext}
           inputs={specInputs}
           onInputChange={(key, value) =>
             updateSubviewInputValue(strategyId, subview.id, key, value)

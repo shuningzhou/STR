@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import type { Strategy } from '@/store/strategy-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import { InputControl } from '@/features/subviews/InputControl';
-import { SEED_CONTEXT } from '@/lib/subview-seed-data';
+import { buildStrategyContext } from '@/lib/subview-seed-data';
 
 function normalizeInputValue(key: string, val: unknown): unknown {
   if (key === 'timeRange' && typeof val === 'string') {
@@ -34,6 +34,7 @@ export function StrategyInputsBar({ strategy }: { strategy: Strategy | null }) {
   const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
 
   const values = useMemo(() => (strategy ? buildValues(strategy) : {}), [strategy]);
+  const context = useMemo(() => buildStrategyContext(strategy), [strategy]);
   const inputs = strategy?.inputs ?? [];
 
   if (inputs.length === 0) return null;
@@ -73,7 +74,7 @@ export function StrategyInputsBar({ strategy }: { strategy: Strategy | null }) {
             onInputChange={(key, value) =>
               strategy && updateStrategyInputValue(strategy.id, key, value)
             }
-            context={SEED_CONTEXT}
+            context={context}
           />
         </span>
       ))}

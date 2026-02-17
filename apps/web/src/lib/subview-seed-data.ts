@@ -87,3 +87,20 @@ function getDefaultInputs() {
 }
 
 export const SEED_INPUTS = getDefaultInputs();
+
+/** Resolved transaction format for Python context (matches SeedContext) */
+export type ResolvedTransaction = SeedContext['transactions'][number];
+
+/**
+ * Build context from strategy's real transactions for the canvas.
+ * Subview editor preview uses SEED_CONTEXT; strategy canvas uses this.
+ */
+export function buildStrategyContext(strategy: {
+  transactions?: ResolvedTransaction[];
+  baseCurrency?: string;
+} | null): SeedContext {
+  return {
+    transactions: strategy?.transactions ?? [],
+    wallet: { baseCurrency: strategy?.baseCurrency ?? 'USD', initialBalance: 0 },
+  };
+}
