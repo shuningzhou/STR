@@ -23,8 +23,8 @@
   --color-text-active: #ffffff;
   --color-text-on-primary: #ffffff;
 
-  /* Borders & accents – higher contrast for visibility */
-  --color-border: #6b6b6d;
+  /* Borders & accents */
+  --color-border: #5a5a5c;
   --color-shadow: rgba(0, 0, 0, 0.3);
   --color-accent: #6c9dcb;
   --color-accent-hover: #5a8aba;
@@ -87,7 +87,7 @@
   --color-text-primary: #333333;
   --color-text-secondary: #555555;
   --color-text-muted: #707070;
-  --color-border: #b0b0b0;
+  --color-border: #b8b8b8;
   --color-shadow: rgba(0, 0, 0, 0.08);
 }
 
