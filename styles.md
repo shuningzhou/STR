@@ -7,7 +7,7 @@ All styling properties available in the application, with their possible values.
 These properties **can be used in the subview JSON layout** (in `layout` cells and content items):
 
 - **Typography**: `size`, `bold`, `italic` — on text and number content
-- **Alignment**: `alignment` — on layout cells (`center left`, `center middle`, `center right`, etc.) and on text/number content (`left`, `center`, `right`)
+- **Layout**: `flex` — on layout cells (direct flex props: `justifyContent`, `alignItems`, `flex`, `flexDirection`, etc.); `alignment` — on text/number content (`left`, `center`, `right`)
 - **Padding**: `padding` — on layout cells, text, number, input, Table, Chart
 - **Size**: `defaultSize`, `preferredSize` — on the subview spec
 
@@ -48,18 +48,23 @@ Design tokens (e.g. `--color-bg-card`) are app-wide CSS variables and are **not*
 
 ---
 
-## Alignment
+## Layout (flex)
 
-### Cell alignment (layout cell)
+### Cell flex (layout cell)
 
-For flex layout: `justifyContent` = vertical, `alignItems` = horizontal.
+Use the `flex` object on layout cells with standard CSS flex property names (camelCase):
 
-| Value | Effect |
-|-------|--------|
-| `center left` | Horizontal: left, Vertical: center |
-| `center middle` | Horizontal: center, Vertical: center |
-| `center right` | Horizontal: right, Vertical: center |
-| `stretch center` | Horizontal: stretch, Vertical: center |
+| Property | Values | Description |
+|----------|--------|-------------|
+| `flex` | number, string | e.g. `1` (flex-grow), `"1 1 0"` |
+| `flexDirection` | `row`, `column` | Main axis (default: `column`) |
+| `justifyContent` | `flex-start`, `center`, `flex-end`, `space-between`, `space-around`, `stretch` | Main axis |
+| `alignItems` | `flex-start`, `center`, `flex-end`, `stretch` | Cross axis |
+| `alignSelf` | same | Override for this cell |
+| `flexGrow`, `flexShrink`, `flexBasis` | number, string | Shorthand components |
+| `gap` | number | Gap between content items |
+
+**Rows** can also have flex: `{ flex: {...}, cells: [...] }` for row-level layout.
 
 ### Text / number alignment
 

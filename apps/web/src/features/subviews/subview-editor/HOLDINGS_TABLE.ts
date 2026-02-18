@@ -15,8 +15,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
   layout: [
     [
       {
-        weight: 1,
-        alignment: 'stretch center',
+        flex: { flex: 1, justifyContent: 'center', alignItems: 'stretch' },
         content: [
           {
             Table: {

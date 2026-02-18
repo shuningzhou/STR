@@ -11,8 +11,7 @@ export const WIN_RATE_EXAMPLE = {
   layout: [
     [
       {
-        weight: 1,
-        alignment: 'center middle',
+        flex: { flex: 1, justifyContent: 'center', alignItems: 'center' },
         content: [
           {
             number: {

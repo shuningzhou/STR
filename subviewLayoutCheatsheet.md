@@ -38,21 +38,23 @@ Quick reference for building subview layouts.
 
 ```
 layout = [ row, row, ... ]
-row    = [ cell, cell, ... ]
-cell   = { alignment, content, weight?, padding? }
+row    = [ cell, cell, ... ]  |  { flex?: FlexProps, cells: [ cell, ... ] }
+cell   = { flex: FlexProps, content, padding?, ... }
 content = [ contentItem, ... ]
 ```
+
+**Rows:** Either an array of cells, or `{ flex?, cells }` for row-level flex (e.g. `{ flex: { justifyContent: 'center' }, cells: [...] }`).
 
 **Example: 2 rows, first row has 2 cells, second has 1 cell**
 
 ```json
 "layout": [
   [
-    { "alignment": "center left", "content": [...] },
-    { "alignment": "center left", "content": [...] }
+    { "flex": { "justifyContent": "center", "alignItems": "flex-start" }, "content": [...] },
+    { "flex": { "justifyContent": "center", "alignItems": "flex-start" }, "content": [...] }
   ],
   [
-    { "weight": 1, "alignment": "center middle", "content": [...] }
+    { "flex": { "flex": 1, "justifyContent": "center", "alignItems": "center" }, "content": [...] }
   ]
 ]
 ```
@@ -63,18 +65,35 @@ content = [ contentItem, ... ]
 
 | Property | Required | Type | Description |
 |----------|----------|------|--------------|
-| `alignment` | ✓ | string | See [Cell alignment](#cell-alignment) |
+| `flex` | ✓ | object | Flex/CSS properties — see [Cell flex](#cell-flex) |
 | `content` | ✓ | array | Content items in this cell |
-| `weight` | optional | number ≥ 1 | Flex-grow width; omit for content-sized width |
 | `padding` | optional | number or object | px; uniform or `{ top, right, bottom, left }` |
+| `showBorder` | optional | boolean | Draw outline for debugging |
+| `textColor` | optional | string | Built-in name or rgb/#hex |
+| `backgroundColor` | optional | string | Built-in name or rgb/#hex |
 
-### Cell alignment
-| Value | Effect |
-|-------|--------|
-| `center left` | Left horizontal, center vertical |
-| `center middle` | Centered both |
-| `center right` | Right horizontal, center vertical |
-| `stretch center` | Stretch horizontal, center vertical |
+### Cell flex
+
+Use standard flex property names (camelCase). Applied directly to the cell container.
+
+| Property | Values | Description |
+|----------|--------|-------------|
+| `flex` | number or string | e.g. `1` for flex-grow; `"1 1 0"` for shorthand |
+| `flexDirection` | `row` \| `column` | Main axis (default: `column`) |
+| `justifyContent` | `flex-start` \| `center` \| `flex-end` \| `space-between` \| `space-around` \| `stretch` | Main axis |
+| `alignItems` | `flex-start` \| `center` \| `flex-end` \| `stretch` | Cross axis |
+| `alignSelf` | same as alignItems | Override for this cell |
+| `flexGrow` | number | Grow factor (default 0) |
+| `flexShrink` | number | Shrink factor |
+| `flexBasis` | string/number | Base size |
+| `gap` | number | Gap between content items |
+| `minWidth` | number/string | Min width |
+| `minHeight` | number/string | Min height |
+
+**Common patterns:**
+- Fill width, center content: `{ "flex": 1, "justifyContent": "center", "alignItems": "center" }`
+- Left-align, center vertically: `{ "justifyContent": "center", "alignItems": "flex-start" }`
+- Horizontal layout (content in a row): `{ "flexDirection": "row", "alignItems": "center" }`
 
 ---
 
@@ -222,8 +241,7 @@ Use on: layout cell, text, number, input, Table, Chart.
   "layout": [
     [
       {
-        "weight": 1,
-        "alignment": "center middle",
+        "flex": { "flex": 1, "justifyContent": "center", "alignItems": "center" },
         "content": [{ "text": { "value": "Hello World", "size": "lg", "alignment": "center" } }]
       }
     ]
@@ -250,13 +268,12 @@ Use on: layout cell, text, number, input, Table, Chart.
   },
   "layout": [
     [
-      { "alignment": "center left", "content": [{ "input": { "ref": "timeRange" } }] },
-      { "alignment": "center left", "content": [{ "input": { "ref": "ticker" } }] }
+      { "flex": { "justifyContent": "center", "alignItems": "flex-start" }, "content": [{ "input": { "ref": "timeRange" } }] },
+      { "flex": { "justifyContent": "center", "alignItems": "flex-start" }, "content": [{ "input": { "ref": "ticker" } }] }
     ],
     [
       {
-        "weight": 1,
-        "alignment": "center middle",
+        "flex": { "flex": 1, "justifyContent": "center", "alignItems": "center" },
         "content": [
           {
             "number": {

@@ -162,12 +162,19 @@ const contentItemSchema = z.union([
 /** Built-in: red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, pink, gray, crimson, amber, emerald, sky, violet, fuchsia, rose, slate, zinc, stone, brown, navy. Or custom: rgb(r,g,b), #hex, hsl(...) */
 const colorSchema = z.string().optional();
 
+/** Flex/CSS properties passed through to the rendered element. Use standard flex names: flex, flexDirection, justifyContent, alignItems, alignSelf, flexGrow, flexShrink, flexBasis, gap, etc. */
+const flexSchema = z.record(z.union([z.string(), z.number()])).optional();
+
 // --- Layout cell ---
 const layoutCellSchema = z.object({
-  weight: z.number().min(1).optional(), // when omitted, cell width is based on content size
-  alignment: z.string(),
+  /** Direct flex properties (e.g. flex, flexDirection, justifyContent, alignItems). Overrides alignment/weight/contentDirection when specified. */
+  flex: flexSchema,
+  /** @deprecated Use flex: { justifyContent, alignItems } instead */
+  weight: z.number().min(1).optional(),
+  /** @deprecated Use flex: { justifyContent, alignItems } instead */
+  alignment: z.string().optional(),
   padding: paddingSchema,
-  /** Layout flow of content items. "row" = horizontal, "column" = vertical (default). Independent of alignment. */
+  /** @deprecated Use flex: { flexDirection: 'row'|'column' } instead */
   contentDirection: z.enum(['row', 'column']).optional(),
   /** When true, draws a box outlining the cell for layout debugging */
   showBorder: z.boolean().optional(),
@@ -177,6 +184,15 @@ const layoutCellSchema = z.object({
   backgroundColor: colorSchema,
   content: z.array(contentItemSchema),
 });
+
+/** Row: array of cells, or object with flex props + cells. */
+const layoutRowSchema = z.union([
+  z.array(layoutCellSchema),
+  z.object({
+    flex: flexSchema,
+    cells: z.array(layoutCellSchema),
+  }),
+]);
 
 const sizeShapeSchema = z.object({
   w: z.number().min(1),
@@ -207,7 +223,7 @@ export const subviewSpecSchema = z
     /** Buttons in subview card header (e.g. Add, Deposit, Withdraw) */
     headerActions: z.array(headerActionSchema).optional(),
     inputs: z.record(z.string(), inputConfigSchema).optional(),
-    layout: z.array(z.array(layoutCellSchema)),
+    layout: z.array(layoutRowSchema),
     python_code: z.string(),
     functions: z.array(z.string()),
   })
@@ -234,6 +250,7 @@ export const subviewSpecSchema = z
 
 export type SubviewSpec = z.infer<typeof subviewSpecSchema>;
 export type LayoutCell = z.infer<typeof layoutCellSchema>;
+export type LayoutRow = z.infer<typeof layoutRowSchema>;
 export type ContentItem = z.infer<typeof contentItemSchema>;
 export type InputConfig = z.infer<typeof inputConfigSchema>;
 

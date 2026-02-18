@@ -13,8 +13,7 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   layout: [
     [
       {
-        weight: 1,
-        alignment: 'stretch center',
+        flex: { flex: 1, justifyContent: 'center', alignItems: 'stretch' },
         content: [
           {
             Chart: {

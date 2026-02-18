@@ -8,7 +8,7 @@ export const BLANK_SPEC = {
   maker: 'official',
   defaultSize: { w: 400, h: 80 },
   inputs: {},
-  layout: [[{ weight: 1, alignment: 'center middle', content: [{ text: { value: 'py:placeholder', alignment: 'center' } }] }]],
+  layout: [[{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, content: [{ text: { value: 'py:placeholder', alignment: 'center' } }] }]],
   python_code: 'def placeholder(context, inputs):\n    return "Hello"\n',
   functions: ['placeholder'],
 } as const;

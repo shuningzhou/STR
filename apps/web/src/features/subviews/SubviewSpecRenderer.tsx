@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import type { SubviewSpec, ContentItem } from '@str/shared';
+import type { SubviewSpec, ContentItem, LayoutRow, LayoutCell } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { InputControl } from './InputControl';
 import { useUIStore } from '@/store/ui-store';
@@ -177,7 +177,7 @@ function ContentRenderer({
     const size = t.size ? (FONT_SIZES[t.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
     const textAlign = (t.alignment as React.CSSProperties['textAlign']) ?? 'left';
     const inner = (
-      <div style={{ width: '100%', minWidth: 0, textAlign }}>
+      <div style={{ minWidth: 0, flex: '0 0 auto', textAlign }}>
         <span
           style={{
             color: textColor ?? 'var(--color-text-primary)',
@@ -214,7 +214,7 @@ function ContentRenderer({
     const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
     const textAlign = (n.alignment as React.CSSProperties['textAlign']) ?? 'center';
     const inner = (
-      <div style={{ width: '100%', minWidth: 0, textAlign }}>
+      <div style={{ minWidth: 0, flex: '0 0 auto', textAlign }}>
         <span
           style={{
             color: textColor ?? 'var(--color-text-primary)',
@@ -395,8 +395,8 @@ function ContentRenderer({
   return null;
 }
 
-/** Cell alignment. Defined for flex-col: justifyContent=vertical, alignItems=horizontal.
- * When contentDirection is 'row' (flex-row), axes swap so we swap justifyContent/alignItems. */
+/** Cell alignment (legacy). flex-col: justifyContent=vertical, alignItems=horizontal.
+ * When contentDirection is 'row', axes swap. */
 const ALIGNMENT_MAP_COL: Record<string, React.CSSProperties> = {
   'center left': { justifyContent: 'center', alignItems: 'flex-start' },
   'center middle': { justifyContent: 'center', alignItems: 'center' },
@@ -408,6 +408,31 @@ function getAlignmentStyles(alignment: string, isRow: boolean): React.CSSPropert
   const base = ALIGNMENT_MAP_COL[alignment] ?? ALIGNMENT_MAP_COL['center middle'];
   if (!isRow) return base;
   return { justifyContent: base.alignItems, alignItems: base.justifyContent };
+}
+
+/** Flex object → CSSProperties. Passes through camelCase keys (justifyContent, alignItems, flex, etc.). */
+function flexToStyle(flex: Record<string, unknown> | undefined): React.CSSProperties {
+  if (!flex || typeof flex !== 'object') return {};
+  const out: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(flex)) {
+    if (v == null) continue;
+    if (typeof v === 'string' || typeof v === 'number') out[k] = v;
+  }
+  return out as React.CSSProperties;
+}
+
+/** Get cells from row (array or { cells }) */
+function getRowCells(row: LayoutRow): LayoutCell[] {
+  if (Array.isArray(row)) return row;
+  if (row && typeof row === 'object' && 'cells' in row && Array.isArray((row as { cells: LayoutCell[] }).cells)) {
+    return (row as { cells: LayoutCell[] }).cells;
+  }
+  return [];
+}
+
+/** Get row-level flex from row */
+function getRowFlex(row: LayoutRow): Record<string, unknown> | undefined {
+  return Array.isArray(row) ? undefined : row.flex;
 }
 
 export interface SubviewSpecRendererProps {
@@ -470,7 +495,7 @@ export function SubviewSpecRenderer({
     const tableSources = new Set<string>();
     const chartSources = new Set<string>();
     for (const row of spec.layout) {
-      for (const cell of row) {
+      for (const cell of getRowCells(row)) {
         for (const c of cell.content) {
           if ('number' in c) {
             const v = c.number.value;
@@ -554,25 +579,38 @@ export function SubviewSpecRenderer({
         style={{ padding: 0 }}
       >
         <div className="subview-spec-layout flex flex-col gap-0 min-w-full w-full" style={{ padding: 0, width: '100%', minWidth: '100%' }}>
-          {spec.layout.map((row, ri) => {
-              const hasWeightedCell = row.some((c: { weight?: number }) => c.weight != null);
-              return (
+          {spec.layout.map((row: LayoutRow, ri: number) => {
+            const cells = getRowCells(row);
+            const rowFlex = getRowFlex(row);
+            const hasWeightedCell = cells.some((c) => c.weight != null || (c.flex && ('flex' in c.flex || 'flexGrow' in c.flex)));
+            const rowBaseStyle: React.CSSProperties = {
+              width: '100%',
+              minWidth: '100%',
+              alignItems: hasWeightedCell ? 'stretch' : 'flex-start',
+              ...flexToStyle(rowFlex),
+            };
+            return (
               <div
                 key={ri}
                 className="flex flex-wrap gap-x-2 gap-y-1 min-w-full w-full"
-                style={{
-                  width: '100%',
-                  minWidth: '100%',
-                  alignItems: hasWeightedCell ? 'stretch' : 'flex-start',
-                }}
+                style={rowBaseStyle}
               >
-                {row.map((cell, ci) => (
+                {cells.map((cell: LayoutCell, ci) => {
+                  const useFlex = cell.flex && Object.keys(cell.flex).length > 0;
+                  const flexStyles = useFlex ? flexToStyle(cell.flex) : {};
+                  if (useFlex && !('flexDirection' in flexStyles)) {
+                    (flexStyles as Record<string, string>).flexDirection = cell.contentDirection === 'row' ? 'row' : 'column';
+                  }
+                  const legacyFlex = cell.weight != null ? { flex: cell.weight } : { flex: '0 0 auto' as const };
+                  const legacyAlign = getAlignmentStyles(cell.alignment ?? 'center middle', cell.contentDirection === 'row');
+                  const legacyDir = cell.contentDirection === 'row' ? 'flex-row' : 'flex-col';
+                  const legacyClass = cell.weight != null ? 'min-w-0 flex-1' : 'shrink-0';
+                  return (
                   <div
                     key={ci}
-                    className={`subview-layout-cell flex gap-1 flex-wrap ${cell.contentDirection === 'row' ? 'flex-row' : 'flex-col'} ${cell.weight != null ? 'min-w-0 flex-1' : 'shrink-0'}`}
+                    className={`subview-layout-cell flex gap-1 flex-wrap ${useFlex ? '' : `${legacyDir} ${legacyClass}`}`}
                     style={{
-                      ...(cell.weight != null ? { flex: cell.weight } : { flex: '0 0 auto' }),
-                      ...getAlignmentStyles(cell.alignment ?? 'center middle', cell.contentDirection === 'row'),
+                      ...(useFlex ? flexStyles : { ...legacyFlex, ...legacyAlign }),
                       ...(cell.padding != null ? paddingToStyle(cell.padding) : { padding: 0 }),
                       boxSizing: 'border-box',
                       ...(cell.showBorder
@@ -604,7 +642,8 @@ export function SubviewSpecRenderer({
                       />
                     ))}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })}

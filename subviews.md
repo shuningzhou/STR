@@ -14,10 +14,9 @@
   - `defaultSize`: `{ w, h }` — initial placement hint (absolute pixels)
   - `preferredSize`: optional `{ w, h }` — written when user scales the card on canvas; overrides defaultSize when present
   - `inputs`: object of controls (optional) — see **Input types and data schemas** below for allowed types and data shapes.
-  - `layout`: 2D array of rows → each row is array of cells → each cell has:
-    - `weight`: optional, number ≥ 1 (flex-grow style proportional width). When omitted, cell width is based on content size.
-    - `alignment`: string like `"center left"`, `"center middle"`, `"center right"`, `"stretch center"`
-    - `padding`: optional, number (px)
+  - `layout`: 2D array of rows → each row is array of cells (or `{ flex?, cells }` for row-level flex) → each cell has:
+    - `flex`: object with flex property names (`flex`, `flexDirection`, `justifyContent`, `alignItems`, `flexGrow`, `gap`, etc.) — 100% exposed
+    - `padding`: optional, number or `{ top, right, bottom, left }` (px)
     - `content`: array of content items (text, number, Table, Chart, **input**, etc.)
   - **Inputs in layout**: Inputs are **not** auto-rendered. Place them where desired using `{ "input": { "ref": "key" } }` in a cell's content. The `ref` must match a key in `spec.inputs`. This lets the user control input placement (e.g. same row as title, separate filter row).
   - `python_code`: single string containing **all** Python function definitions for this subview (combined)
