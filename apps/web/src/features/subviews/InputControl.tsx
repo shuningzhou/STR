@@ -8,9 +8,9 @@ import { Input } from '@/components/ui';
 export const INPUT_WIDTHS: Record<string, number> = {
   time_range: 240,
   ticker_selector: 100,
-  number_input: 120,
-  select: 200,
-  checkbox: 120,
+  number_input: 100,
+  select: 120,
+  checkbox: 75,
 };
 
 const VALUE_BOX_STYLE: React.CSSProperties = {
@@ -184,13 +184,30 @@ export function InputControl({
         })()
       ) : inputType === 'number_input' ? (
         isEditable ? (
-          <Input
+          <input
             type="number"
             value={String(inputs[inputKey] ?? (cfg as { default?: number }).default ?? 0)}
             onChange={(e) =>
               onInputChange!(inputKey, parseFloat(e.target.value) || 0)
             }
-            style={{ width: '100%', ...VALUE_BOX_STYLE }}
+            className="number-input-with-gap w-full rounded-[var(--radius-medium)] text-[13px] outline-none"
+            style={{
+              backgroundColor: 'var(--color-bg-input)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+              paddingLeft: 5,
+              paddingRight: 6,
+              height: 'var(--control-height)',
+              textAlign: 'right',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'var(--color-active)';
+              e.currentTarget.style.boxShadow = '0 0 0 1px var(--color-active)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--color-border)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           />
         ) : (
           <div
@@ -292,7 +309,7 @@ export function InputControl({
   return (
     <div
       className={`flex flex-col shrink-0 ${compact ? 'gap-0' : ''}`}
-      style={{ width, minWidth: width, ...(!compact && { gap: 8 }) }}
+      style={{ width, minWidth: width, ...(!compact && { gap: 2 }) }}
     >
       {!compact && (
         <label

@@ -166,6 +166,17 @@ html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
+/* Number input: 4px gap between value and spin buttons, no gap to right edge (Chrome/WebKit) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  margin-left: 4px;
+  width: 12px;
+}
+/* Minimal padding: value-to-spinner + spinner, no gap to edge */
+input.number-input-with-gap[type="number"] {
+  padding-right: 6px !important;
+}
+
 /* Remove padding from subview table - override any 8px padding from layout/card */
 /* Note: .subview-layout-cell excluded - cell padding comes from spec and must be respected */
 .subview-card,
@@ -191,11 +202,10 @@ html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator {
   padding-top: var(--subview-top-bar-height) !important;
 }
 
-/* Ensure table spans full card width with no horizontal gap */
+/* Ensure table and layout span full card width - exclude subview-layout-cell so row cells can sit horizontally */
 .subview-spec-root,
 .subview-spec-content,
 .subview-spec-layout,
-.subview-layout-cell,
 .subview-table-container,
 .subview-table-body,
 .subview-table-container table {
