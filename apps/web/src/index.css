@@ -167,12 +167,12 @@ html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* Remove padding from subview table - override any 8px padding from layout/card */
+/* Note: .subview-layout-cell excluded - cell padding comes from spec and must be respected */
 .subview-card,
 .subview-spec-root,
 .canvas-grid-item,
 .subview-spec-content,
 .subview-spec-layout,
-.subview-layout-cell,
 .subview-table-body,
 .react-grid-item > div {
   padding: 0 !important;

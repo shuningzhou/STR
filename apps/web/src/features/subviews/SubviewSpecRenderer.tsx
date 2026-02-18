@@ -109,7 +109,14 @@ function ContentRenderer({
       : spec.inputs?.[ref];
     const values = isGlobal ? (globalInputValues ?? {}) : inputs;
     const changeHandler = isGlobal ? onGlobalInputChange : onInputChange;
-    if (!cfg) return <span className="text-xs text-red-500">[Unknown input: {ref}]</span>;
+    if (!cfg) {
+      const specInputKeys = spec.inputs ? Object.keys(spec.inputs).join(', ') : '(no spec.inputs)';
+      return (
+        <span className="text-xs text-red-500" title={`spec.inputs keys: ${specInputKeys}`}>
+          [Unknown input: {ref}]
+        </span>
+      );
+    }
     const inner = (
       <InputControl
         key={ref}
@@ -487,17 +494,9 @@ export function SubviewSpecRenderer({
         aria-label="Subview content"
         style={{ padding: 0 }}
       >
-        {loading ? (
-          <div
-            className="flex-1 flex items-center justify-center shrink-0"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            <span className="text-xs">Loading…</span>
-          </div>
-        ) : (
-          <div className="subview-spec-layout flex flex-col gap-0 min-w-full w-full" style={{ padding: 0, width: '100%', minWidth: '100%' }}>
-            {spec.layout.map((row, ri) => (
-              <div key={ri} className="flex gap-0 min-w-full w-full" style={{ width: '100%', minWidth: '100%' }}>
+        <div className="subview-spec-layout flex flex-col gap-0 min-w-full w-full" style={{ padding: 0, width: '100%', minWidth: '100%' }}>
+          {spec.layout.map((row, ri) => (
+              <div key={ri} className="flex flex-wrap gap-x-2 gap-y-1 min-w-full w-full" style={{ width: '100%', minWidth: '100%' }}>
                 {row.map((cell, ci) => (
                   <div
                     key={ci}
@@ -529,8 +528,7 @@ export function SubviewSpecRenderer({
                 ))}
               </div>
             ))}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

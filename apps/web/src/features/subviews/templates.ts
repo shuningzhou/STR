@@ -4,6 +4,7 @@ import { STOCK_ETF_TRANSACTIONS_TABLE } from './subview-editor/STOCK_ETF_TRANSAC
 import { HOLDINGS_TABLE } from './subview-editor/HOLDINGS_TABLE';
 import { PORTFOLIO_PIE_CHART } from './subview-editor/PORTFOLIO_PIE_CHART';
 import { WALLET_TABLE } from './subview-editor/WALLET_TABLE';
+import { KITCHEN_SINK } from './subview-editor/KITCHEN_SINK';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -22,6 +23,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'holdings', name: 'Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, spec: HOLDINGS_TABLE as unknown as SubviewSpec },
   { id: 'portfolio-pie', name: 'Portfolio %', description: 'Pie chart showing % of portfolio by holding', defaultSize: { w: 400, h: 220 }, spec: PORTFOLIO_PIE_CHART as unknown as SubviewSpec },
   { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 320, h: 100 }, spec: WALLET_TABLE as unknown as SubviewSpec },
+  { id: 'kitchen-sink', name: 'Kitchen Sink', description: 'Complete demo of all layout, content, and input options', defaultSize: { w: 900, h: 680 }, spec: KITCHEN_SINK as unknown as SubviewSpec },
   { id: 'monthly-returns', name: 'Monthly Returns', description: 'Bar chart grouped by month', defaultSize: { w: 600, h: 120 } },
   { id: 'exposure-breakdown', name: 'Exposure Breakdown', description: 'Pie chart by asset type or sector', defaultSize: { w: 300, h: 80 } },
   { id: 'realized-pnl-table', name: 'Realized P&L Table', description: 'Sortable table of closed trades', defaultSize: { w: 600, h: 120 } },

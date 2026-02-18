@@ -16,6 +16,7 @@ import {
   FileText,
   Play,
   Loader2,
+  LayoutGrid,
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { useStrategyStore } from '@/store/strategy-store';
@@ -27,6 +28,7 @@ import { SEED_CONTEXT, SEED_INPUTS, type SeedContext } from '@/lib/subview-seed-
 import { generateStockTransactions, generateOptionTransactions } from '@/lib/subview-seed-generators';
 import { BLANK_SPEC } from './BLANK_SPEC';
 import { WIN_RATE_EXAMPLE } from './WIN_RATE_EXAMPLE';
+import { KITCHEN_SINK } from './KITCHEN_SINK';
 import { MiniCanvasPreview } from './MiniCanvasPreview';
 import { cn } from '@/lib/utils';
 
@@ -70,6 +72,23 @@ export function SubviewEditorModal() {
     () => SEED_INPUTS as Record<string, unknown>
   );
   const splitterRef = useRef<HTMLDivElement>(null);
+
+  // When spec has inputs, merge defaults into previewInputs so all inputs have values
+  useEffect(() => {
+    if (!parseResult.success || !parseResult.data?.inputs) return;
+    const specInputs = parseResult.data.inputs as Record<string, { default?: unknown }>;
+    setPreviewInputs((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [key, cfg] of Object.entries(specInputs)) {
+        if (cfg?.default !== undefined && !(key in next)) {
+          next[key] = cfg.default;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [parseResult.success, parseResult.data?.inputs]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const handleSplitterPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -165,11 +184,19 @@ export function SubviewEditorModal() {
     setParseResult({ success: true, data: BLANK_SPEC as unknown as SubviewSpec });
   }, []);
 
-  const handleLoadExample = useCallback(() => {
+  const handleLoadExample = useCallback((example: 'win-rate' | 'kitchen-sink' = 'win-rate') => {
     if (!window.confirm('Load example? Current spec will be replaced.')) return;
-    setJsonText(JSON.stringify(WIN_RATE_EXAMPLE, null, 2));
-    setPythonText((WIN_RATE_EXAMPLE as unknown as SubviewSpec).python_code);
-    setParseResult({ success: true, data: WIN_RATE_EXAMPLE as unknown as SubviewSpec });
+    const spec = example === 'kitchen-sink' ? (KITCHEN_SINK as unknown as SubviewSpec) : (WIN_RATE_EXAMPLE as unknown as SubviewSpec);
+    setJsonText(JSON.stringify(spec, null, 2));
+    setPythonText(spec.python_code);
+    setParseResult({ success: true, data: spec });
+    if (example === 'kitchen-sink' && spec.inputs) {
+      const defaults: Record<string, unknown> = { ...SEED_INPUTS } as Record<string, unknown>;
+      for (const [key, cfg] of Object.entries(spec.inputs as Record<string, { default?: unknown }>)) {
+        if (cfg?.default !== undefined) defaults[key] = cfg.default;
+      }
+      setPreviewInputs(defaults);
+    }
   }, []);
 
   const syncTimeRangeFromTransactions = useCallback((txs: { timestamp?: string }[]) => {
@@ -487,11 +514,19 @@ export function SubviewEditorModal() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleLoadExample}
-                    title="Example"
+                    onClick={() => handleLoadExample('win-rate')}
+                    title="Load Win Rate example"
                     className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
                   >
                     <FileText size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLoadExample('kitchen-sink')}
+                    title="Load Kitchen Sink example (all inputs)"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                  >
+                    <LayoutGrid size={16} />
                   </button>
                 </div>
               )}
@@ -596,6 +631,9 @@ export function SubviewEditorModal() {
                         fontSize: 12,
                         lineNumbers: 'on',
                         scrollBeyondLastLine: false,
+                        folding: true,
+                        showFoldingControls: 'always',
+                        foldingStrategy: 'auto',
                       }}
                       theme="vs-dark"
                     />
@@ -624,6 +662,9 @@ export function SubviewEditorModal() {
                         fontSize: 12,
                         lineNumbers: 'on',
                         scrollBeyondLastLine: false,
+                        folding: true,
+                        showFoldingControls: 'always',
+                        foldingStrategy: 'auto',
                       }}
                       theme="vs-dark"
                     />
@@ -696,6 +737,9 @@ export function SubviewEditorModal() {
                       fontSize: 12,
                       lineNumbers: 'on',
                       scrollBeyondLastLine: false,
+                      folding: true,
+                      showFoldingControls: 'always',
+                      foldingStrategy: 'auto',
                     }}
                     theme="vs-dark"
                   />
@@ -713,6 +757,9 @@ export function SubviewEditorModal() {
                       fontSize: 12,
                       lineNumbers: 'on',
                       scrollBeyondLastLine: false,
+                      folding: true,
+                      showFoldingControls: 'always',
+                      foldingStrategy: 'auto',
                     }}
                     theme="vs-dark"
                   />

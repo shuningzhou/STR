@@ -37,9 +37,20 @@ function normalizeInputValueForKey(
   return val;
 }
 
-/** Build inputs for Python from inputValues + SEED_INPUTS defaults */
-function buildInputs(inputValues: Record<string, string | number>): Record<string, unknown> {
+/** Build inputs for Python/InputControl from inputValues + SEED_INPUTS + spec.inputs defaults */
+function buildInputs(
+  inputValues: Record<string, string | number>,
+  specInputs?: Record<string, { default?: unknown }> | null
+): Record<string, unknown> {
   const base = { ...SEED_INPUTS } as Record<string, unknown>;
+  // Merge defaults from spec.inputs so all spec inputs have initial values
+  if (specInputs) {
+    for (const [key, cfg] of Object.entries(specInputs)) {
+      if (!(key in base) && cfg?.default !== undefined) {
+        base[key] = cfg.default;
+      }
+    }
+  }
   for (const [key, val] of Object.entries(inputValues)) {
     base[key] = normalizeInputValueForKey(key, val);
   }
@@ -96,10 +107,11 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     return s ? (s as SubviewSpec) : undefined;
   }, [subview.templateId, subview.spec]);
 
-  const specInputs = useMemo(
-    () => (effectiveSpec ? buildInputs(inputValues) : null),
-    [effectiveSpec, inputValues]
-  );
+  const specInputs = useMemo(() => {
+    if (!effectiveSpec) return null;
+    const specWithInputs = effectiveSpec as SubviewSpec & { inputs?: Record<string, { default?: unknown }> };
+    return buildInputs(inputValues, specWithInputs.inputs);
+  }, [effectiveSpec, inputValues]);
 
   const globalInputs = useMemo(
     () => buildGlobalInputs(strategy),
