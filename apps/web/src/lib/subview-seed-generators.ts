@@ -43,9 +43,7 @@ export interface ResolvedTransaction {
   side: 'buy' | 'sell' | 'option_roll';
   cashDelta: number;
   timestamp: string;
-  instrumentId: string;
   instrumentSymbol: string;
-  instrumentName: string;
   option: { expiration: string; strike: number; callPut: 'call' | 'put' } | null;
   optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
   customData: Record<string, unknown>;
@@ -94,9 +92,7 @@ export function generateStockTransactions(count: number = 16): ResolvedTransacti
       side,
       cashDelta: Math.round(cashDelta * 100) / 100,
       timestamp: toISO(d),
-      instrumentId: `inst-${stock.symbol}`,
       instrumentSymbol: stock.symbol,
-      instrumentName: stock.name,
       option: null,
       customData: {},
       quantity,
@@ -161,9 +157,7 @@ export function generateOptionTransactions(count: number = 16): ResolvedTransact
       side,
       cashDelta: Math.round(cashDelta * 100) / 100,
       timestamp: toISO(d),
-      instrumentId: `inst-${stock.symbol}-${expiration}-${strike}-${callPut}`,
       instrumentSymbol: stock.symbol,
-      instrumentName: stock.name,
       option: { expiration, strike, callPut },
       customData: {},
       quantity,
@@ -202,9 +196,7 @@ export function generateOptionTransactions(count: number = 16): ResolvedTransact
       side: 'option_roll',
       cashDelta,
       timestamp: toISO(d),
-      instrumentId: `inst-${stock.symbol}-roll-${expiration1}-${expiration2}`,
       instrumentSymbol: stock.symbol,
-      instrumentName: stock.name,
       option: { expiration: expiration1, strike: strike1, callPut },
       optionRoll: {
         option: { expiration: expiration1, strike: strike1, callPut },

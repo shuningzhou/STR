@@ -4,15 +4,15 @@ import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { Button } from '@/components/ui';
 import type { StrategyTransaction } from '@/store/strategy-store';
-const PANEL_WIDTH = 900;
+const PANEL_WIDTH = 1100;
 const CELL_PADDING = 5;
 
 export function TransactionListPanel() {
   const transactionListPanelOpen = useUIStore((s) => s.transactionListPanelOpen);
   const setTransactionListPanelOpen = useUIStore((s) => s.setTransactionListPanelOpen);
   const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
+  const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
   const setEditTransactionModalOpen = useUIStore((s) => s.setEditTransactionModalOpen);
-  const removeTransaction = useStrategyStore((s) => s.removeTransaction);
   const strategies = useStrategyStore((s) => s.strategies);
 
   const strategyId = transactionListPanelOpen;
@@ -44,13 +44,11 @@ export function TransactionListPanel() {
   };
 
   const handleEdit = (tx: StrategyTransaction) => {
-    setEditTransactionModalOpen({ strategyId: strategyId!, transaction: tx });
+    setEditTransactionModalOpen({ strategyId: strategyId!, transaction: tx, mode: 'full' });
   };
 
   const handleDelete = (txId: number) => {
-    if (window.confirm('Delete this transaction?')) {
-      removeTransaction(strategyId!, txId);
-    }
+    setDeleteTransactionConfirmOpen({ strategyId: strategyId!, transactionId: txId });
   };
 
   const formatDate = (ts: string) => ts?.slice(0, 10) ?? '—';
@@ -58,14 +56,14 @@ export function TransactionListPanel() {
     n >= 0 ? `$${n.toFixed(2)}` : `-$${Math.abs(n).toFixed(2)}`;
   const formatOption = (tx: StrategyTransaction) =>
     tx.option
-      ? `${tx.option.expiration?.slice(0, 10) ?? '—'} ${tx.option.strike} ${tx.option.callPut?.toUpperCase() ?? ''}`
+      ? `${tx.option.expiration?.slice(0, 10) ?? '—'} ${tx.option.strike} ${(tx.option.callPut ?? '').toUpperCase()}`
       : '—';
   const formatOptionRoll = (tx: StrategyTransaction) => {
     const r = tx.optionRoll;
     if (!r?.option || !r?.optionRolledTo) return '—';
-    const a = `${r.option.expiration?.slice(0, 10) ?? ''} ${r.option.strike}${r.option.callPut?.[0] ?? ''}`;
-    const b = `${r.optionRolledTo.expiration?.slice(0, 10) ?? ''} ${r.optionRolledTo.strike}${r.optionRolledTo.callPut?.[0] ?? ''}`;
-    return `${a.trim()} → ${b.trim()}`;
+    const from = `${r.option.expiration?.slice(0, 10) ?? ''} ${r.option.strike} ${(r.option.callPut ?? '').toUpperCase()}`.trim();
+    const to = `${r.optionRolledTo.expiration?.slice(0, 10) ?? ''} ${r.optionRolledTo.strike} ${(r.optionRolledTo.callPut ?? '').toUpperCase()}`.trim();
+    return `${from} → ${to}`;
   };
   const formatCustomData = (tx: StrategyTransaction) => {
     const d = tx.customData;
@@ -186,20 +184,18 @@ export function TransactionListPanel() {
               <div className="overflow-auto min-h-0 min-w-0 flex-1 subview-table-body w-full">
                 <table
                   className="w-full border-collapse"
-                  style={{ tableLayout: 'auto', width: '100%', fontSize: 12, minWidth: 700 }}
+                  style={{ tableLayout: 'auto', width: '100%', fontSize: 12, minWidth: 840 }}
                 >
                   <colgroup>
                     <col style={{ width: 36 }} />
                     <col style={{ width: 90 }} />
-                    <col style={{ width: 80 }} />
                     <col style={{ width: 60 }} />
-                    <col style={{ width: 80 }} />
                     <col style={{ width: 50 }} />
                     <col style={{ width: 48 }} />
                     <col style={{ width: 58 }} />
                     <col style={{ width: 72 }} />
-                    <col style={{ width: 90 }} />
-                    <col style={{ width: 110 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 200 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 56 }} />
                   </colgroup>
@@ -208,9 +204,7 @@ export function TransactionListPanel() {
                       {[
                         ['Id', 'text-right'],
                         ['Date', 'text-left'],
-                        ['Instrument', 'text-left'],
                         ['Symbol', 'text-left'],
-                        ['Name', 'text-left'],
                         ['Side', 'text-left'],
                         ['Qty', 'text-right'],
                         ['Price', 'text-right'],
@@ -265,17 +259,6 @@ export function TransactionListPanel() {
                           {formatDate(tx.timestamp)}
                         </td>
                         <td
-                          className="truncate max-w-[80px]"
-                          style={{
-                            color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
-                            padding: CELL_PADDING,
-                          }}
-                          title={tx.instrumentId}
-                        >
-                          {tx.instrumentId ?? '—'}
-                        </td>
-                        <td
                           className="truncate"
                           style={{
                             color: 'var(--color-text-primary)',
@@ -284,17 +267,6 @@ export function TransactionListPanel() {
                           }}
                         >
                           {tx.instrumentSymbol ?? '—'}
-                        </td>
-                        <td
-                          className="truncate max-w-[80px]"
-                          style={{
-                            color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
-                            padding: CELL_PADDING,
-                          }}
-                          title={tx.instrumentName}
-                        >
-                          {tx.instrumentName ?? '—'}
                         </td>
                         <td
                           style={{
@@ -339,22 +311,24 @@ export function TransactionListPanel() {
                           {formatCurrency(tx.cashDelta)}
                         </td>
                         <td
-                          className="truncate max-w-[90px]"
                           style={{
                             color: 'var(--color-text-primary)',
                             borderRight: '1px solid var(--color-border)',
                             padding: CELL_PADDING,
+                            whiteSpace: 'nowrap',
+                            minWidth: 140,
                           }}
                           title={formatOption(tx)}
                         >
                           {formatOption(tx)}
                         </td>
                         <td
-                          className="truncate max-w-[110px]"
                           style={{
                             color: 'var(--color-text-primary)',
                             borderRight: '1px solid var(--color-border)',
                             padding: CELL_PADDING,
+                            whiteSpace: 'nowrap',
+                            minWidth: 200,
                           }}
                           title={formatOptionRoll(tx)}
                         >

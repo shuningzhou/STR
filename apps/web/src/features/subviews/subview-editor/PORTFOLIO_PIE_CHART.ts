@@ -38,15 +38,18 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
         except Exception:
             return True
     
+    cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee'}
     agg = {}
     for tx in txs:
         if not is_non_option(tx):
+            continue
+        side = (tx.get('side') or tx.get('type') or '').lower()
+        if side in cash_only_sides:
             continue
         sym = tx.get('instrumentSymbol')
         inst_id = tx.get('instrumentId') or sym or ''
         if not inst_id:
             continue
-        side = (tx.get('side') or tx.get('type') or '').lower()
         qty = int(tx.get('quantity') or 0)
         cash = float(tx.get('cashDelta') or 0)
         if side in ('sell', 'short'):

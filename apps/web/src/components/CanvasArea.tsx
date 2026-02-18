@@ -1,4 +1,4 @@
-import { SquarePlus, Settings, List, Pencil, PencilOff } from 'lucide-react';
+import { SquarePlus, Settings, Database, Wallet, Pencil, PencilOff } from 'lucide-react';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { CanvasGrid } from '@/features/canvas/CanvasGrid';
@@ -20,6 +20,7 @@ export function CanvasArea() {
     setStrategySettingsModalOpen,
     setSubviewGalleryModalOpen,
     setTransactionListPanelOpen,
+    setWalletSettingsModalOpen,
   } = useUIStore();
   const hasStrategies = strategies.length > 0;
 
@@ -40,6 +41,12 @@ export function CanvasArea() {
   const handleOpenTransactionList = () => {
     if (activeStrategyId) {
       setTransactionListPanelOpen(activeStrategyId);
+    }
+  };
+
+  const handleOpenWallet = () => {
+    if (activeStrategyId) {
+      setWalletSettingsModalOpen(activeStrategyId);
     }
   };
 
@@ -193,7 +200,24 @@ export function CanvasArea() {
               }}
               title="View All Transactions"
             >
-              <List size={18} strokeWidth={1.5} />
+              <Database size={18} strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              className={floatingButton}
+              style={{
+                color: 'var(--color-text-primary)',
+              }}
+              onClick={handleOpenWallet}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Wallet settings"
+            >
+              <Wallet size={18} strokeWidth={1.5} />
             </button>
           </div>
         )}

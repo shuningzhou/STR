@@ -118,14 +118,10 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
-  const baseContext = useMemo(
-    () => buildStrategyContext(strategy ?? null),
-    [strategy]
-  );
   const currentPrices = useStrategyPrices(strategy?.transactions);
   const strategyContext = useMemo(
-    () => ({ ...baseContext, currentPrices }),
-    [baseContext, currentPrices]
+    () => ({ ...buildStrategyContext(strategy ?? null, currentPrices), currentPrices }),
+    [strategy, currentPrices]
   );
 
   const hasSpec = !!effectiveSpec;

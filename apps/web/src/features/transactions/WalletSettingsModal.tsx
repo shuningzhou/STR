@@ -1,0 +1,287 @@
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useStrategyStore } from '@/store/strategy-store';
+import { useUIStore } from '@/store/ui-store';
+import { useStrategyPrices } from '@/hooks/useStrategyPrices';
+import { computeEquity } from '@/lib/compute-equity';
+import { Modal, Button, Input, Label } from '@/components/ui';
+
+function formatCurrency(value: number, currency: string) {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+const rowStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 16,
+  padding: '10px 0',
+  borderBottom: '1px solid var(--color-border)',
+} as const;
+
+const valueColumnStyle = {
+  minWidth: 140,
+  display: 'flex',
+  justifyContent: 'flex-end',
+  alignItems: 'center',
+  paddingLeft: 16,
+} as const;
+
+const equationStyle = {
+  fontSize: 11,
+  color: 'var(--color-text-muted)',
+  marginTop: 2,
+  opacity: 0.85,
+} as const;
+
+function Row({ label, equation, value }: { label: string; equation?: string; value: string }) {
+  return (
+    <div style={rowStyle}>
+      <div>
+        <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>{label}</div>
+        {equation && <div style={equationStyle}>{equation}</div>}
+      </div>
+      <div style={valueColumnStyle}>
+        <span style={{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function FieldWithInput({
+  label,
+  equation,
+  id,
+  children,
+}: {
+  label: string;
+  equation?: string;
+  id: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={rowStyle}>
+      <div>
+        <Label htmlFor={id} className="!mb-0" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+          {label}
+        </Label>
+        {equation && <div style={equationStyle}>{equation}</div>}
+      </div>
+      <div style={valueColumnStyle}>{children}</div>
+    </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+export function WalletSettingsModal() {
+  const walletSettingsModalOpen = useUIStore((s) => s.walletSettingsModalOpen);
+  const setWalletSettingsModalOpen = useUIStore((s) => s.setWalletSettingsModalOpen);
+  const strategies = useStrategyStore((s) => s.strategies);
+  const updateStrategy = useStrategyStore((s) => s.updateStrategy);
+
+  const strategyId = walletSettingsModalOpen;
+  const strategy = strategies.find((s) => s.id === strategyId);
+
+  const [loanInterest, setLoanInterest] = useState('');
+  const [marginRequirement, setMarginRequirement] = useState('');
+  const [collateralAmount, setCollateralAmount] = useState('');
+  const [collateralRequirement, setCollateralRequirement] = useState('');
+
+  const currentPrices = useStrategyPrices(strategy?.transactions);
+
+  const { computedBalance, currency, equity } = useMemo(() => {
+    if (!strategy) return { computedBalance: 0, currency: 'USD', equity: 0 };
+    const txs = strategy.transactions ?? [];
+    const initial = strategy.initialBalance ?? 0;
+    const balance =
+      initial +
+      txs.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
+    const equity = computeEquity(txs, currentPrices);
+    return { computedBalance: balance, currency: strategy.baseCurrency ?? 'USD', equity };
+  }, [strategy, currentPrices]);
+
+  useEffect(() => {
+    if (strategy) {
+      setLoanInterest(String(strategy.loanInterest ?? ''));
+      setMarginRequirement(String(strategy.marginRequirement ?? ''));
+      setCollateralAmount(String(strategy.collateralAmount ?? ''));
+      setCollateralRequirement(String(strategy.collateralRequirement ?? ''));
+    }
+  }, [strategy]);
+
+  const handleSave = useCallback(() => {
+    if (!strategyId) return;
+    updateStrategy(strategyId, {
+      loanInterest: loanInterest === '' ? undefined : parseFloat(loanInterest) || 0,
+      marginRequirement: marginRequirement === '' ? undefined : parseFloat(marginRequirement) || 0,
+      collateralAmount: collateralAmount === '' ? undefined : parseFloat(collateralAmount) || 0,
+      collateralRequirement: collateralRequirement === '' ? undefined : parseFloat(collateralRequirement) || 0,
+    });
+    setWalletSettingsModalOpen(null);
+  }, [strategyId, loanInterest, marginRequirement, collateralAmount, collateralRequirement, updateStrategy, setWalletSettingsModalOpen]);
+
+  const handleClose = useCallback(() => {
+    setWalletSettingsModalOpen(null);
+  }, [setWalletSettingsModalOpen]);
+
+  if (!walletSettingsModalOpen || !strategyId || !strategy) return null;
+
+  const loanAmountNum = strategy?.loanAmount ?? 0;
+  const marginReqNum = parseFloat(marginRequirement) || 0;
+  const collateralAmountNum = parseFloat(collateralAmount) || 0;
+  const collateralReqNum = parseFloat(collateralRequirement) || 0;
+  const collateralLimit = collateralAmountNum * (collateralReqNum / 100);
+  const collateralEnabled = strategy.collateralEnabled ?? false;
+  const collateralAvailable =
+    collateralEnabled ? collateralAmountNum - collateralLimit : 0;
+
+  // For margin account with loan, current balance is 0 (buys add to loan instead of reducing balance)
+  const marginAccountEnabled = strategy.marginAccountEnabled ?? false;
+  const currentBalance =
+    marginAccountEnabled && loanAmountNum > 0 ? 0 : computedBalance;
+
+  const marginLimit = equity * (marginReqNum / 100);
+  const marginAvailable =
+    collateralAvailable + equity + currentBalance - loanAmountNum - marginLimit;
+  const buyingPower =
+    marginReqNum > 0 ? marginAvailable / (marginReqNum / 100) : 0;
+
+  const inputStyle = { padding: '8px 12px', textAlign: 'right' as const, width: 120, minWidth: 120 };
+
+  return (
+    <Modal
+      title="Wallet"
+      onClose={handleClose}
+      size="lg"
+      headerRight={
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--color-text-muted)',
+            padding: '4px 8px',
+            borderRadius: 'var(--radius-medium)',
+            backgroundColor: 'var(--color-bg-hover)',
+          }}
+        >
+          {currency}
+        </span>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <Row label="Balance" value={formatCurrency(currentBalance, currency)} />
+
+        {marginAccountEnabled && (
+        <Group title="Margin">
+          <Row label="Loan amount" value={formatCurrency(loanAmountNum, currency)} />
+          <FieldWithInput label="Loan interest" id="wallet-loan-interest">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Input
+                id="wallet-loan-interest"
+                type="number"
+                value={loanInterest}
+                onChange={(e) => setLoanInterest(e.target.value)}
+                placeholder="0"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>%</span>
+            </div>
+          </FieldWithInput>
+          <FieldWithInput label="Margin requirement" id="wallet-margin-req">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Input
+                id="wallet-margin-req"
+                type="number"
+                value={marginRequirement}
+                onChange={(e) => setMarginRequirement(e.target.value)}
+                placeholder="0"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>%</span>
+            </div>
+          </FieldWithInput>
+          <Row
+            label="Equity"
+            equation="Σ(holdings × price)"
+            value={formatCurrency(equity, currency)}
+          />
+          <Row
+            label="Margin limit"
+            equation="equity × (margin requirement / 100)"
+            value={formatCurrency(marginLimit, currency)}
+          />
+          <Row
+            label="Margin available"
+            equation="collateral available + equity + balance − loan − margin limit"
+            value={formatCurrency(marginAvailable, currency)}
+          />
+          <Row
+            label="Buying power"
+            equation="margin available ÷ (margin requirement / 100)"
+            value={formatCurrency(buyingPower, currency)}
+          />
+        </Group>
+        )}
+
+        {marginAccountEnabled && collateralEnabled && (
+        <Group title="Collateral">
+          <FieldWithInput label="Collateral" id="wallet-collateral-amount">
+            <Input
+              id="wallet-collateral-amount"
+              type="number"
+              value={collateralAmount}
+              onChange={(e) => setCollateralAmount(e.target.value)}
+              placeholder="0"
+              style={inputStyle}
+            />
+          </FieldWithInput>
+          <FieldWithInput label="Collateral requirement" id="wallet-collateral-req">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Input
+                id="wallet-collateral-req"
+                type="number"
+                value={collateralRequirement}
+                onChange={(e) => setCollateralRequirement(e.target.value)}
+                placeholder="0"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>%</span>
+            </div>
+          </FieldWithInput>
+          <Row
+            label="Collateral limit"
+            equation="collateral × (collateral requirement / 100)"
+            value={formatCurrency(collateralLimit, currency)}
+          />
+          <Row
+            label="Collateral available"
+            equation="collateral − collateral limit"
+            value={formatCurrency(collateralAvailable, currency)}
+          />
+        </Group>
+        )}
+      </div>
+
+      <div className="flex gap-3" style={{ marginTop: 20 }}>
+        <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
+          Close
+        </Button>
+        <Button type="button" variant="primary" onClick={handleSave} className="flex-1">
+          Save
+        </Button>
+      </div>
+    </Modal>
+  );
+}

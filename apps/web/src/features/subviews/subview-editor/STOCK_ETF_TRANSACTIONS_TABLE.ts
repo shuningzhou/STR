@@ -113,9 +113,14 @@ export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
             print("[py] FILTERED (ticker):", sym, "ticker_filter=", ticker)
         return ok
     
+    cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee'}
+    
     result = []
     for i, tx in enumerate(txs):
         if not is_non_option(tx):
+            continue
+        side = (tx.get('side') or tx.get('type') or '').lower()
+        if side in cash_only_sides:
             continue
         if not in_range(tx):
             continue
@@ -123,7 +128,6 @@ export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
             continue
         ts = tx.get('timestamp') or ''
         date = ts[:10] if len(ts) >= 10 else ts
-        side = tx.get('side') or tx.get('type') or ''
         result.append({
             **tx,
             'date': date,

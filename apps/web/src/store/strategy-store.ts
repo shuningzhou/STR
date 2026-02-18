@@ -51,9 +51,7 @@ export interface StrategyTransaction {
   side: string;
   cashDelta: number;
   timestamp: string;
-  instrumentId: string;
   instrumentSymbol: string;
-  instrumentName: string;
   option: { expiration: string; strike: number; callPut: string } | null;
   optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
   customData: Record<string, unknown>;
@@ -68,6 +66,29 @@ export interface Strategy {
   baseCurrency: string;
   /** Starting cash balance for non-margin account */
   initialBalance?: number;
+  /** Enable margin account (allows borrowing to trade) */
+  marginAccountEnabled?: boolean;
+  /** Enable collateral (use positions as collateral for margin) */
+  collateralEnabled?: boolean;
+  /** Wallet metrics (displayed in Wallet modal) */
+  loanAmount?: number;
+  /** Loan interest rate (percentage, e.g. 5 for 5%) */
+  loanInterest?: number;
+  /** Margin requirement (percentage, e.g. 25 for 25%) */
+  marginRequirement?: number;
+  /** @deprecated Computed: marginAvailable / (marginRequirement / 100) */
+  buyingPower?: number;
+  /** @deprecated Computed: equity * (marginRequirement / 100) */
+  marginLimit?: number;
+  /** @deprecated Computed: collateralAvailable + equity + balance - loan - marginLimit */
+  marginAvailable?: number;
+  collateralAmount?: number;
+  /** Collateral requirement (percentage, e.g. 30 for 30%) */
+  collateralRequirement?: number;
+  /** @deprecated Computed: collateralAmount * (collateralRequirement / 100) */
+  collateralLimit?: number;
+  /** @deprecated Computed: collateralAmount - collateralLimit */
+  collateralAvailable?: number;
   /** Strategy-scoped inputs; subviews reference via global.xxx */
   inputs?: StrategyInputConfig[];
   /** Values for strategy inputs */
@@ -82,7 +103,7 @@ interface StrategyState {
   activeStrategyId: string | null;
 
   addStrategy: (name: string, baseCurrency: string) => Strategy;
-  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'inputs' | 'inputValues' | 'transactions'>>) => void;
+  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'initialBalance' | 'marginAccountEnabled' | 'collateralEnabled' | 'loanAmount' | 'loanInterest' | 'marginRequirement' | 'collateralAmount' | 'collateralRequirement' | 'inputs' | 'inputValues' | 'transactions'>>) => void;
   addTransaction: (strategyId: string, transaction: Omit<StrategyTransaction, 'id'>) => StrategyTransaction;
   updateTransaction: (strategyId: string, transactionId: number, updates: Partial<Omit<StrategyTransaction, 'id'>>) => void;
   removeTransaction: (strategyId: string, transactionId: number) => void;
@@ -185,38 +206,61 @@ export const useStrategyStore = create<StrategyState>()(
           id: maxId + 1,
           option: tx.option ?? null,
         };
+        const nextTxs = [...(st.transactions ?? []), newTx];
         set((s) => ({
-          strategies: s.strategies.map((st) =>
-            st.id === strategyId
-              ? { ...st, transactions: [...(st.transactions ?? []), newTx] }
-              : st
-          ),
+          strategies: s.strategies.map((st) => {
+            if (st.id !== strategyId) return st;
+            const updated = { ...st, transactions: nextTxs };
+            if (st.marginAccountEnabled) {
+              const balance =
+                (st.initialBalance ?? 0) +
+                nextTxs.reduce((sum, t) => sum + ((t as { cashDelta?: number }).cashDelta ?? 0), 0);
+              updated.loanAmount = Math.max(0, -balance);
+            }
+            return updated;
+          }),
         }));
         return newTx;
       },
 
       updateTransaction: (strategyId, transactionId, updates) => {
-        set((s) => ({
-          strategies: s.strategies.map((st) => {
+        set((s) => {
+          const nextStrategies = s.strategies.map((st) => {
             if (st.id !== strategyId) return st;
             const txs = st.transactions ?? [];
             const idx = txs.findIndex((t) => t.id === transactionId);
             if (idx < 0) return st;
             const next = [...txs];
             next[idx] = { ...next[idx], ...updates };
-            return { ...st, transactions: next };
-          }),
-        }));
+            const updated = { ...st, transactions: next };
+            if (st.marginAccountEnabled) {
+              const balance =
+                (st.initialBalance ?? 0) +
+                next.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
+              updated.loanAmount = Math.max(0, -balance);
+            }
+            return updated;
+          });
+          return { strategies: nextStrategies };
+        });
       },
 
       removeTransaction: (strategyId, transactionId) => {
-        set((s) => ({
-          strategies: s.strategies.map((st) =>
-            st.id === strategyId
-              ? { ...st, transactions: (st.transactions ?? []).filter((t) => t.id !== transactionId) }
-              : st
-          ),
-        }));
+        set((s) => {
+          const nextStrategies = s.strategies.map((st) => {
+            if (st.id !== strategyId) return st;
+            const next = (st.transactions ?? []).filter((t) => t.id !== transactionId);
+            const updated = { ...st, transactions: next };
+            if (st.marginAccountEnabled) {
+              const balance =
+                (st.initialBalance ?? 0) +
+                next.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
+              updated.loanAmount = Math.max(0, -balance);
+            }
+            return updated;
+          });
+          return { strategies: nextStrategies };
+        });
       },
 
       addSubview: (strategyId, options = {}) => {

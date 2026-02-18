@@ -6,9 +6,13 @@ interface ModalProps {
   children: React.ReactNode;
   onClose: () => void;
   className?: string;
+  /** 'lg' = wider modal (max-w-2xl) for forms with many fields */
+  size?: 'default' | 'lg';
+  /** Optional content to render in the top right of the header (e.g. currency badge) */
+  headerRight?: React.ReactNode;
 }
 
-export function Modal({ title, children, onClose, className }: ModalProps) {
+export function Modal({ title, children, onClose, className, size = 'default', headerRight }: ModalProps) {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -32,7 +36,8 @@ export function Modal({ title, children, onClose, className }: ModalProps) {
 
       <div
         className={cn(
-          'relative w-full max-w-sm rounded-[var(--radius-card)]',
+          'relative w-full rounded-[var(--radius-card)]',
+          size === 'lg' ? 'max-w-2xl' : 'max-w-sm',
           'border border-[var(--color-border)]',
           className
         )}
@@ -43,17 +48,28 @@ export function Modal({ title, children, onClose, className }: ModalProps) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          id="modal-title"
-          className="font-semibold"
+        <div
           style={{
-            fontSize: 'var(--font-size-title)',
-            color: 'var(--color-text-primary)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             marginBottom: 20,
+            gap: 12,
           }}
         >
-          {title}
-        </h2>
+          <h2
+            id="modal-title"
+            className="font-semibold"
+            style={{
+              fontSize: 'var(--font-size-title)',
+              color: 'var(--color-text-primary)',
+              margin: 0,
+            }}
+          >
+            {title}
+          </h2>
+          {headerRight}
+        </div>
         {children}
       </div>
     </div>

@@ -10,7 +10,6 @@ import type { SubviewSpec, ContentItem } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { InputControl } from './InputControl';
 import { useUIStore } from '@/store/ui-store';
-import { useStrategyStore } from '@/store/strategy-store';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
 /** 24 built-in colors; custom rgb/rgba/#hex also supported */
@@ -122,8 +121,8 @@ function ContentRenderer({
   context,
   strategyId,
   onEditTransaction,
-  onDeleteTransaction,
   textColor,
+  setDeleteTransactionConfirmOpen,
 }: {
   item: ContentItem;
   resolved: Record<string, unknown>;
@@ -136,9 +135,9 @@ function ContentRenderer({
   context: unknown;
   strategyId?: string;
   onEditTransaction?: (transaction: Record<string, unknown>) => void;
-  onDeleteTransaction?: (transactionId: number) => void;
   /** Resolved text color for text/number content (from cell.textColor) */
   textColor?: string;
+  setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transactionId: number } | null) => void;
 }) {
   if ('input' in item) {
     const inp = item.input as { ref: string; padding?: PaddingValue };
@@ -291,10 +290,8 @@ function ContentRenderer({
                               const txId = rowData.id as number | undefined;
                               if (ra.handler === 'editTransactionModal' && strategyId && onEditTransaction && txId != null) {
                                 onEditTransaction(rowData);
-                              } else if (ra.handler === 'deleteTransaction' && strategyId && onDeleteTransaction && txId != null) {
-                                if (window.confirm(`Delete this transaction?`)) {
-                                  onDeleteTransaction(txId);
-                                }
+                              } else if (ra.handler === 'deleteTransaction' && strategyId && txId != null && setDeleteTransactionConfirmOpen) {
+                                setDeleteTransactionConfirmOpen({ strategyId, transactionId: txId });
                               }
                             };
                             return (
@@ -445,7 +442,7 @@ export function SubviewSpecRenderer({
   const [resolved, setResolved] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
   const setEditTransactionModalOpen = useUIStore((s) => s.setEditTransactionModalOpen);
-  const removeTransaction = useStrategyStore((s) => s.removeTransaction);
+  const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
 
   const handleEditTransaction = (row: Record<string, unknown>) => {
     if (!strategyId) return;
@@ -454,20 +451,13 @@ export function SubviewSpecRenderer({
       side: (row.side as string) ?? '',
       cashDelta: (row.cashDelta as number) ?? 0,
       timestamp: (row.timestamp as string) ?? '',
-      instrumentId: (row.instrumentId as string) ?? '',
       instrumentSymbol: (row.instrumentSymbol as string) ?? '',
-      instrumentName: (row.instrumentName as string) ?? '',
       option: (row.option as StrategyTransaction['option']) ?? null,
       customData: (row.customData as Record<string, unknown>) ?? {},
       quantity: (row.quantity as number) ?? 0,
       price: (row.price as number) ?? 0,
     };
-    setEditTransactionModalOpen({ strategyId, transaction: tx });
-  };
-
-  const handleDeleteTransaction = (transactionId: number) => {
-    if (!strategyId) return;
-    removeTransaction(strategyId, transactionId);
+    setEditTransactionModalOpen({ strategyId, transaction: tx, mode: 'stock-etf' });
   };
 
   // Explicitly track transactions so table refreshes when they change (addTransaction)
@@ -609,8 +599,8 @@ export function SubviewSpecRenderer({
                         context={context}
                         strategyId={strategyId}
                         onEditTransaction={handleEditTransaction}
-                        onDeleteTransaction={handleDeleteTransaction}
                         textColor={resolveColor(cell.textColor)}
+                        setDeleteTransactionConfirmOpen={strategyId ? setDeleteTransactionConfirmOpen : undefined}
                       />
                     ))}
                   </div>

@@ -3,7 +3,7 @@ import { Trash2, Plus } from 'lucide-react';
 import type { StrategyInputConfig } from '@/store/strategy-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
-import { Modal, Button, Input, Label, SegmentControl, Select } from '@/components/ui';
+import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
 
 const CURRENCIES = ['USD', 'CAD'] as const;
 
@@ -39,6 +39,8 @@ function defaultForType(type: StrategyInputConfig['type']): unknown {
 export function StrategySettingsModal() {
   const [name, setName] = useState('');
   const [baseCurrency, setBaseCurrency] = useState<'USD' | 'CAD'>('USD');
+  const [marginAccountEnabled, setMarginAccountEnabled] = useState(false);
+  const [collateralEnabled, setCollateralEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
@@ -55,6 +57,8 @@ export function StrategySettingsModal() {
     if (strategy) {
       setName(strategy.name);
       setBaseCurrency((strategy.baseCurrency as 'USD' | 'CAD') || 'USD');
+      setMarginAccountEnabled(strategy.marginAccountEnabled ?? false);
+      setCollateralEnabled(strategy.collateralEnabled ?? false);
     }
     setDeleteConfirm(false);
     setError(null);
@@ -70,10 +74,15 @@ export function StrategySettingsModal() {
         return;
       }
       setError(null);
-      updateStrategy(strategy.id, { name: trimmed, baseCurrency });
+      updateStrategy(strategy.id, {
+        name: trimmed,
+        baseCurrency,
+        marginAccountEnabled,
+        collateralEnabled,
+      });
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, strategy, updateStrategy, setStrategySettingsModalOpen]
+    [name, baseCurrency, marginAccountEnabled, collateralEnabled, strategy, updateStrategy, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -191,10 +200,10 @@ export function StrategySettingsModal() {
   return (
     <Modal title="Strategy settings" onClose={handleClose} className="w-[520px] max-w-[95vw]">
       <form onSubmit={handleSubmit}>
-        {/* Content: strategy name + base currency on same row */}
-        <div className="flex items-end gap-4" style={{ marginBottom: 20 }}>
-          <div className="flex-1 min-w-0">
-            <Label htmlFor="strategy-name-edit">Strategy name</Label>
+        {/* Content: strategy name */}
+        <div style={{ marginBottom: 20 }}>
+          <Label htmlFor="strategy-name-edit">Strategy name</Label>
+          <div className="mt-1">
             <Input
               id="strategy-name-edit"
               type="text"
@@ -207,14 +216,41 @@ export function StrategySettingsModal() {
               error={error ?? undefined}
             />
           </div>
-          <div style={{ width: 200, flexShrink: 0 }}>
-            <Label htmlFor="base-currency-edit">Base currency</Label>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 14 }}>
+            <Label>Base currency</Label>
             <SegmentControl
               value={baseCurrency}
               options={CURRENCIES}
               onChange={(c) => setBaseCurrency(c)}
-              className="w-full"
+              className="flex-1 min-w-0 mt-1"
             />
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="strategy-margin"
+                checked={marginAccountEnabled}
+                onChange={(e) => setMarginAccountEnabled(e.target.checked)}
+              />
+              <Label htmlFor="strategy-margin" className="!mb-0 cursor-pointer">
+                Enable margin account
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="strategy-collateral"
+                checked={collateralEnabled}
+                onChange={(e) => setCollateralEnabled(e.target.checked)}
+              />
+              <Label htmlFor="strategy-collateral" className="!mb-0 cursor-pointer">
+                Enable collateral
+              </Label>
+            </div>
           </div>
         </div>
 
