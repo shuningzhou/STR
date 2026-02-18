@@ -8,6 +8,7 @@ import { SubviewGalleryModal } from '@/features/subviews/SubviewGalleryModal';
 import { AddTransactionModal } from '@/features/transactions/AddTransactionModal';
 import { EditTransactionModal } from '@/features/transactions/EditTransactionModal';
 import { DepositWithdrawModal } from '@/features/transactions/DepositWithdrawModal';
+import { TransactionListPanel } from '@/features/transactions/TransactionListPanel';
 import { initializeTheme } from '@/store/theme-store';
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
       <AddTransactionModal />
       <EditTransactionModal />
       <DepositWithdrawModal />
+      <TransactionListPanel />
     </div>
   );
 }

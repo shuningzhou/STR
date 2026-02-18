@@ -176,18 +176,20 @@ function ContentRenderer({
       typeof val === 'string' && val.startsWith('py:') ? resolved[val] ?? '…' : val;
     const t = item.text;
     const size = t.size ? (FONT_SIZES[t.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
+    const textAlign = (t.alignment as React.CSSProperties['textAlign']) ?? 'left';
     const inner = (
-      <span
-        style={{
-          color: textColor ?? 'var(--color-text-primary)',
-          fontSize: size,
-          fontWeight: t.bold ? 600 : undefined,
-          fontStyle: t.italic ? 'italic' : undefined,
-          textAlign: (t.alignment as React.CSSProperties['textAlign']) ?? 'left',
-        }}
-      >
-        {String(display)}
-      </span>
+      <div style={{ width: '100%', minWidth: 0, textAlign }}>
+        <span
+          style={{
+            color: textColor ?? 'var(--color-text-primary)',
+            fontSize: size,
+            fontWeight: t.bold ? 600 : undefined,
+            fontStyle: t.italic ? 'italic' : undefined,
+          }}
+        >
+          {String(display)}
+        </span>
+      </div>
     );
     return t.padding != null ? (
       <div style={paddingToStyle(t.padding)}>{inner}</div>
@@ -211,18 +213,20 @@ function ContentRenderer({
       display = String(raw);
     }
     const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
+    const textAlign = (n.alignment as React.CSSProperties['textAlign']) ?? 'center';
     const inner = (
-      <span
-        style={{
-          color: textColor ?? 'var(--color-text-primary)',
-          fontSize: size,
-          fontWeight: n.bold ? 600 : 400,
-          fontStyle: n.italic ? 'italic' : undefined,
-          textAlign: (n.alignment as React.CSSProperties['textAlign']) ?? 'center',
-        }}
-      >
-        {display}
-      </span>
+      <div style={{ width: '100%', minWidth: 0, textAlign }}>
+        <span
+          style={{
+            color: textColor ?? 'var(--color-text-primary)',
+            fontSize: size,
+            fontWeight: n.bold ? 600 : 400,
+            fontStyle: n.italic ? 'italic' : undefined,
+          }}
+        >
+          {display}
+        </span>
+      </div>
     );
     return n.padding != null ? (
       <div style={paddingToStyle(n.padding)}>{inner}</div>
