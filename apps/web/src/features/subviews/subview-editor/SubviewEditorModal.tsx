@@ -9,6 +9,7 @@ import {
   ChevronUp,
   FileCode,
   Receipt,
+  Search,
   Wallet,
   CheckCircle,
   Wand2,
@@ -72,6 +73,19 @@ export function SubviewEditorModal() {
     () => SEED_INPUTS as Record<string, unknown>
   );
   const splitterRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Parameters<NonNullable<React.ComponentProps<typeof Editor>['onMount']>>[0] | null>(null);
+
+  const triggerEditorSearch = useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const e = ed as { getContribution?: (id: string) => { start?: (opts?: object) => void }; trigger?: (a: string, b: string, c: unknown) => void };
+    const findController = e.getContribution?.('editor.contrib.findController');
+    if (findController?.start) {
+      findController.start({ seedSearchStringFromSelection: true });
+    } else {
+      e.trigger?.('keyboard', 'actions.find', null);
+    }
+  }, []);
 
   // When spec has inputs, merge defaults into previewInputs so all inputs have values
   useEffect(() => {
@@ -490,6 +504,14 @@ export function SubviewEditorModal() {
                 <div className="flex items-center gap-[10px]">
                   <button
                     type="button"
+                    onClick={triggerEditorSearch}
+                    title="Search (Ctrl+F)"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                  >
+                    <Search size={16} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={validateJson}
                     title="Validate"
                     className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
@@ -532,6 +554,14 @@ export function SubviewEditorModal() {
               )}
               {editMode === 'python' && (
                 <div className="flex items-center gap-[10px]">
+                  <button
+                    type="button"
+                    onClick={triggerEditorSearch}
+                    title="Search (Ctrl+F)"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                  >
+                    <Search size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={handleTestFunctions}
@@ -625,7 +655,10 @@ export function SubviewEditorModal() {
                       defaultLanguage="json"
                       value={jsonText}
                       onChange={handleJsonChange}
-                      onMount={(editor) => editor.getModel()?.updateOptions({ tabSize: 2 })}
+                      onMount={(editor) => {
+                        editorRef.current = editor;
+                        editor.getModel()?.updateOptions({ tabSize: 2 });
+                      }}
                       options={{
                         minimap: { enabled: false },
                         fontSize: 12,
@@ -657,6 +690,7 @@ export function SubviewEditorModal() {
                       defaultLanguage="python"
                       value={pythonText}
                       onChange={(v) => setPythonText(v ?? '')}
+                      onMount={(editor) => { editorRef.current = editor; }}
                       options={{
                         minimap: { enabled: false },
                         fontSize: 12,
