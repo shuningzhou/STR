@@ -9,6 +9,7 @@ export const WALLET_TABLE: SubviewSpec = {
   name: 'Wallet',
   description: 'Strategy wallet balance; deposit and withdraw',
   maker: 'official',
+  categories: ['essential'],
   defaultSize: { w: 320, h: 100 },
   inputs: {},
   headerActions: [

@@ -9,6 +9,7 @@ export const TEXT_INPUT_COLOR_EXAMPLE: SubviewSpec = {
   name: 'Text, Input & Color',
   description: 'Text sizes/styles, inputs, number formats, and colors',
   maker: 'official',
+  categories: ['example'],
   defaultSize: { w: 700, h: 480 },
   inputs: {
     timeRange: { type: 'time_range', title: 'Time Range' },

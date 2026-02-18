@@ -8,6 +8,7 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   name: 'Portfolio %',
   description: 'Pie chart showing % of portfolio by holding',
   maker: 'official',
+  categories: ['essential', 'stock-etf'],
   defaultSize: { w: 400, h: 220 },
   inputs: {},
   layout: [

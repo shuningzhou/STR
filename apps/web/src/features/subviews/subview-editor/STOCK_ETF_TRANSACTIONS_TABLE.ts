@@ -10,6 +10,7 @@ export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
   name: 'Stock & ETF Transactions',
   description: 'Table of stock and ETF transactions (no options)',
   maker: 'official',
+  categories: ['essential', 'stock-etf'],
   defaultSize: { w: 700, h: 180 },
   inputs: {},
   layout: [

@@ -164,7 +164,7 @@ export function CanvasArea() {
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
-              title="Add subview"
+              title="Add view"
             >
               <SquarePlus size={18} strokeWidth={2} />
             </button>

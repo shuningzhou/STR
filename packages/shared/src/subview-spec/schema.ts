@@ -211,6 +211,10 @@ const headerActionSchema = z.object({
   handler: z.string(),
 });
 
+/** Category IDs for gallery grouping. A subview can be in multiple categories. */
+export const SUBVIEW_CATEGORIES = ['example', 'essential', 'stock-etf', 'margin', 'option', 'income'] as const;
+export type SubviewCategory = (typeof SUBVIEW_CATEGORIES)[number];
+
 // --- Top-level spec ---
 export const subviewSpecSchema = z
   .object({
@@ -218,6 +222,8 @@ export const subviewSpecSchema = z
     name: z.string(),
     description: z.string(),
     maker: z.string(),
+    /** Categories for gallery: example, essential, stock-etf, margin, option, income. A subview can be in multiple. */
+    categories: z.array(z.enum(['example', 'essential', 'stock-etf', 'margin', 'option', 'income'])).optional(),
     defaultSize: z.union([sizeShapeSchema, z.string()]).optional(),
     preferredSize: sizeShapeSchema.optional(),
     /** Buttons in subview card header (e.g. Add, Deposit, Withdraw) */

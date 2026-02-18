@@ -9,6 +9,7 @@ export const CHART_TABLE_EXAMPLE: SubviewSpec = {
   name: 'Chart & Table',
   description: 'Table and Chart (pie, line, bar) examples',
   maker: 'official',
+  categories: ['example'],
   defaultSize: { w: 800, h: 420 },
   inputs: {},
   layout: [

@@ -6,6 +6,7 @@ export const WIN_RATE_EXAMPLE = {
   name: 'Win Rate',
   description: 'Percentage of profitable closed option trades',
   maker: 'peter',
+  categories: ['essential', 'stock-etf'],
   defaultSize: { w: 400, h: 70 },
   inputs: {},
   layout: [

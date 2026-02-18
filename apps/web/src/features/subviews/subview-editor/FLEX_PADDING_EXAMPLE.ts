@@ -11,6 +11,7 @@ export const FLEX_PADDING_EXAMPLE: SubviewSpec = {
   name: 'Flex & Padding',
   description: 'Every flex property and padding examples',
   maker: 'official',
+  categories: ['example'],
   defaultSize: { w: 900, h: 680 },
   inputs: {},
   layout: [
