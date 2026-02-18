@@ -48,8 +48,8 @@ content = [ contentItem, ... ]
 ```json
 "layout": [
   [
-    { "alignment": "left center", "content": [...] },
-    { "alignment": "left center", "content": [...] }
+    { "alignment": "center left", "content": [...] },
+    { "alignment": "center left", "content": [...] }
   ],
   [
     { "weight": 1, "alignment": "center middle", "content": [...] }
@@ -71,9 +71,9 @@ content = [ contentItem, ... ]
 ### Cell alignment
 | Value | Effect |
 |-------|--------|
-| `left center` | Left horizontal, center vertical |
+| `center left` | Left horizontal, center vertical |
 | `center middle` | Centered both |
-| `right top` | Right horizontal, top vertical |
+| `center right` | Right horizontal, center vertical |
 | `stretch center` | Stretch horizontal, center vertical |
 
 ---
@@ -250,8 +250,8 @@ Use on: layout cell, text, number, input, Table, Chart.
   },
   "layout": [
     [
-      { "alignment": "left center", "content": [{ "input": { "ref": "timeRange" } }] },
-      { "alignment": "left center", "content": [{ "input": { "ref": "ticker" } }] }
+      { "alignment": "center left", "content": [{ "input": { "ref": "timeRange" } }] },
+      { "alignment": "center left", "content": [{ "input": { "ref": "ticker" } }] }
     ],
     [
       {

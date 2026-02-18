@@ -7,7 +7,7 @@ All styling properties available in the application, with their possible values.
 These properties **can be used in the subview JSON layout** (in `layout` cells and content items):
 
 - **Typography**: `size`, `bold`, `italic` — on text and number content
-- **Alignment**: `alignment` — on layout cells (`left center`, `center middle`, etc.) and on text/number content (`left`, `center`, `right`)
+- **Alignment**: `alignment` — on layout cells (`center left`, `center middle`, `center right`, etc.) and on text/number content (`left`, `center`, `right`)
 - **Padding**: `padding` — on layout cells, text, number, input, Table, Chart
 - **Size**: `defaultSize`, `preferredSize` — on the subview spec
 
@@ -56,9 +56,9 @@ For flex layout: `justifyContent` = vertical, `alignItems` = horizontal.
 
 | Value | Effect |
 |-------|--------|
-| `left center` | Horizontal: left, Vertical: center |
+| `center left` | Horizontal: left, Vertical: center |
 | `center middle` | Horizontal: center, Vertical: center |
-| `right top` | Horizontal: right, Vertical: top |
+| `center right` | Horizontal: right, Vertical: center |
 | `stretch center` | Horizontal: stretch, Vertical: center |
 
 ### Text / number alignment

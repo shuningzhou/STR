@@ -16,7 +16,7 @@
   - `inputs`: object of controls (optional) — see **Input types and data schemas** below for allowed types and data shapes.
   - `layout`: 2D array of rows → each row is array of cells → each cell has:
     - `weight`: optional, number ≥ 1 (flex-grow style proportional width). When omitted, cell width is based on content size.
-    - `alignment`: string like `"left center"`, `"center middle"`, `"right top"`, `"stretch center"`
+    - `alignment`: string like `"center left"`, `"center middle"`, `"center right"`, `"stretch center"`
     - `padding`: optional, number (px)
     - `content`: array of content items (text, number, Table, Chart, **input**, etc.)
   - **Inputs in layout**: Inputs are **not** auto-rendered. Place them where desired using `{ "input": { "ref": "key" } }` in a cell's content. The `ref` must match a key in `spec.inputs`. This lets the user control input placement (e.g. same row as title, separate filter row).
@@ -166,17 +166,17 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
     [
       {
         "weight": 1,
-        "alignment": "left center",
+        "alignment": "center left",
         "content": [
           { "text": { "value": "Win Rate", "alignment": "left" } }
         ]
       },
       {
-        "alignment": "left center",
+        "alignment": "center left",
         "content": [{ "input": { "ref": "timeRange" } }]
       },
       {
-        "alignment": "left center",
+        "alignment": "center left",
         "content": [{ "input": { "ref": "ticker" } }]
       },
       {
@@ -214,7 +214,7 @@ Inputs are placed in the layout via `{ "input": { "ref": "key" } }` — they are
     [
       {
         "weight": 1,
-        "alignment": "left center",
+        "alignment": "center left",
         "content": [{ "input": { "ref": "timeRange" } }]
       }
     ],

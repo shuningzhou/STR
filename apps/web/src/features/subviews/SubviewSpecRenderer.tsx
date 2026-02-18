@@ -13,6 +13,44 @@ import { useUIStore } from '@/store/ui-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
+/** 24 built-in colors; custom rgb/rgba/#hex also supported */
+export const BUILT_IN_COLORS: Record<string, string> = {
+  red: '#dc2626',
+  orange: '#ea580c',
+  yellow: '#ca8a04',
+  lime: '#65a30d',
+  green: '#16a34a',
+  teal: '#0d9488',
+  cyan: '#0891b2',
+  blue: '#2563eb',
+  indigo: '#4f46e5',
+  purple: '#7c3aed',
+  pink: '#db2777',
+  gray: '#6b7280',
+  crimson: '#b91c1c',
+  amber: '#f59e0b',
+  emerald: '#059669',
+  sky: '#0ea5e9',
+  violet: '#8b5cf6',
+  fuchsia: '#d946ef',
+  rose: '#e11d48',
+  slate: '#64748b',
+  zinc: '#71717a',
+  stone: '#78716c',
+  brown: '#92400e',
+  navy: '#1e3a8a',
+};
+
+/** Resolve color: built-in name -> hex; rgb/rgba/hsl/hsla/#hex passed through */
+function resolveColor(color: string | undefined): string | undefined {
+  if (!color) return undefined;
+  const lower = color.trim().toLowerCase();
+  if (BUILT_IN_COLORS[lower]) return BUILT_IN_COLORS[lower];
+  // Custom: rgb, rgba, hsl, hsla, #hex
+  if (/^(rgb|rgba|hsl|hsla)\(|^#[0-9a-fA-F]/.test(color)) return color;
+  return undefined;
+}
+
 /** Font sizes for text/number content: xs, sm, md, lg, xl, xxl, xxxl */
 const FONT_SIZES: Record<string, string> = {
   xs: 'var(--font-size-label)',     // 11px
@@ -85,6 +123,7 @@ function ContentRenderer({
   strategyId,
   onEditTransaction,
   onDeleteTransaction,
+  textColor,
 }: {
   item: ContentItem;
   resolved: Record<string, unknown>;
@@ -98,6 +137,8 @@ function ContentRenderer({
   strategyId?: string;
   onEditTransaction?: (transaction: Record<string, unknown>) => void;
   onDeleteTransaction?: (transactionId: number) => void;
+  /** Resolved text color for text/number content (from cell.textColor) */
+  textColor?: string;
 }) {
   if ('input' in item) {
     const inp = item.input as { ref: string; padding?: PaddingValue };
@@ -138,7 +179,7 @@ function ContentRenderer({
     const inner = (
       <span
         style={{
-          color: 'var(--color-text-primary)',
+          color: textColor ?? 'var(--color-text-primary)',
           fontSize: size,
           fontWeight: t.bold ? 600 : undefined,
           fontStyle: t.italic ? 'italic' : undefined,
@@ -173,7 +214,7 @@ function ContentRenderer({
     const inner = (
       <span
         style={{
-          color: 'var(--color-text-primary)',
+          color: textColor ?? 'var(--color-text-primary)',
           fontSize: size,
           fontWeight: n.bold ? 600 : 400,
           fontStyle: n.italic ? 'italic' : undefined,
@@ -333,16 +374,40 @@ function ContentRenderer({
     }
     return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
   }
+  if ('separator' in item) {
+    const sep = item.separator as { orientation?: 'horizontal' | 'vertical'; padding?: PaddingValue };
+    const isVertical = sep.orientation === 'vertical';
+    const lineStyle: React.CSSProperties = {
+      flex: isVertical ? 'none' : 1,
+      backgroundColor: 'var(--color-border)',
+      minWidth: isVertical ? 1 : undefined,
+      width: isVertical ? 1 : '100%',
+      minHeight: isVertical ? '100%' : 1,
+      height: isVertical ? '100%' : 1,
+    };
+    const wrapperStyle: React.CSSProperties = isVertical
+      ? { display: 'flex', height: '100%', minHeight: 24, alignItems: 'stretch' }
+      : { display: 'flex', width: '100%', alignItems: 'center' };
+    const inner = <div style={wrapperStyle}><div style={lineStyle} /></div>;
+    return sep.padding != null ? <div style={paddingToStyle(sep.padding)}>{inner}</div> : inner;
+  }
   return null;
 }
 
-/** Cell alignment: cells use flex-col, so justifyContent=vertical, alignItems=horizontal */
-const ALIGNMENT_MAP: Record<string, React.CSSProperties> = {
-  'left center': { justifyContent: 'center', alignItems: 'flex-start' },
+/** Cell alignment. Defined for flex-col: justifyContent=vertical, alignItems=horizontal.
+ * When contentDirection is 'row' (flex-row), axes swap so we swap justifyContent/alignItems. */
+const ALIGNMENT_MAP_COL: Record<string, React.CSSProperties> = {
+  'center left': { justifyContent: 'center', alignItems: 'flex-start' },
   'center middle': { justifyContent: 'center', alignItems: 'center' },
-  'right top': { justifyContent: 'flex-start', alignItems: 'flex-end' },
+  'center right': { justifyContent: 'center', alignItems: 'flex-end' },
   'stretch center': { justifyContent: 'center', alignItems: 'stretch' },
 };
+
+function getAlignmentStyles(alignment: string, isRow: boolean): React.CSSProperties {
+  const base = ALIGNMENT_MAP_COL[alignment] ?? ALIGNMENT_MAP_COL['center middle'];
+  if (!isRow) return base;
+  return { justifyContent: base.alignItems, alignItems: base.justifyContent };
+}
 
 export interface SubviewSpecRendererProps {
   spec: SubviewSpec;
@@ -495,16 +560,35 @@ export function SubviewSpecRenderer({
         style={{ padding: 0 }}
       >
         <div className="subview-spec-layout flex flex-col gap-0 min-w-full w-full" style={{ padding: 0, width: '100%', minWidth: '100%' }}>
-          {spec.layout.map((row, ri) => (
-              <div key={ri} className="flex flex-wrap gap-x-2 gap-y-1 min-w-full w-full" style={{ width: '100%', minWidth: '100%' }}>
+          {spec.layout.map((row, ri) => {
+              const hasWeightedCell = row.some((c: { weight?: number }) => c.weight != null);
+              return (
+              <div
+                key={ri}
+                className="flex flex-wrap gap-x-2 gap-y-1 min-w-full w-full"
+                style={{
+                  width: '100%',
+                  minWidth: '100%',
+                  alignItems: hasWeightedCell ? 'stretch' : 'flex-start',
+                }}
+              >
                 {row.map((cell, ci) => (
                   <div
                     key={ci}
-                    className={`subview-layout-cell flex flex-col gap-1 flex flex-wrap ${cell.weight != null ? 'min-w-0 flex-1' : 'shrink-0'}`}
+                    className={`subview-layout-cell flex gap-1 flex-wrap ${cell.contentDirection === 'row' ? 'flex-row' : 'flex-col'} ${cell.weight != null ? 'min-w-0 flex-1' : 'shrink-0'}`}
                     style={{
                       ...(cell.weight != null ? { flex: cell.weight } : { flex: '0 0 auto' }),
-                      ...ALIGNMENT_MAP[cell.alignment],
+                      ...getAlignmentStyles(cell.alignment ?? 'center middle', cell.contentDirection === 'row'),
                       ...(cell.padding != null ? paddingToStyle(cell.padding) : { padding: 0 }),
+                      boxSizing: 'border-box',
+                      ...(cell.showBorder
+                        ? {
+                            border: resolveColor(cell.backgroundColor)
+                              ? '2px solid rgba(255,255,255,0.5)'
+                              : '1px solid var(--color-border)',
+                          }
+                        : {}),
+                      ...(resolveColor(cell.backgroundColor) ? { backgroundColor: resolveColor(cell.backgroundColor) } : {}),
                     }}
                   >
                     {cell.content.map((contentItem, ii) => (
@@ -522,12 +606,14 @@ export function SubviewSpecRenderer({
                         strategyId={strategyId}
                         onEditTransaction={handleEditTransaction}
                         onDeleteTransaction={handleDeleteTransaction}
+                        textColor={resolveColor(cell.textColor)}
                       />
                     ))}
                   </div>
                 ))}
               </div>
-            ))}
+            );
+          })}
         </div>
       </div>
     </div>

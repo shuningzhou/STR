@@ -141,6 +141,14 @@ const inputContentSchema = z.object({
   }),
 });
 
+/** Horizontal or vertical line separator */
+const separatorContentSchema = z.object({
+  separator: z.object({
+    /** horizontal (default) or vertical */
+    orientation: z.enum(['horizontal', 'vertical']).optional(),
+    padding: paddingSchema,
+  }),
+});
 
 const contentItemSchema = z.union([
   textContentSchema,
@@ -148,13 +156,25 @@ const contentItemSchema = z.union([
   tableContentSchema,
   chartContentSchema,
   inputContentSchema,
+  separatorContentSchema,
 ]);
+
+/** Built-in: red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, pink, gray, crimson, amber, emerald, sky, violet, fuchsia, rose, slate, zinc, stone, brown, navy. Or custom: rgb(r,g,b), #hex, hsl(...) */
+const colorSchema = z.string().optional();
 
 // --- Layout cell ---
 const layoutCellSchema = z.object({
   weight: z.number().min(1).optional(), // when omitted, cell width is based on content size
   alignment: z.string(),
   padding: paddingSchema,
+  /** Layout flow of content items. "row" = horizontal, "column" = vertical (default). Independent of alignment. */
+  contentDirection: z.enum(['row', 'column']).optional(),
+  /** When true, draws a box outlining the cell for layout debugging */
+  showBorder: z.boolean().optional(),
+  /** Text color: built-in name or rgb/rgba/#hex */
+  textColor: colorSchema,
+  /** Background color: built-in name or rgb/rgba/#hex */
+  backgroundColor: colorSchema,
   content: z.array(contentItemSchema),
 });
 
