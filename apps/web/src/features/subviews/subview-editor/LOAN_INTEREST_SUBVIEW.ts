@@ -12,13 +12,13 @@ export const LOAN_INTEREST_SUBVIEW: SubviewSpec = {
   description: 'Loan interest rate (APR) and daily interest cost',
   maker: 'official',
   categories: ['essential'],
-  defaultSize: { w: 280, h: 100 },
+  defaultSize: { w: 200, h: 40 },
   inputs: {},
   layout: [
     [
       {
-        flex: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-        padding: 12,
+        flex: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+        padding: 10,
         content: [
           { text: { value: 'APR', size: 'sm' } },
           { number: { value: 'py:get_loan_interest', format: '%', decimals: 2, size: 'lg', bold: true } },
@@ -27,8 +27,8 @@ export const LOAN_INTEREST_SUBVIEW: SubviewSpec = {
     ],
     [
       {
-        flex: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-        padding: { top: 0, bottom: 12, left: 12, right: 12 },
+        flex: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+        padding: { top: 0, right: 10, bottom: 10, left: 10 },
         content: [
           { text: { value: 'Daily interest', size: 'sm' } },
           { number: { value: 'py:get_daily_interest', format: '$', decimals: 2, size: 'md', bold: true } },
