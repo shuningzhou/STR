@@ -177,7 +177,7 @@ const contentItemSchema = z.union([
 const colorSchema = z.string().optional();
 
 /** Flex/CSS properties passed through to the rendered element. Use standard flex names: flex, flexDirection, justifyContent, alignItems, alignSelf, flexGrow, flexShrink, flexBasis, gap, etc. */
-const flexSchema = z.record(z.union([z.string(), z.number()])).optional();
+const flexSchema = z.record(z.string(), z.union([z.string(), z.number()])).optional();
 
 // --- Layout cell ---
 const layoutCellSchema = z.object({
@@ -286,19 +286,20 @@ export function parseSubviewSpec(json: string): SubviewSpec {
   return subviewSpecSchema.parse(parsed);
 }
 
-/** Safe parse - returns success/error */
+/** Safe parse - returns success/error. Parse errors return error as string; schema errors return ZodError. */
 export function safeParseSubviewSpec(
   json: string
-): { success: true; data: SubviewSpec } | { success: false; error: z.ZodError } {
+): { success: true; data: SubviewSpec } | { success: false; error: z.ZodError | string } {
   try {
-    const parsed = JSON.parse(json) as unknown;
-    return subviewSpecSchema.safeParse(parsed) as
+    // Strip BOM and normalize; re-parse to ensure plain object (avoids Monaco/invisible-char corruption)
+    const trimmed = json.replace(/^\uFEFF/, '').trim();
+    const parsed = JSON.parse(trimmed) as unknown;
+    const plain = JSON.parse(JSON.stringify(parsed)) as unknown;
+    return subviewSpecSchema.safeParse(plain) as
       | { success: true; data: SubviewSpec }
       | { success: false; error: z.ZodError };
-  } catch {
-    return {
-      success: false,
-      error: new z.ZodError([{ code: 'custom', path: [], message: 'Invalid JSON' }]),
-    } as { success: false; error: z.ZodError };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Invalid JSON';
+    return { success: false, error: msg };
   }
 }

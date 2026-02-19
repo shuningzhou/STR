@@ -70,6 +70,8 @@ export function SubviewEditorModal() {
   );
   const splitterRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Parameters<NonNullable<React.ComponentProps<typeof Editor>['onMount']>>[0] | null>(null);
+  const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestJsonRef = useRef<string>('');
 
   const triggerEditorSearch = useCallback(() => {
     const ed = editorRef.current;
@@ -156,24 +158,69 @@ export function SubviewEditorModal() {
     setTestResult(null);
   }, [setSubviewSettingsOpen]);
 
+  const validateJson = useCallback((val: string) => {
+    try {
+      const result = safeParseSubviewSpec(val);
+      if (result.success) setParseResult({ success: true, data: result.data });
+      else {
+        let details: string;
+        if (typeof result.error === 'string') {
+          details = result.error;
+        } else {
+          try {
+            details =
+              result.error.issues
+                ?.map((i) => {
+                  const path = i.path?.length ? i.path.join('.') : 'root';
+                  const msg = (i as { message?: string }).message ?? 'Validation error';
+                  return `${path}: ${msg}`;
+                })
+                .join('\n') ?? result.error.message ?? 'Validation failed';
+          } catch {
+            details = result.error.message ?? 'Validation failed';
+          }
+        }
+        setParseResult({ success: false, error: details || 'Invalid JSON or schema' });
+      }
+    } catch (e) {
+      setParseResult({ success: false, error: e instanceof Error ? e.message : 'Validation error' });
+    }
+  }, []);
+
   const handleJsonChange = useCallback(
     (value: string | undefined) => {
-      setJsonText(value ?? '');
-      const result = safeParseSubviewSpec(value ?? '');
-      if (result.success) setParseResult({ success: true, data: result.data });
-      else setParseResult({ success: false, error: 'Invalid JSON or schema' });
+      const str = value ?? '';
+      setJsonText(str);
+      latestJsonRef.current = str;
+      if (validationTimeoutRef.current) clearTimeout(validationTimeoutRef.current);
+      validationTimeoutRef.current = setTimeout(() => {
+        validationTimeoutRef.current = null;
+        validateJson(latestJsonRef.current);
+      }, 400);
     },
-    []
+    [validateJson]
   );
+
+  useEffect(() => () => {
+    if (validationTimeoutRef.current) clearTimeout(validationTimeoutRef.current);
+  }, []);
 
   const handleFormat = useCallback(() => {
     try {
       const parsed = JSON.parse(jsonText) as unknown;
-      setJsonText(JSON.stringify(parsed, null, 2));
-    } catch {
-      setParseResult({ success: false, error: 'Invalid JSON - cannot format' });
+      const formatted = JSON.stringify(parsed, null, 2);
+      setJsonText(formatted);
+      latestJsonRef.current = formatted;
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current);
+        validationTimeoutRef.current = null;
+      }
+      validateJson(formatted);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid JSON - cannot format';
+      setParseResult({ success: false, error: msg });
     }
-  }, [jsonText]);
+  }, [jsonText, validateJson]);
 
   const handleReset = useCallback(() => {
     if (!window.confirm('Reset JSON and Python to blank spec? Unsaved changes will be lost.')) return;
@@ -216,10 +263,20 @@ export function SubviewEditorModal() {
   const handleTestFunctions = useCallback(async () => {
     const result = safeParseSubviewSpec(jsonText);
     if (!result.success) {
-      const details = result.error.issues.map((i) => {
-        const path = i.path?.length ? i.path.join('.') : 'root';
-        return `${path}: ${i.message}`;
-      }).join('\n');
+      let details: string;
+      try {
+        details =
+          typeof result.error === 'string'
+            ? result.error
+            : result.error.issues
+                ?.map((i) => {
+                  const path = i.path?.length ? i.path.join('.') : 'root';
+                  return `${path}: ${(i as { message?: string }).message ?? ''}`;
+                })
+                .join('\n') ?? result.error.message ?? 'Validation failed';
+      } catch {
+        details = result.error instanceof Error ? result.error.message : 'Validation failed';
+      }
       setTestResult(`Fix JSON validation errors first:\n${details}`);
       return;
     }
@@ -301,8 +358,14 @@ export function SubviewEditorModal() {
 
   useEffect(() => {
     if (subview) {
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current);
+        validationTimeoutRef.current = null;
+      }
       const spec = subview.spec ?? (BLANK_SPEC as unknown as SubviewSpec);
-      setJsonText(JSON.stringify(spec, null, 2));
+      const str = JSON.stringify(spec, null, 2);
+      setJsonText(str);
+      latestJsonRef.current = str;
       setPythonText(spec.python_code);
       setParseResult({ success: true, data: spec });
     }
@@ -641,7 +704,7 @@ export function SubviewEditorModal() {
                       style={{ backgroundColor: 'var(--color-negative)', color: 'white' }}
                     >
                       <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                      <pre className="whitespace-pre-wrap overflow-auto max-h-16">{parseResult.error}</pre>
+                      <pre className="whitespace-pre-wrap overflow-auto max-h-32 flex-1 min-w-0">{parseResult.error}</pre>
                     </div>
                   )}
                 </>
