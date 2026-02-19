@@ -27,6 +27,8 @@ interface UIState {
   transactionListPanelOpen: string | null;
   /** When open: { strategyId, transactionId } for delete confirmation modal */
   deleteTransactionConfirmOpen: { strategyId: string; transactionId: number } | null;
+  /** Measured canvas grid width so preview can match */
+  canvasWidth: number;
 
   toggleSidebar: () => void;
   toggleCanvasEditMode: () => void;
@@ -44,6 +46,7 @@ interface UIState {
   setWalletSettingsModalOpen: (value: string | null) => void;
   setTransactionListPanelOpen: (value: string | null) => void;
   setDeleteTransactionConfirmOpen: (value: { strategyId: string; transactionId: number } | null) => void;
+  setCanvasWidth: (width: number) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -61,6 +64,7 @@ export const useUIStore = create<UIState>()(
       walletSettingsModalOpen: null,
       transactionListPanelOpen: null,
       deleteTransactionConfirmOpen: null,
+      canvasWidth: 0,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       toggleCanvasEditMode: () => set((s) => ({ canvasEditMode: !s.canvasEditMode })),
@@ -74,6 +78,7 @@ export const useUIStore = create<UIState>()(
       setWalletSettingsModalOpen: (value) => set({ walletSettingsModalOpen: value }),
       setTransactionListPanelOpen: (value) => set({ transactionListPanelOpen: value }),
       setDeleteTransactionConfirmOpen: (value) => set({ deleteTransactionConfirmOpen: value }),
+      setCanvasWidth: (width) => set({ canvasWidth: width }),
     }),
     { name: 'str-ui', partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }) }
   )

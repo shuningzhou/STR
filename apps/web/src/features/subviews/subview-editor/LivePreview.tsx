@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Pencil } from 'lucide-react';
+import { getIconComponent } from '@/lib/icons';
 import type { SubviewSpec } from '@str/shared';
 import type { Strategy } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,13 @@ interface LivePreviewProps {
 export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, strategy, onGlobalInputChange }: LivePreviewProps) {
   const globalInputs = useMemo(() => buildGlobalInputs(strategy), [strategy]);
 
+  type SpecLike = { icon?: string; iconColor?: string; titleColor?: string };
+  const specLike = spec as (SubviewSpec & SpecLike) | null;
+  const specIcon = specLike?.icon;
+  const specIconColor = specLike?.iconColor ?? 'var(--color-text-primary)';
+  const specTitleColor = specIcon ? specIconColor : (specLike?.titleColor ?? 'var(--color-text-primary)');
+  const IconComp = specIcon ? getIconComponent(specIcon) : null;
+
   if (!spec) {
     return (
       <div
@@ -76,36 +84,44 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, 
       )}
       style={{
         backgroundColor: 'var(--color-bg-card)',
-        padding: 'var(--subview-card-padding)',
+        padding: 0,
       }}
     >
-      {/* Top bar — draggable, no background; above content */}
+      {/* Top bar — matches SubviewCard exactly */}
       <div
-        className="absolute top-0 left-0 right-0 z-20 flex items-center"
-        style={{ minHeight: 'var(--subview-top-bar-height)', height: 'var(--subview-top-bar-height)' }}
+        className="absolute top-0 left-0 right-0 z-20 flex items-center w-full"
+        style={{ minHeight: 'var(--subview-top-bar-height)', height: 'var(--subview-top-bar-height)', paddingLeft: 5, paddingRight: 5 }}
       >
         <div
-          className="subview-drag-handle flex-1 flex items-center cursor-grab active:cursor-grabbing min-w-0 h-full"
-          style={{ paddingLeft: 10, paddingRight: 4 }}
+          className="subview-drag-handle flex-1 flex items-center gap-2 cursor-grab active:cursor-grabbing min-w-0 h-full"
+          style={{ paddingLeft: 5, paddingRight: 4 }}
         >
+          {IconComp && (
+            <IconComp
+              size={16}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: specIconColor }}
+            />
+          )}
           <span
-            className="text-[13px] font-medium truncate max-w-[150px]"
-            style={{ color: 'var(--color-text-primary)' }}
+            className="min-w-0 flex-1 truncate text-[13px] font-medium"
+            style={{ color: specTitleColor }}
           >
             {spec.name}
           </span>
         </div>
         <div
-          className="w-8 h-8 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)]"
+          className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)]"
           style={{ marginRight: 5, color: 'var(--color-text-secondary)' }}
           title="Preview (edit in main editor)"
           aria-hidden
         >
-          <Pencil size={16} strokeWidth={1.5} />
+          <Pencil size={12} strokeWidth={1.5} />
         </div>
       </div>
 
-      {/* Body — layout from JSON spec, matches SubviewCard pt-12 */}
+      {/* Body — layout from JSON spec */}
       <SubviewSpecRenderer
         spec={spec}
         pythonCode={pythonCode}

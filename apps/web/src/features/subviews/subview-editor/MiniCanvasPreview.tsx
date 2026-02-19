@@ -3,6 +3,7 @@ import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-gri
 import type { Layout } from 'react-grid-layout';
 import type { SubviewSpec } from '@str/shared';
 import type { Strategy } from '@/store/strategy-store';
+import { useUIStore } from '@/store/ui-store';
 import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH, pixelsToGrid, gridToPixels } from '@/features/canvas/canvas-grid-config';
 import { LivePreview } from './LivePreview';
 
@@ -38,6 +39,8 @@ function getEffectivePixelSize(spec: {
 }
 
 export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange, onPreviewResize, strategy, onGlobalInputChange }: MiniCanvasPreviewProps) {
+  const storedCanvasWidth = useUIStore((s) => s.canvasWidth);
+  const effectiveContainerWidth = storedCanvasWidth > 0 ? storedCanvasWidth : REFERENCE_WIDTH;
   const { width, containerRef } = useContainerWidth();
   const [layout, setLayout] = useState<Layout>([]);
 
@@ -86,11 +89,11 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
     <div
       ref={containerRef}
       className="h-full min-h-[400px] overflow-auto"
-      style={{ width: REFERENCE_WIDTH, minWidth: REFERENCE_WIDTH }}
+      style={{ width: effectiveContainerWidth, minWidth: effectiveContainerWidth }}
     >
       <ReactGridLayout
         layout={gridLayout}
-        width={width}
+        width={width || effectiveContainerWidth}
         gridConfig={CANVAS_GRID_CONFIG}
         compactor={verticalCompactor}
         dragConfig={{ handle: '.subview-drag-handle' }}

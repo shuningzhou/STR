@@ -1,7 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
 import { useStrategyStore } from '@/store/strategy-store';
+import { useUIStore } from '@/store/ui-store';
 import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH } from './canvas-grid-config';
 import { SubviewCard } from './SubviewCard';
 
@@ -15,7 +16,12 @@ export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
     s.strategies.find((st) => st.id === strategyId)
   );
   const updateSubviewLayout = useStrategyStore((s) => s.updateSubviewLayout);
+  const setCanvasWidth = useUIStore((s) => s.setCanvasWidth);
   const { width, containerRef, mounted } = useContainerWidth();
+
+  useEffect(() => {
+    if (width && width > 0) setCanvasWidth(width);
+  }, [width, setCanvasWidth]);
 
   const layout: Layout = (strategy?.subviews ?? []).map((sv) => ({
     i: sv.id,
