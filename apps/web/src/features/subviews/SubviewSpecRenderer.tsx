@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import type { SubviewSpec, ContentItem, LayoutRow, LayoutCell } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { InputControl } from './InputControl';
@@ -367,6 +367,26 @@ function ContentRenderer({
       inner = (
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
           No holdings
+        </span>
+      );
+    } else if (chart.type === 'line' && items.length > 0) {
+      inner = (
+        <div className="w-full min-h-[120px]" style={{ height: 180 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={items} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
+              <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${v}`} />
+              <Tooltip formatter={(v: number) => [`$${Number(v).toLocaleString()}`, 'Portfolio']} labelFormatter={(l) => `Date: ${l}`} />
+              <Line type="monotone" dataKey="value" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 2 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    } else if (chart.type === 'line' && items.length === 0) {
+      inner = (
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          No data
         </span>
       );
     } else {

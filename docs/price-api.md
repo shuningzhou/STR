@@ -14,9 +14,9 @@ Subviews that display holdings need current prices to compute gain and % of port
 
 ## API keys
 
-Store in backend `.env` (gitignored). For development, keys are stored here until backend is built:
+Store in backend `.env` (gitignored). Add keys for:
 
-| Key | Value | Purpose |
-|-----|-------|---------|
-| FMP_API_KEY | 7uytlL2tq2H33ehZ7mIthDCHtYZVadxu | FMP – stocks/ETFs only |
-| MASSIVE_API_KEY | Wy7ZafKrI9h0jmeLJXFPTptFmK3iexeE | Massive – option chain data |
+| Key | Purpose |
+|-----|---------|
+| FMP_API_KEY | FMP – stocks/ETFs quotes |
+| MASSIVE_API_KEY | Massive – option chain data |

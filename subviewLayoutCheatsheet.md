@@ -26,7 +26,10 @@ Quick reference for building subview layouts.
 | `name` | ✓ | string |
 | `description` | ✓ | string |
 | `maker` | ✓ | `official` or nickname (e.g. `peter`) |
-| `defaultSize` | optional | `{ "w": number, "h": number }` (px) |
+| `defaultSize` | optional | `{ "w": number, "h": number }` or `"WxH"` (px) |
+| `preferredSize` | optional | `{ "w": number, "h": number }` — set when user resizes card |
+| `icon` | optional | Lucide icon name (PascalCase, e.g. `ChartPie`) |
+| `iconColor` | optional | color for icon/title |
 | `inputs` | optional | object of input configs |
 | `layout` | ✓ | 2D array: rows → cells → content |
 | `python_code` | ✓ | string with all function definitions |

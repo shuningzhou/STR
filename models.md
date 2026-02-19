@@ -105,7 +105,11 @@ Complete JSON shapes for all data models. Enum properties list all possible valu
   "id": "sv-1",
   "name": "Win Rate",
   "position": { "x": 0, "y": 0, "w": 15, "h": 14 },
-  "pipeline": null,
+  "spec": { "type": "readonly", "name": "Win Rate", "layout": [], "python_code": "", "functions": [] },
+  "templateId": null,
+  "icon": "ChartPie",
+  "iconColor": null,
+  "inputValues": {},
   "cacheData": null,
   "cachedAt": null,
   "cacheVersion": 0,
@@ -118,7 +122,12 @@ Complete JSON shapes for all data models. Enum properties list all possible valu
 | `id` | string | — |
 | `name` | string | — |
 | `position` | SubviewPosition | — |
-| `pipeline` | object \| null | — |
+| `spec` | SubviewSpec | JSON+Python spec (see subviews.md); primary content |
+| `templateId` | string \| null | When added from gallery |
+| `icon` | string \| null | Lucide icon name (overrides spec.icon) |
+| `iconColor` | string \| null | Overrides spec.iconColor |
+| `inputValues` | object | Runtime values for spec.inputs |
+| `pipeline` | object \| null | @deprecated Legacy, replaced by spec |
 | `cacheData` | unknown \| null | — |
 | `cachedAt` | string \| null | — |
 | `cacheVersion` | number | — |

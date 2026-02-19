@@ -1,3 +1,7 @@
+### 0. Architecture: Generic Rendering
+
+**Rendering and hooking logic are generic and universal for all subviews.** The layout engine, Pyodide executor, and content renderer have no subview-specific branching or hardcoding. All customization—layout, content types (text, number, Table, Chart, input, etc.), Python functions, and behaviors—is driven entirely by the subview JSON and Python code. To add a new subview or change behavior, edit the JSON and Python; never add subview-specific logic to the renderer.
+
 ### 1. Rules
 
 **Subview JSON Structure Rules**
@@ -98,21 +102,14 @@
 
 **Modal / Editor View**
 
-Three-column layout (desktop):
+Two-column layout (desktop):
 
-- **Left column (25–30% width)** — JSON Object Editor
-  - Monaco Editor (or CodeMirror) in JSON mode
-  - Syntax highlighting + auto-format (prettier on save)
-  - Real-time Zod validation → red error underlines + error list panel below editor
-  - Toolbar buttons: Validate, Format, Reset to Template, Load Example
-
-- **Middle column (35–40% width)** — Python Code Editor
-  - Monaco Editor in Python mode
-  - Syntax highlighting, linting (pylint/pyright via extension or simple regex)
-  - Editing a single file with different classed used in the subview
-  - Top bar: “Python Code for all functions in this subview”
-  - Button: “Test Functions” → executes with seed data → shows results/errors in a console-like panel below
-  - Seed data (always injected); transactions include **resolved** instrument data:
+- **Left column (~50% width)** — Tabbed editors (JSON, Python, Transactions, Wallet)
+  - **JSON tab**: Monaco Editor, Format, Reset, real-time Zod validation
+  - **Python tab**: Monaco Editor, "Test Functions" with seed data
+  - **Transactions tab**: Read-only seed transactions (generate stock/option for testing)
+  - **Wallet tab**: Read-only seed wallet data
+  - Seed data (context, inputs) always injected; transactions include **resolved** instrument data:
     ```python
     context = {
         'transactions': [  # 10–20 fake transactions
@@ -127,21 +124,19 @@ Three-column layout (desktop):
     }
     ```
 
-- **Right column (35–40% width)** — Live Preview
+- **Right column** — Live Preview
   - Renders the subview exactly as it would appear in a real tab
-  - Updates in real-time (debounced 500–800 ms) when JSON or Python changes
+  - Updates immediately when JSON is valid; invalid JSON debounced 400 ms
   - Interactive controls: timeRange dropdown, ticker selector (populated from seed data)
   - Shows loading spinner while Python executes
   - If errors → overlay with error message + line number link to editor
-  - Size selector dropdown to test different grid sizes
-  - “Refresh Preview” button (manual trigger)
+  - Draggable resize on preview card updates `preferredSize` in JSON; click background to close
 
 **Additional UX features**
 - Splitter between columns (draggable resize)
 - Mobile: collapses to stacked view (JSON → Python → Preview tabs)
-- Save button → validates → sends to backend (strategy.subviews array)
-- “Cancel” / “Discard” button
-- Status bar at bottom: “Valid JSON” / “Python syntax ok” / “Preview updated”
+- Save → validates → persists to strategy store (strategy.subviews)
+- Status bar: "Valid JSON" / "Invalid JSON"
 
 ### 3. Example: Read-only subview (win rate with filters)
 
