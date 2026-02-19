@@ -370,17 +370,42 @@ function ContentRenderer({
         </span>
       );
     } else if (chart.type === 'line' && items.length > 0) {
+      const colorLiteral = (chart as { color?: string }).color;
+      const lineColor = resolveColor(colorLiteral) ?? 'var(--color-chart-1)';
+
+      const LineTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
+        if (!active || !payload?.length) return null;
+        return (
+          <div
+            style={{
+              padding: '6px 10px',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              border: 'none',
+              borderRadius: 4,
+              color: lineColor,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            <div>Date: {label}</div>
+            <div>Portfolio: ${Number(payload[0]?.value ?? 0).toLocaleString()}</div>
+          </div>
+        );
+      };
+
       inner = (
-        <div className="w-full min-h-[120px]" style={{ height: 180 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={items} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
-              <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${v}`} />
-              <Tooltip formatter={(v: number) => [`$${Number(v).toLocaleString()}`, 'Portfolio']} labelFormatter={(l) => `Date: ${l}`} />
-              <Line type="monotone" dataKey="value" stroke="var(--color-chart-1)" strokeWidth={2} dot={{ r: 2 }} />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="w-full flex-1 min-h-0" style={{ position: 'relative', minHeight: 80 }}>
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={items} margin={{ top: 5, right: 5, left: 5, bottom: 5 }} isAnimationActive={false}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${v}`} />
+                <Tooltip content={<LineTooltip />} />
+                <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={{ r: 2, fill: lineColor }} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       );
     } else if (chart.type === 'line' && items.length === 0) {
@@ -396,7 +421,11 @@ function ContentRenderer({
         </span>
       );
     }
-    return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
+    const chartWrapperStyle =
+      chart.type === 'line' && items.length > 0
+        ? { ...paddingToStyle(p), flex: 1, minHeight: 0, display: 'flex' as const, flexDirection: 'column' as const }
+        : paddingToStyle(p);
+    return p != null ? <div style={chartWrapperStyle}>{inner}</div> : inner;
   }
   if ('icon' in item) {
     const ic = item.icon as { name: string; color?: string; size?: number; padding?: PaddingValue };
@@ -617,14 +646,19 @@ export function SubviewSpecRenderer({
         aria-label="Subview content"
         style={{ padding: 0 }}
       >
-        <div className="subview-spec-layout flex flex-col gap-0 min-w-full w-full" style={{ padding: 0, width: '100%', minWidth: '100%' }}>
+        <div className="subview-spec-layout flex flex-col gap-0 min-w-full w-full flex-1 min-h-0" style={{ padding: 0, width: '100%', minWidth: '100%' }}>
           {spec.layout.map((row: LayoutRow, ri: number) => {
             const cells = getRowCells(row);
             const rowFlex = getRowFlex(row);
             const hasWeightedCell = cells.some((c) => c.weight != null || (c.flex && ('flex' in c.flex || 'flexGrow' in c.flex)));
+            const hasScalingChart = cells.some((c) =>
+              c.content?.some((item) => 'Chart' in item && (item as { Chart: { type?: string } }).Chart?.type === 'line')
+            );
             const rowBaseStyle: React.CSSProperties = {
               width: '100%',
               minWidth: '100%',
+              flex: hasWeightedCell && hasScalingChart ? 1 : undefined,
+              minHeight: hasWeightedCell && hasScalingChart ? 0 : undefined,
               alignItems: hasWeightedCell ? 'stretch' : 'flex-start',
               ...flexToStyle(rowFlex),
             };
@@ -639,6 +673,10 @@ export function SubviewSpecRenderer({
                   const flexStyles = useFlex ? flexToStyle(cell.flex) : {};
                   if (useFlex && !('flexDirection' in flexStyles)) {
                     (flexStyles as Record<string, string>).flexDirection = cell.contentDirection === 'row' ? 'row' : 'column';
+                  }
+                  if (useFlex && (flexStyles.flex === 1 || flexStyles.flex === '1' || (flexStyles as Record<string, unknown>).flexGrow === 1)) {
+                    (flexStyles as Record<string, unknown>).minHeight = 0;
+                    (flexStyles as Record<string, unknown>).minWidth = 0;
                   }
                   const legacyFlex = cell.weight != null ? { flex: cell.weight } : { flex: '0 0 auto' as const };
                   const legacyAlign = getAlignmentStyles(cell.alignment ?? 'center middle', cell.contentDirection === 'row');

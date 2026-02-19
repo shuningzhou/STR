@@ -11,7 +11,10 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   description: 'Line chart of portfolio value over time',
   maker: 'official',
   categories: ['essential', 'stock-etf'],
-  defaultSize: { w: 600, h: 200 },
+  defaultSize: { w: 600, h: 100 },
+  icon: 'TrendingUp',
+  iconColor: 'green',
+  titleColor: 'green',
   inputs: {},
   layout: [
     [
@@ -23,6 +26,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
               type: 'line',
               source: 'py:get_portfolio_growth',
               padding: 8,
+              color: 'green',
             },
           },
         ],

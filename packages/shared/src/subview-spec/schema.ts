@@ -130,6 +130,10 @@ const chartContentSchema = z.object({
     type: z.enum(['line', 'bar', 'pie']),
     source: z.string(), // "py:fn"
     padding: paddingSchema,
+    /** Line/bar color: built-in name or #hex. Overridden by colorInputRef when inputs has value. */
+    color: z.string().optional(),
+    /** Input key for runtime color selection; value from inputs[key] used for line/bar stroke */
+    colorInputRef: z.string().optional(),
   }),
 });
 
