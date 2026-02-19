@@ -11,7 +11,7 @@ export const WALLET_TABLE: SubviewSpec = {
   description: 'Strategy wallet balance; deposit and withdraw',
   maker: 'official',
   categories: ['essential'],
-  defaultSize: { w: 320, h: 100 },
+  defaultSize: { w: 175, h: 40 },
   inputs: {},
   headerActions: [
     { title: 'Deposit', icon: 'plus', handler: 'depositWallet' },
@@ -20,7 +20,9 @@ export const WALLET_TABLE: SubviewSpec = {
   layout: [
     [
       {
-        flex: { flex: 1, justifyContent: 'center', alignItems: 'stretch' },
+        weight: 1,
+        alignment: 'center middle',
+        contentDirection: 'column',
         content: [
           {
             number: {
@@ -28,17 +30,9 @@ export const WALLET_TABLE: SubviewSpec = {
               alignment: 'center',
               size: 'xl',
               bold: true,
+              padding: { top: 15, bottom: 15 },
               format: '$',
               decimals: 2,
-              padding: 10,
-            },
-          },
-          {
-            text: {
-              value: 'py:get_wallet_currency',
-              alignment: 'center',
-              size: 'sm',
-              padding: { top: 0, bottom: 10 },
             },
           },
         ],

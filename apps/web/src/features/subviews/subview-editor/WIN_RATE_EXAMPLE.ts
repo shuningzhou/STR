@@ -4,23 +4,25 @@
 export const WIN_RATE_EXAMPLE = {
   type: 'readonly',
   name: 'Win Rate',
+  icon: 'Target',
   description: 'Percentage of profitable closed option trades',
   maker: 'peter',
   categories: ['essential', 'stock-etf'],
-  defaultSize: { w: 400, h: 70 },
+  defaultSize: { w: 125, h: 40 },
   inputs: {},
   layout: [
     [
       {
-        flex: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+        weight: 1,
+        alignment: 'center middle' as const,
         content: [
           {
             number: {
               value: 'py:calc_win_rate',
               alignment: 'center',
-              size: 'xxxl',
+              size: 'xl',
               bold: true,
-              padding: { top: 20, bottom: 20 },
+              padding: { top: 15, bottom: 15 },
               format: '%',
               decimals: 1,
             },

@@ -8,6 +8,7 @@ import { CHART_TABLE_EXAMPLE } from './subview-editor/CHART_TABLE_EXAMPLE';
 import { TEXT_INPUT_COLOR_EXAMPLE } from './subview-editor/TEXT_INPUT_COLOR_EXAMPLE';
 import { FLEX_PADDING_EXAMPLE } from './subview-editor/FLEX_PADDING_EXAMPLE';
 import { ICONS_EXAMPLE } from './subview-editor/ICONS_EXAMPLE';
+import { LOAN_INTEREST_SUBVIEW } from './subview-editor/LOAN_INTEREST_SUBVIEW';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -27,7 +28,8 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'stock-etf-transactions', name: 'Stock & ETF Transactions', description: 'Table of stock and ETF transactions (no options)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec },
   { id: 'holdings', name: 'Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
   { id: 'portfolio-pie', name: 'Portfolio %', description: 'Pie chart showing % of portfolio by holding', defaultSize: { w: 400, h: 220 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_PIE_CHART as unknown as SubviewSpec },
-  { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 320, h: 100 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },
+  { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 175, h: 40 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },
+  { id: 'loan-interest', name: 'Loan Interest', description: 'APR and daily interest cost for margin loans', defaultSize: { w: 280, h: 100 }, categories: ['essential'], spec: LOAN_INTEREST_SUBVIEW as unknown as SubviewSpec },
   { id: 'chart-table', name: 'Chart & Table', description: 'Table and Chart (pie, line, bar) examples', defaultSize: { w: 800, h: 420 }, categories: ['example'], spec: CHART_TABLE_EXAMPLE as unknown as SubviewSpec },
   { id: 'text-input-color', name: 'Text, Input & Color', description: 'Text sizes/styles, inputs, number formats, and colors', defaultSize: { w: 700, h: 480 }, categories: ['example'], spec: TEXT_INPUT_COLOR_EXAMPLE as unknown as SubviewSpec },
   { id: 'flex-padding', name: 'Flex & Padding', description: 'Every flex property and padding examples', defaultSize: { w: 900, h: 680 }, categories: ['example'], spec: FLEX_PADDING_EXAMPLE as unknown as SubviewSpec },

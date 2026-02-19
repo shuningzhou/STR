@@ -273,31 +273,29 @@ export const useStrategyStore = create<StrategyState>()(
 
       addSubview: (strategyId, options = {}) => {
         const name = options.name ?? options.spec?.name ?? 'Subview';
-        let pixelSize: { w: number; h: number } | undefined = options.defaultSize;
-        if (!pixelSize && options.spec) {
-          const spec = options.spec as {
-            preferredSize?: { w: number; h: number };
-            defaultSize?: { w: number; h: number } | string;
-            size?: string;
-          };
-          if (spec.preferredSize) {
-            pixelSize = spec.preferredSize;
-          } else if (spec.defaultSize != null) {
-            const ds = spec.defaultSize;
-            pixelSize =
-              typeof ds === 'object'
-                ? ds
-                : (() => {
-                    const m = String(ds).match(/^(\d+)x(\d+)$/);
-                    return m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
-                  })();
-          } else if (spec.size) {
-            const m = String(spec.size).match(/^(\d+)x(\d+)$/);
-            pixelSize = m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
-          } else {
-            pixelSize = { w: 400, h: 100 };
-          }
+        let pixelSize: { w: number; h: number } | undefined;
+        const spec = options.spec as {
+          preferredSize?: { w: number; h: number };
+          defaultSize?: { w: number; h: number } | string;
+          size?: string;
+        } | undefined;
+        // Prefer spec.defaultSize when spec exists (spec is source of truth)
+        if (spec?.defaultSize != null) {
+          const ds = spec.defaultSize;
+          pixelSize =
+            typeof ds === 'object'
+              ? ds
+              : (() => {
+                  const m = String(ds).match(/^(\d+)x(\d+)$/);
+                  return m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
+                })();
+        } else if (spec?.preferredSize) {
+          pixelSize = spec.preferredSize;
+        } else if (spec?.size) {
+          const m = String(spec.size).match(/^(\d+)x(\d+)$/);
+          pixelSize = m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
         }
+        if (!pixelSize) pixelSize = options.defaultSize;
         pixelSize ??= { w: 400, h: 100 };
         const gridSize = pixelsToGrid(pixelSize.w, pixelSize.h);
         const st = get().strategies.find((s) => s.id === strategyId);

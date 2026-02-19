@@ -113,7 +113,9 @@ export function SubviewGalleryModal() {
               </tr>
             </thead>
             <tbody>
-              {filteredTemplates.map((t) => (
+              {filteredTemplates.map((t) => {
+                const size = (t.spec as { defaultSize?: { w: number; h: number } })?.defaultSize ?? t.defaultSize;
+                return (
                 <tr
                   key={t.id}
                   role="button"
@@ -132,9 +134,10 @@ export function SubviewGalleryModal() {
                   <td className="pr-4 font-medium text-xs truncate" style={{ paddingLeft: 5, paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }} title={t.name}>{t.name}</td>
                   <td className="pr-4 pl-[5px] text-xs truncate" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }} title={t.description}>{t.description}</td>
                   <td className="pr-4 pl-[5px] text-xs shrink-0" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{t.spec?.maker ?? '—'}</td>
-                  <td className="pr-4 pl-[5px] text-xs shrink-0" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{t.defaultSize.w}×{t.defaultSize.h}</td>
+                  <td className="pr-4 pl-[5px] text-xs shrink-0" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{size.w}×{size.h}</td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>

@@ -8,15 +8,17 @@ import type { SubviewSpec } from '@str/shared';
 export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
   type: 'readwrite',
   name: 'Stock & ETF Transactions',
+  icon: 'ArrowLeftRight',
   description: 'Table of stock and ETF transactions (no options)',
   maker: 'official',
   categories: ['essential', 'stock-etf'],
-  defaultSize: { w: 700, h: 180 },
+  defaultSize: { w: 600, h: 100 },
   inputs: {},
   layout: [
     [
       {
-        flex: { flex: 1, justifyContent: 'center', alignItems: 'stretch' },
+        weight: 1,
+        alignment: 'stretch center' as const,
         content: [
           {
             Table: {

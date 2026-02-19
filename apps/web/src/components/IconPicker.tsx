@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { getIconComponent, AVAILABLE_ICONS, ICONS_BY_CATEGORY } from '@/lib/icons';
+import { BUILT_IN_COLORS } from '@/features/subviews/SubviewSpecRenderer';
 
-const ICON_COLORS = [
+const COLOR_OPTIONS: { label: string; value: string }[] = [
   { label: 'Default', value: '' },
-  { label: 'Green', value: 'var(--color-active)' },
-  { label: 'Blue', value: '#6c9dcb' },
-  { label: 'Purple', value: '#a78bfa' },
-  { label: 'Amber', value: '#f59e0b' },
+  ...Object.entries(BUILT_IN_COLORS).map(([name, hex]) => ({
+    label: name.charAt(0).toUpperCase() + name.slice(1),
+    value: hex,
+  })),
 ];
 
 interface IconPickerProps {
@@ -19,10 +21,14 @@ interface IconPickerProps {
   showColorPicker?: boolean;
   /** Icon to display when value is empty (e.g. LayoutDashboard for strategy default) */
   defaultIcon?: string;
+  /** When true, uses reduced height (31px) for compact layouts */
+  compact?: boolean;
 }
 
-export function IconPicker({ value, color, onChange, label = 'Icon', placeholder = 'None', showColorPicker = true, defaultIcon }: IconPickerProps) {
+export function IconPicker({ value, color, onChange, label = 'Icon', placeholder = 'None', showColorPicker = true, defaultIcon, compact }: IconPickerProps) {
+  const controlHeight = compact ? 31 : undefined;
   const [open, setOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
   const [search, setSearch] = useState('');
   const effectiveValue = value && value.trim() && value !== placeholder ? value : undefined;
   const IconComp = effectiveValue ? getIconComponent(effectiveValue) : null;
@@ -42,15 +48,15 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
           {label}
         </label>
       )}
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           type="button"
-          className="flex items-center gap-2 min-w-[100px] rounded-[var(--radius-medium)] border text-left"
+          className="flex items-center gap-2 min-w-[100px] rounded-[var(--radius-medium)] border text-left shrink-0"
           style={{
             backgroundColor: 'var(--color-bg-input)',
             borderColor: 'var(--color-border)',
             color: 'var(--color-text-primary)',
-            height: 'var(--control-height)',
+            height: controlHeight ? `${controlHeight}px` : 'var(--control-height)',
             paddingLeft: 5,
             paddingRight: 5,
           }}
@@ -69,13 +75,78 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
         {effectiveValue && (
           <button
             type="button"
-            className="px-2 py-1 rounded text-xs"
+            className="px-2 py-1 rounded text-xs shrink-0"
             style={{ color: 'var(--color-text-muted)' }}
             onClick={() => onChange(undefined)}
             title="Clear icon"
           >
             Clear
           </button>
+        )}
+        {showColorPicker && effectiveValue && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-medium)] border text-left min-w-[90px]"
+              style={{
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                height: controlHeight ? `${controlHeight}px` : 'var(--control-height)',
+              }}
+              onClick={() => setColorOpen((o) => !o)}
+            >
+              <span className="shrink-0" style={{ padding: 5 }}>
+                <span
+                  className="w-4 h-4 rounded border block"
+                  style={{
+                    backgroundColor: color || 'var(--color-bg-hover)',
+                    borderColor: 'var(--color-border)',
+                  }}
+                />
+              </span>
+              <span className="flex-1 truncate text-xs">
+                {COLOR_OPTIONS.find((c) => (c.value || '') === (color || ''))?.label ?? 'Default'}
+              </span>
+              <ChevronDown size={14} className="shrink-0 opacity-60" />
+            </button>
+            {colorOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setColorOpen(false)} aria-hidden="true" />
+                <div
+                  className="absolute z-50 mt-1 py-1 rounded-[var(--radius-medium)] border max-h-[240px] overflow-auto"
+                  style={{
+                    backgroundColor: 'var(--color-bg-card)',
+                    borderColor: 'var(--color-border)',
+                    minWidth: 140,
+                  }}
+                >
+                  {COLOR_OPTIONS.map((c) => (
+                    <button
+                      key={c.value || 'default'}
+                      type="button"
+                      className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-hover)] transition-colors"
+                      onClick={() => {
+                        onChange(effectiveValue, c.value || undefined);
+                        setColorOpen(false);
+                      }}
+                    >
+                      <span className="shrink-0" style={{ padding: 5 }}>
+                        <span
+                          className="w-4 h-4 rounded border block"
+                          style={{
+                            backgroundColor: c.value || 'var(--color-bg-hover)',
+                            borderColor: 'var(--color-border)',
+                          }}
+                        />
+                      </span>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -102,7 +173,7 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
                 color: 'var(--color-text-primary)',
               }}
             />
-            <div style={{ padding: 10 }}>
+            <div style={{ padding: 5 }}>
               {categoriesToShow ? (
                 categoriesToShow.map((cat) => (
                   <div key={cat.id} style={{ marginBottom: 12 }}>
@@ -173,30 +244,6 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
         </>
       )}
 
-      {showColorPicker && effectiveValue && (
-        <div className="mt-2">
-          <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-            Icon color
-          </label>
-          <div className="flex flex-wrap gap-1">
-            {ICON_COLORS.map((c) => (
-              <button
-                key={c.value || 'default'}
-                type="button"
-                className="px-2 py-1 rounded text-xs"
-                style={{
-                  backgroundColor: c.value || 'var(--color-bg-input)',
-                  color: c.value ? '#fff' : 'var(--color-text-primary)',
-                  border: !c.value ? '1px solid var(--color-border)' : undefined,
-                }}
-                onClick={() => onChange(effectiveValue, c.value || undefined)}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

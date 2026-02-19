@@ -11,7 +11,6 @@ import {
   Receipt,
   Search,
   Wallet,
-  CheckCircle,
   Wand2,
   RotateCcw,
   Play,
@@ -27,10 +26,6 @@ import { SEED_CONTEXT, SEED_INPUTS, type SeedContext } from '@/lib/subview-seed-
 import { generateStockTransactions, generateOptionTransactions } from '@/lib/subview-seed-generators';
 import { IconPicker } from '@/components/IconPicker';
 import { BLANK_SPEC } from './BLANK_SPEC';
-import { WIN_RATE_EXAMPLE } from './WIN_RATE_EXAMPLE';
-import { CHART_TABLE_EXAMPLE } from './CHART_TABLE_EXAMPLE';
-import { TEXT_INPUT_COLOR_EXAMPLE } from './TEXT_INPUT_COLOR_EXAMPLE';
-import { FLEX_PADDING_EXAMPLE } from './FLEX_PADDING_EXAMPLE';
 import { MiniCanvasPreview } from './MiniCanvasPreview';
 import { cn } from '@/lib/utils';
 
@@ -161,18 +156,6 @@ export function SubviewEditorModal() {
     setTestResult(null);
   }, [setSubviewSettingsOpen]);
 
-  const validateJson = useCallback(() => {
-    const result = safeParseSubviewSpec(jsonText);
-    if (result.success) {
-      setParseResult({ success: true, data: result.data });
-    } else {
-      setParseResult({
-        success: false,
-        error: result.error.issues.map((i) => `${String(i.path?.join?.('.') ?? '')}: ${i.message ?? ''}`).join('\n'),
-      });
-    }
-  }, [jsonText]);
-
   const handleJsonChange = useCallback(
     (value: string | undefined) => {
       setJsonText(value ?? '');
@@ -197,28 +180,6 @@ export function SubviewEditorModal() {
     setJsonText(JSON.stringify(BLANK_SPEC, null, 2));
     setPythonText((BLANK_SPEC as unknown as SubviewSpec).python_code);
     setParseResult({ success: true, data: BLANK_SPEC as unknown as SubviewSpec });
-  }, []);
-
-  const EXAMPLE_SPECS: Record<string, SubviewSpec> = {
-    'win-rate': WIN_RATE_EXAMPLE as unknown as SubviewSpec,
-    'chart-table': CHART_TABLE_EXAMPLE as unknown as SubviewSpec,
-    'text-input-color': TEXT_INPUT_COLOR_EXAMPLE as unknown as SubviewSpec,
-    'flex-padding': FLEX_PADDING_EXAMPLE as unknown as SubviewSpec,
-  };
-
-  const handleLoadExample = useCallback((example: keyof typeof EXAMPLE_SPECS) => {
-    if (!window.confirm('Load example? Current spec will be replaced.')) return;
-    const spec = EXAMPLE_SPECS[example];
-    setJsonText(JSON.stringify(spec, null, 2));
-    setPythonText(spec.python_code);
-    setParseResult({ success: true, data: spec });
-    if (spec.inputs) {
-      const defaults: Record<string, unknown> = { ...SEED_INPUTS } as Record<string, unknown>;
-      for (const [key, cfg] of Object.entries(spec.inputs as Record<string, { default?: unknown }>)) {
-        if (cfg?.default !== undefined) defaults[key] = cfg.default;
-      }
-      setPreviewInputs(defaults);
-    }
   }, []);
 
   const syncTimeRangeFromTransactions = useCallback((txs: { timestamp?: string }[]) => {
@@ -380,16 +341,31 @@ export function SubviewEditorModal() {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between shrink-0 py-2 pr-4 border-b"
-          style={{ borderColor: 'var(--color-border)', paddingLeft: 10 }}
+          className="flex items-center shrink-0 pr-4 border-b gap-4"
+          style={{ borderColor: 'var(--color-border)', paddingLeft: 10, paddingTop: 7, paddingBottom: 8 }}
         >
           <span
-            className="font-medium"
+            className="font-medium shrink-0"
             style={{ fontSize: 'var(--font-size-title)', color: 'var(--color-text-primary)' }}
           >
             Subview Editor
           </span>
-          <div className="flex items-center gap-2">
+          <IconPicker
+            value={(parseResult.success && parseResult.data ? (parseResult.data as { icon?: string }).icon : undefined) ?? undefined}
+            color={parseResult.success && parseResult.data ? (parseResult.data as { iconColor?: string }).iconColor : undefined}
+            onChange={(iconVal, colorVal) => {
+              if (!parseResult.success || !parseResult.data) return;
+              const spec = parseResult.data as Record<string, unknown>;
+              const updated = { ...spec, icon: iconVal ?? undefined, iconColor: colorVal ?? undefined };
+              setJsonText(JSON.stringify(updated, null, 2));
+              setParseResult({ success: true, data: updated as SubviewSpec });
+            }}
+            label=""
+            placeholder="Icon"
+            compact
+          />
+          <div className="flex-1" />
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               type="button"
               variant="ghost"
@@ -427,25 +403,6 @@ export function SubviewEditorModal() {
             className="flex flex-col shrink-0 overflow-hidden"
             style={{ width: `${leftWidth}%`, minWidth: 200 }}
           >
-            {/* Card icon — syncs with spec.icon in JSON */}
-            <div
-              className="shrink-0 py-2 px-3 border-b"
-              style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-            >
-              <IconPicker
-                value={(parseResult.success && parseResult.data ? (parseResult.data as { icon?: string }).icon : undefined) ?? undefined}
-                color={parseResult.success && parseResult.data ? (parseResult.data as { iconColor?: string }).iconColor : undefined}
-                onChange={(iconVal, colorVal) => {
-                  if (!parseResult.success || !parseResult.data) return;
-                  const spec = parseResult.data as Record<string, unknown>;
-                  const updated = { ...spec, icon: iconVal ?? undefined, iconColor: colorVal ?? undefined };
-                  setJsonText(JSON.stringify(updated, null, 2));
-                  setParseResult({ success: true, data: updated as SubviewSpec });
-                }}
-                label="Card icon (title bar)"
-                placeholder="None"
-              />
-            </div>
             {/* Tabs — dark IDE style (VS Code–like), fixed height, separators with gap */}
             <div
               className="flex items-center shrink-0 h-9"
@@ -543,14 +500,6 @@ export function SubviewEditorModal() {
                   </button>
                   <button
                     type="button"
-                    onClick={validateJson}
-                    title="Validate"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
-                  >
-                    <CheckCircle size={16} />
-                  </button>
-                  <button
-                    type="button"
                     onClick={handleFormat}
                     title="Format"
                     className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
@@ -565,24 +514,6 @@ export function SubviewEditorModal() {
                   >
                     <RotateCcw size={16} />
                   </button>
-                  <select
-                    title="Load example"
-                    className="text-xs bg-transparent border border-[var(--color-border)] rounded px-2 py-1 cursor-pointer text-[var(--color-text-secondary)] hover:text-white focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
-                    value=""
-                    onChange={(e) => {
-                      const v = e.target.value as keyof typeof EXAMPLE_SPECS;
-                      if (v) {
-                        handleLoadExample(v);
-                        e.target.value = '';
-                      }
-                    }}
-                  >
-                    <option value="">Load example…</option>
-                    <option value="win-rate">Win Rate</option>
-                    <option value="chart-table">Chart & Table</option>
-                    <option value="text-input-color">Text, Input & Color</option>
-                    <option value="flex-padding">Flex & Padding</option>
-                  </select>
                 </div>
               )}
               {editMode === 'python' && (

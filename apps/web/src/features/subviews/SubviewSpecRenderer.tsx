@@ -94,15 +94,16 @@ function humanizeColumnKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** Format cell value; format from spec.columnFormats or inferred for numbers */
+/** Format cell value; format from spec.columnFormats or inferred for numbers. Currency uses text (e.g. "123.45 USD") not $ sign. */
 function formatCellValue(
   val: unknown,
   key: string,
-  format?: 'currency' | 'percent' | 'number'
+  format?: 'currency' | 'percent' | 'number',
+  currency?: string
 ): string {
   if (val == null || val === '') return '—';
   if (typeof val === 'number') {
-    if (format === 'currency') return `$${val.toFixed(2)}`;
+    if (format === 'currency') return `${val.toFixed(2)} ${currency ?? 'USD'}`;
     if (format === 'percent') return `${val.toFixed(1)}%`;
     if (Number.isInteger(val)) return String(val);
     return val.toFixed(2);
@@ -204,11 +205,12 @@ function ContentRenderer({
     const n = item.number;
     const decimals = n.decimals ?? 2;
     const format = n.format;
+    const currency = (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency ?? 'USD';
     let display: string;
     const num = typeof raw === 'number' ? raw : parseFloat(String(raw));
     if (format != null && !Number.isNaN(num)) {
       const fixed = num.toFixed(decimals);
-      display = format === '$' ? `$${fixed}` : `${fixed}%`;
+      display = format === '$' ? `${fixed} ${currency}` : `${fixed}%`;
     } else {
       display = String(raw);
     }
@@ -279,7 +281,7 @@ function ContentRenderer({
                   <tr key={ri} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     {columns.map((col, i) => (
                       <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
-                        {formatCellValue(getNested(row as Record<string, unknown>, col), col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col])}
+                        {formatCellValue(getNested(row as Record<string, unknown>, col), col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
                       </td>
                     ))}
                     {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
