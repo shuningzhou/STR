@@ -29,7 +29,7 @@ export function Modal({ title, children, onClose, className, size = 'default', h
       aria-labelledby="modal-title"
     >
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
         aria-hidden
       />
@@ -42,7 +42,7 @@ export function Modal({ title, children, onClose, className, size = 'default', h
           className
         )}
         style={{
-          backgroundColor: 'var(--color-bg-card)',
+          backgroundColor: 'var(--palette-offblack)',
           padding: 'var(--space-modal)',
           boxShadow: '0 4px 24px var(--color-shadow)',
         }}

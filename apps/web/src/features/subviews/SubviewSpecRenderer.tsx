@@ -41,7 +41,7 @@ const MAIN_COLORS: { name: string; hex: string }[] = [
   { name: 'blue', hex: '#0052FF' },
   { name: 'violet', hex: '#9200FF' },
   { name: 'magenta', hex: '#F600FF' },
-  { name: 'grey', hex: '#666666' },
+  { name: 'grey', hex: '#696969' },
   { name: 'offwhite', hex: '#E2E2E2' },
 ];
 
@@ -56,6 +56,7 @@ for (const { name, hex } of MAIN_COLORS) {
 }
 // No variants
 BUILT_IN_COLORS['black'] = '#131313';
+BUILT_IN_COLORS['offblack'] = '#202020';
 BUILT_IN_COLORS['white'] = '#f2f2f2';
 
 /** Default branding/accent green (green-2 from built-in colors) */

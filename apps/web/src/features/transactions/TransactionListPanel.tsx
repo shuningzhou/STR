@@ -85,7 +85,7 @@ export function TransactionListPanel() {
         role="button"
         tabIndex={-1}
         aria-label="Close transaction list"
-        className="fixed inset-0 z-20 bg-black/30"
+        className="fixed inset-0 z-20 bg-black/60"
         style={{
           opacity: transactionListPanelOpen ? 1 : 0,
           pointerEvents: transactionListPanelOpen ? 'auto' : 'none',
@@ -100,7 +100,7 @@ export function TransactionListPanel() {
         style={{
           width: PANEL_WIDTH,
           maxWidth: '95vw',
-          backgroundColor: 'var(--color-bg-card)',
+          backgroundColor: 'var(--palette-offblack)',
           borderColor: 'var(--color-border)',
           boxShadow: '-4px 0 24px var(--color-shadow)',
           transform: transactionListPanelOpen ? 'translateX(0)' : 'translateX(100%)',

@@ -18,6 +18,7 @@ const MAIN_COLORS = [
   'grey',
   'offwhite',
   'black',
+  'offblack',
   'white',
 ] as const;
 
@@ -47,7 +48,7 @@ const variantRow = (name: string): SubviewSpec['layout'][0] =>
 export const COLORS_EXAMPLE: SubviewSpec = {
   type: 'readonly',
   name: 'Color System',
-  description: '12 main colors with 5 variants each, plus black and white (no variants)',
+  description: '12 main colors with 5 variants each, plus black, offblack, and white (no variants)',
   maker: 'official',
   categories: ['example'],
   icon: 'Palette',
@@ -63,7 +64,7 @@ export const COLORS_EXAMPLE: SubviewSpec = {
           { text: { value: 'Built-in color system', size: 'md', bold: true } },
           {
             text: {
-              value: '12 main colors with 5 variants each. Black and white have no variants. name-0 (lightest, 50% white), name-1 (lighter, 30% white), name-2 (default), name-3 (darker, 20% black), name-4 (darkest, 40% black). Base name (e.g. red) = default.',
+              value: '12 main colors with 5 variants each. Black, offblack (#202020), and white have no variants. name-0 (lightest, 50% white), name-1 (lighter, 30% white), name-2 (default), name-3 (darker, 20% black), name-4 (darkest, 40% black). Base name (e.g. red) = default.',
               size: 'xs',
               padding: { top: 4 },
             },
@@ -72,7 +73,7 @@ export const COLORS_EXAMPLE: SubviewSpec = {
       },
     ],
     ...SEP,
-    [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, content: [{ text: { value: '12 main colors + black, white (default shade)', size: 'sm', bold: true } }] }],
+    [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, content: [{ text: { value: '12 main colors + black, offblack, white (default shade)', size: 'sm', bold: true } }] }],
     mainColorsRow,
     ...SEP,
     [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, content: [{ text: { value: 'Red variants', size: 'sm', bold: true } }] }],
@@ -99,9 +100,10 @@ export const COLORS_EXAMPLE: SubviewSpec = {
     variantRow('grey'),
     [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, content: [{ text: { value: 'Offwhite variants', size: 'sm', bold: true } }] }],
     variantRow('offwhite'),
-    [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, content: [{ text: { value: 'Black, white (no variants)', size: 'sm', bold: true } }] }],
+    [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, content: [{ text: { value: 'Black, offblack, white (no variants)', size: 'sm', bold: true } }] }],
     [
       { flex: { flex: 1, minWidth: 80, justifyContent: 'center', alignItems: 'center' }, padding: 6, showBorder: true, backgroundColor: 'black', textColor: 'white', content: [{ text: { value: 'black', size: 'xs', alignment: 'center' as const } }] },
+      { flex: { flex: 1, minWidth: 80, justifyContent: 'center', alignItems: 'center' }, padding: 6, showBorder: true, backgroundColor: 'offblack', textColor: 'white', content: [{ text: { value: 'offblack', size: 'xs', alignment: 'center' as const } }] },
       { flex: { flex: 1, minWidth: 80, justifyContent: 'center', alignItems: 'center' }, padding: 6, showBorder: true, backgroundColor: 'white', textColor: 'black', content: [{ text: { value: 'white', size: 'xs', alignment: 'center' as const } }] },
     ],
     ...SEP,

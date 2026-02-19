@@ -390,7 +390,7 @@ export function SubviewEditorModal() {
       aria-modal="true"
       aria-label="Subview editor"
     >
-      <div className="absolute inset-0 bg-black/40" onClick={handleClose} aria-hidden />
+      <div className="absolute inset-0 bg-black/60" onClick={handleClose} aria-hidden />
       <div
         className={cn(
           'relative flex flex-col rounded-[var(--radius-card)] border border-[var(--color-border)]',
