@@ -39,6 +39,7 @@ export const BUILT_IN_COLORS: Record<string, string> = {
   stone: '#78716c',
   brown: '#92400e',
   navy: '#1e3a8a',
+  gold: '#d4af37',
 };
 
 /** Resolve color: built-in name -> hex; rgb/rgba/hsl/hsla/#hex passed through */
@@ -328,8 +329,9 @@ function ContentRenderer({
     const chart = item.Chart;
     const p = chart.padding;
     const source = chart.source;
-    const data = resolved[source] as { items?: { label: string; value: number }[] } | undefined;
+    const data = resolved[source] as { items?: { label: string; value: number }[]; colors?: { value?: string; depositWithdraw?: string } } | undefined;
     const items = data?.items ?? [];
+    const dataColors = data?.colors;
 
     let inner: React.ReactNode;
     if (chart.type === 'pie' && items.length > 0) {
@@ -370,25 +372,29 @@ function ContentRenderer({
         </span>
       );
     } else if (chart.type === 'line' && items.length > 0) {
-      const colorLiteral = (chart as { color?: string }).color;
-      const lineColor = resolveColor(colorLiteral) ?? 'var(--color-chart-1)';
+      const lineColor = resolveColor(dataColors?.value) ?? resolveColor((chart as { color?: string }).color) ?? 'var(--color-chart-1)';
+      const hasDepositWithdraw = items.some((i) => 'depositWithdraw' in i && (i as { depositWithdraw?: number }).depositWithdraw != null);
+      const dwColor = resolveColor(dataColors?.depositWithdraw) ?? resolveColor('orange') ?? '#ea580c';
 
-      const LineTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
+      const LineTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey?: string; value?: number }[]; label?: string }) => {
         if (!active || !payload?.length) return null;
+        const portfolioPayload = payload.find((p) => p.dataKey === 'value');
+        const dwPayload = payload.find((p) => p.dataKey === 'depositWithdraw');
         return (
           <div
             style={{
               padding: '6px 10px',
               backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              border: 'none',
               borderRadius: 4,
-              color: lineColor,
               fontSize: 12,
               fontWeight: 500,
             }}
           >
-            <div>Date: {label}</div>
-            <div>Portfolio: ${Number(payload[0]?.value ?? 0).toLocaleString()}</div>
+            <div style={{ color: 'var(--color-text-muted)' }}>Date: {label}</div>
+            <div style={{ color: lineColor }}>Portfolio: ${Number(portfolioPayload?.value ?? 0).toLocaleString()}</div>
+            {dwPayload != null && (
+              <div style={{ color: dwColor }}>Deposit: ${Number(dwPayload.value ?? 0).toLocaleString()}</div>
+            )}
           </div>
         );
       };
@@ -402,7 +408,11 @@ function ContentRenderer({
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${v}`} />
                 <Tooltip content={<LineTooltip />} />
-                <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={{ r: 2, fill: lineColor }} isAnimationActive={false} />
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={{ r: 2, fill: lineColor }} isAnimationActive={false} name="Portfolio" />
+                {hasDepositWithdraw && (
+                  <Line type="monotone" dataKey="depositWithdraw" stroke={dwColor} strokeWidth={2} dot={{ r: 2, fill: dwColor }} isAnimationActive={false} name="Deposit" />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>

@@ -25,8 +25,10 @@ export interface InputControlProps {
   inputs: Record<string, unknown>;
   onInputChange?: (key: string, value: string | number) => void;
   context: unknown;
-  /** When true, hide the label and show title as tooltip on hover */
+  /** When true, hide the label and show title as tooltip on hover (unless showTitleInCompact) */
   compact?: boolean;
+  /** When compact, show the title label. Used for top bar inputs with topbarShowTitle: true */
+  showTitleInCompact?: boolean;
 }
 
 export function InputControl({
@@ -36,6 +38,7 @@ export function InputControl({
   onInputChange,
   context,
   compact = false,
+  showTitleInCompact = false,
 }: InputControlProps) {
   const inputType = cfg.type;
   const width = INPUT_WIDTHS[inputType] ?? 160;
@@ -306,22 +309,34 @@ export function InputControl({
         </div>
       );
 
+  const showLabel = !compact || showTitleInCompact;
+
   return (
     <div
-      className={`flex flex-col shrink-0 ${compact ? 'gap-0' : ''}`}
-      style={{ width, minWidth: width, ...(!compact && { gap: 2 }) }}
+      className={`flex shrink-0 ${showLabel ? 'flex-row items-center' : 'flex-col'} ${compact && !showTitleInCompact ? 'gap-0' : ''}`}
+      style={{ minWidth: showLabel ? undefined : width, ...(showLabel ? { gap: 5 } : { width, gap: 2 }) }}
     >
-      {!compact && (
+      <div
+        {...(compact && !showTitleInCompact ? { title: cfg.title } : {})}
+        className={compact ? 'flex flex-col gap-1' : ''}
+        style={
+          showLabel
+            ? inputType === 'checkbox'
+              ? { width: 'auto', minWidth: 0 }
+              : { width, minWidth: width }
+            : { width }
+        }
+      >
+        {content}
+      </div>
+      {showLabel && (
         <label
-          className="text-[11px] font-medium shrink-0"
+          className="text-[11px] font-medium shrink-0 whitespace-nowrap"
           style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-label)' }}
         >
           {cfg.title}
         </label>
       )}
-      <div {...(compact ? { title: cfg.title } : {})} className={compact ? 'flex flex-col gap-1' : ''}>
-        {content}
-      </div>
     </div>
   );
 }

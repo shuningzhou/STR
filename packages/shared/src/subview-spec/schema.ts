@@ -1,15 +1,24 @@
 import { z } from 'zod';
 
+/** Optional: when set, input is shown in subview top bar. Lower number = left. */
+const topbarSchema = z.number().optional();
+/** Optional: when input is in top bar, show the title label. Default true. */
+const topbarShowTitleSchema = z.boolean().optional();
+
 // --- Input types (from subviews.md) ---
 const timeRangeInputSchema = z.object({
   type: z.literal('time_range'),
   title: z.string(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
 });
 
 const tickerSelectorInputSchema = z.object({
   type: z.literal('ticker_selector'),
   title: z.string(),
   default: z.string().optional(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
 });
 
 const numberInputSchema = z.object({
@@ -18,6 +27,8 @@ const numberInputSchema = z.object({
   default: z.number(),
   min: z.number().optional(),
   max: z.number().optional(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
 });
 
 const selectOptionSchema = z.object({
@@ -30,12 +41,16 @@ const selectInputSchema = z.object({
   title: z.string(),
   options: z.array(selectOptionSchema),
   default: z.string(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
 });
 
 const checkboxInputSchema = z.object({
   type: z.literal('checkbox'),
   title: z.string(),
   default: z.boolean(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
 });
 
 const inputConfigSchema = z.discriminatedUnion('type', [

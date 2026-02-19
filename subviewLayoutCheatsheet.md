@@ -183,17 +183,21 @@ Use standard flex property names (camelCase). Applied directly to the cell conta
 | `source` | ✓ | `py:functionName` |
 | `padding` | optional | number or object |
 
+**Line chart:** Python returns `{ items: [{ label, value, depositWithdraw? }], colors?: { value?: string, depositWithdraw?: string } }`. Colors from Python override defaults.
+
 ---
 
 ## Input types (for `inputs` object)
 
 | Type | Config |
 |------|--------|
-| `time_range` | `{ "type": "time_range", "title": "Time Range" }` |
-| `ticker_selector` | `{ "type": "ticker_selector", "title": "Ticker", "default": "all" }` |
+| `time_range` | `{ "type": "time_range", "title": "Time Range", "topbar": 0 }` |
+| `ticker_selector` | `{ "type": "ticker_selector", "title": "Ticker", "default": "all", "topbar": 1 }` |
 | `number_input` | `{ "type": "number_input", "title": "Count", "default": 42, "min": 0, "max": 100 }` |
-| `select` | `{ "type": "select", "title": "View", "options": [{ "value": "a", "label": "A" }], "default": "a" }` |
+| `select` | `{ "type": "select", "title": "View", "options": [...], "default": "a", "topbar": 2 }` |
 | `checkbox` | `{ "type": "checkbox", "title": "Enabled", "default": false }` |
+
+**Top bar:** Add `"topbar": number` to show the input in the subview top bar. Lower number = left. Add `"topbarShowTitle": false` to hide the label. Uses same style as strategy inputs bar.
 
 ---
 

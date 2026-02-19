@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
 import { Input } from '@/components/ui';
 import { SubviewSpecRenderer } from '@/features/subviews/SubviewSpecRenderer';
+import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
@@ -129,7 +130,9 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   type SpecLike = { headerActions?: { title: string; icon: string; handler: string }[]; type?: string; python_code?: string; icon?: string; iconColor?: string; titleColor?: string };
   const specLike = effectiveSpec as SpecLike | undefined;
   const subviewIcon = subview.icon ?? specLike?.icon;
-  const subviewIconColor = subview.iconColor ?? specLike?.iconColor ?? 'var(--color-text-primary)';
+  const subviewIconColor =
+    (subview.templateId ? specLike?.iconColor ?? subview.iconColor : subview.iconColor ?? specLike?.iconColor) ??
+    'var(--color-text-primary)';
   const subviewTitleColor = subviewIcon ? subviewIconColor : (specLike?.titleColor ?? 'var(--color-text-primary)');
   const SubviewIconComp = subviewIcon ? getIconComponent(subviewIcon) : null;
   const headerActions =
@@ -137,6 +140,14 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     (specLike?.type === 'readwrite'
       ? [{ title: 'Add', icon: 'plus', handler: 'addTransactionModal' as const }]
       : []);
+
+  const topbarInputs = useMemo(() => {
+    const inputs = (effectiveSpec as SubviewSpec & { inputs?: Record<string, { topbar?: number; topbarShowTitle?: boolean; type?: string; title?: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }> })?.inputs ?? {};
+    return Object.entries(inputs)
+      .filter(([, cfg]) => cfg?.topbar != null)
+      .sort(([, a], [, b]) => (a?.topbar ?? 0) - (b?.topbar ?? 0))
+      .map(([key, cfg]) => ({ key, cfg }));
+  }, [effectiveSpec]);
 
   const handleHeaderAction = (handler: string) => {
     if (handler === 'addTransactionModal') {
@@ -216,7 +227,50 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             </button>
           );
         })}
-        {isEditMode && (
+        {hasSpec && specInputs && topbarInputs.length > 0 && (
+          <div
+            className="flex flex-wrap items-center justify-end shrink-0"
+            style={{
+              gap: 5,
+              marginRight: isEditMode ? 5 : 0,
+              marginLeft: 'auto',
+              ...(!isEditMode && { flex: 1 }),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {topbarInputs.map(({ key, cfg }, i) => (
+              <span key={key} className="flex items-end" style={{ gap: 5 }}>
+                {i > 0 && (
+                  <div
+                    style={{
+                      width: 1,
+                      alignSelf: 'stretch',
+                      backgroundColor: 'var(--color-border)',
+                    }}
+                    aria-hidden
+                  />
+                )}
+                <InputControl
+                  compact
+                  showTitleInCompact={cfg.topbarShowTitle !== false}
+                  inputKey={key}
+                  cfg={{
+                    type: cfg.type ?? 'select',
+                    title: cfg.title ?? key,
+                    default: cfg.default,
+                    options: cfg.options,
+                    min: cfg.min,
+                    max: cfg.max,
+                  }}
+                  inputs={specInputs}
+                  onInputChange={(k, v) => updateSubviewInputValue(strategyId, subview.id, k, v)}
+                  context={strategyContext}
+                />
+              </span>
+            ))}
+          </div>
+        )}
+        {isEditMode ? (
           <button
             type="button"
             onClick={handleMenuClick}
@@ -237,7 +291,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
           >
             <Pencil size={12} strokeWidth={1.5} />
           </button>
-        )}
+        ) : null}
       </div>
 
       {/* Spec-based body or pipeline placeholder */}

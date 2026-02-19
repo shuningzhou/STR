@@ -78,7 +78,7 @@
 
 | Chart type | Content key | Python return shape | Notes |
 |------------|-------------|---------------------|-------|
-| **line** | `Chart: { type: "line", source: "py:fn" }` | `{ labels: string[], series: { name: string, data: number[] }[] }` | labels = x-axis; each series is a line |
+| **line** | `Chart: { type: "line", source: "py:fn" }` | `{ items: [{ label, value, ... }], colors?: { value?: string, depositWithdraw?: string } }` | items = points; colors from Python (e.g. `value`=green, `depositWithdraw`=orange) |
 | **bar** | `Chart: { type: "bar", source: "py:fn" }` | `{ labels: string[], series: { name: string, data: number[] }[] }` | labels = x-axis; supports grouped/stacked |
 | **pie** | `Chart: { type: "pie", source: "py:fn" }` | `{ items: { label: string, value: number }[] }` | items = slices |
 
@@ -86,11 +86,13 @@
 
 | Type | Input config | `inputs[key]` shape | Example | Notes |
 |------|--------------|---------------------|---------|------|
-| `time_range` | `{ type: "time_range", title: string }` | Always `{ start, end }` (ISO dates). Default: `{ start: today-30d, end: now }` | `{ start: "2025-01-15", end: "2026-02-12" }` | |
-| `ticker_selector` | `{ type: "ticker_selector", title: string, default: "all" }` | `string` — `"all"` or symbol | `"all"` or `"AAPL"` | |
-| `number_input` | `{ type: "number_input", title: string, default: number, min?: number, max?: number }` | `number` | `42` | |
-| `select` | `{ type: "select", title: string, options: { value: string, label: string }[], default: string }` | `string` — one of option values | `"monthly"` | Dropdown to pick one option (e.g. group-by: monthly/quarterly, view: compact/detailed) |
-| `checkbox` | `{ type: "checkbox", title: string, default: boolean }` | `boolean` | `true` | |
+| `time_range` | `{ type: "time_range", title: string, topbar?: number }` | Always `{ start, end }` (ISO dates). Default: `{ start: today-30d, end: now }` | `{ start: "2025-01-15", end: "2026-02-12" }` | `topbar`: order in subview top bar (lower = left) |
+| `ticker_selector` | `{ type: "ticker_selector", title: string, default: "all", topbar?: number }` | `string` — `"all"` or symbol | `"all"` or `"AAPL"` | `topbar`: order in subview top bar |
+| `number_input` | `{ type: "number_input", title: string, default: number, min?: number, max?: number, topbar?: number }` | `number` | `42` | `topbar`: order in subview top bar |
+| `select` | `{ type: "select", title: string, options: [...], default: string, topbar?: number }` | `string` — one of option values | `"monthly"` | `topbar`: order in subview top bar |
+| `checkbox` | `{ type: "checkbox", title: string, default: boolean, topbar?: number }` | `boolean` | `true` | `topbar`: order in subview top bar |
+
+**Subview top bar inputs:** Add `topbar: number` to any input config. When specified, the input is shown in the subview top bar (next to the title), using the same style as the strategy inputs bar. Lower `topbar` values appear first (left). Add `topbarShowTitle: false` to hide the input's title/label in the top bar (default: true). Inputs without `topbar` stay in the layout only.
 
 **Strategy-scoped inputs:**
 - Configured in **Strategy settings** (per-strategy): add inputs with unique id, title, type.

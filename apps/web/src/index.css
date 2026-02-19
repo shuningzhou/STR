@@ -177,6 +177,11 @@ input.number-input-with-gap[type="number"] {
   padding-right: 6px !important;
 }
 
+/* Checkboxes use default green (matches app accent) */
+input[type="checkbox"] {
+  accent-color: var(--color-active);
+}
+
 /* Remove padding from subview table - override any 8px padding from layout/card */
 /* Note: .subview-layout-cell excluded - cell padding comes from spec and must be respected */
 .subview-card,

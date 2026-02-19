@@ -5,6 +5,7 @@ import type { SubviewSpec } from '@str/shared';
 import type { Strategy } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
 import { SubviewSpecRenderer } from '../SubviewSpecRenderer';
+import { InputControl } from '../InputControl';
 
 function normalizeInputValue(inp: { id: string; type: string }, val: unknown): unknown {
   if (inp.type === 'time_range' && typeof val === 'string') {
@@ -58,12 +59,20 @@ interface LivePreviewProps {
 export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, strategy, onGlobalInputChange }: LivePreviewProps) {
   const globalInputs = useMemo(() => buildGlobalInputs(strategy), [strategy]);
 
-  type SpecLike = { icon?: string; iconColor?: string; titleColor?: string };
+  type SpecLike = { icon?: string; iconColor?: string; titleColor?: string; inputs?: Record<string, { topbar?: number; topbarShowTitle?: boolean; type?: string; title?: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }> };
   const specLike = spec as (SubviewSpec & SpecLike) | null;
   const specIcon = specLike?.icon;
   const specIconColor = specLike?.iconColor ?? 'var(--color-text-primary)';
   const specTitleColor = specIcon ? specIconColor : (specLike?.titleColor ?? 'var(--color-text-primary)');
   const IconComp = specIcon ? getIconComponent(specIcon) : null;
+
+  const topbarInputs = useMemo(() => {
+    const inputs = specLike?.inputs ?? {};
+    return Object.entries(inputs)
+      .filter(([, cfg]) => cfg?.topbar != null)
+      .sort(([, a], [, b]) => (a?.topbar ?? 0) - (b?.topbar ?? 0))
+      .map(([key, cfg]) => ({ key, cfg }));
+  }, [specLike?.inputs]);
 
   if (!spec) {
     return (
@@ -111,6 +120,44 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, 
             {spec.name}
           </span>
         </div>
+        {topbarInputs.length > 0 && (
+          <div
+            className="flex flex-wrap items-center justify-end shrink-0"
+            style={{ gap: 5, marginRight: 5, marginLeft: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {topbarInputs.map(({ key, cfg }, i) => (
+              <span key={key} className="flex items-end" style={{ gap: 5 }}>
+                {i > 0 && (
+                  <div
+                    style={{
+                      width: 1,
+                      alignSelf: 'stretch',
+                      backgroundColor: 'var(--color-border)',
+                    }}
+                    aria-hidden
+                  />
+                )}
+                <InputControl
+                  compact
+                  showTitleInCompact={cfg.topbarShowTitle !== false}
+                  inputKey={key}
+                  cfg={{
+                    type: cfg.type ?? 'select',
+                    title: cfg.title ?? key,
+                    default: cfg.default,
+                    options: cfg.options,
+                    min: cfg.min,
+                    max: cfg.max,
+                  }}
+                  inputs={inputs}
+                  onInputChange={onInputChange}
+                  context={context}
+                />
+              </span>
+            ))}
+          </div>
+        )}
         <div
           className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)]"
           style={{ marginRight: 5, color: 'var(--color-text-secondary)' }}

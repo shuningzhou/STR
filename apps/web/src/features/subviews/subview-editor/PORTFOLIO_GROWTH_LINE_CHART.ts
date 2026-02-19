@@ -13,9 +13,17 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   categories: ['essential', 'stock-etf'],
   defaultSize: { w: 600, h: 100 },
   icon: 'TrendingUp',
-  iconColor: 'green',
-  titleColor: 'green',
-  inputs: {},
+  iconColor: '#22c55e',
+  titleColor: '#22c55e',
+  inputs: {
+    showDepositWithdraw: {
+      type: 'checkbox',
+      title: 'Show deposit',
+      default: false,
+      topbar: 0,
+      topbarShowTitle: true,
+    },
+  },
   layout: [
     [
       {
@@ -26,7 +34,6 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
               type: 'line',
               source: 'py:get_portfolio_growth',
               padding: 8,
-              color: 'green',
             },
           },
         ],
@@ -34,12 +41,14 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     ],
   ],
   python_code: `def get_portfolio_growth(context, inputs):
-    """Return line chart data: { items: [{ label: date_str, value: portfolio_value }, ...] }.
-    Portfolio value at each date = cash balance + market value of holdings (using current prices)."""
+    """Return line chart data: { items: [{ label, value, depositWithdraw? }, ...] }.
+    Portfolio value at each date = cash balance + market value of holdings.
+    When showDepositWithdraw is true, also include cumulative deposit/withdraw sum (orange line)."""
     txs = context.get('transactions') or []
     wallet = context.get('wallet') or {}
     initial = float(wallet.get('initialBalance', 0) or 0)
     current_prices = context.get('currentPrices') or {}
+    show_dw = inputs.get('showDepositWithdraw')
 
     def is_non_option(tx):
         opt = tx.get('option')
@@ -55,33 +64,64 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     if not stock_txs:
         return {'items': []}
 
+    # Precompute cumulative deposit/withdraw at each date (for showDepositWithdraw)
+    # dw_cumulative[date] = sum of deposit/withdraw cashDelta for txs with date <= date
+    dw_cumulative = {}
+    if show_dw:
+        date_set = set()
+        for t in txs:
+            ts = t.get('timestamp') or ''
+            d = ts[:10] if len(ts) >= 10 else ''
+            if d:
+                date_set.add(d)
+        all_dates = ['Start'] + sorted(date_set)
+        for d in all_dates:
+            total = 0.0
+            for t in txs:
+                side = (t.get('side') or t.get('type') or '').lower()
+                if side not in ('deposit', 'withdrawal'):
+                    continue
+                td = (t.get('timestamp') or '')[:10]
+                if td and td <= d:
+                    total += float(t.get('cashDelta') or 0)
+            dw_cumulative[d] = round(total, 2)
+
     # Build portfolio value at each transaction date; start with initial balance
-    dates_seen = set()
+    # Group transactions by date so we process ALL txs on a date before emitting
+    from itertools import groupby
+    def date_of(tx):
+        ts = tx.get('timestamp') or ''
+        return ts[:10] if len(ts) >= 10 else ts
+    stock_txs_sorted = sorted(stock_txs, key=date_of)
+    cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee'}
+
     items = [{'label': 'Start', 'value': round(initial, 2)}]
+    if show_dw:
+        items[0]['depositWithdraw'] = dw_cumulative.get('Start', 0.0)
     cash = initial
     agg = {}
 
-    for tx in stock_txs:
-        ts = tx.get('timestamp') or ''
-        date_str = ts[:10] if len(ts) >= 10 else ts
-        if not date_str or date_str in dates_seen:
+    for date_str, group in groupby(stock_txs_sorted, key=date_of):
+        if not date_str:
             continue
-        dates_seen.add(date_str)
-
-        # Apply this tx to state (we process txs before this date for the point)
-        sym = tx.get('instrumentSymbol') or ''
-        inst_id = tx.get('instrumentId') or sym or ''
-        if not inst_id:
-            continue
-        qty = int(tx.get('quantity') or 0)
-        cash_delta = float(tx.get('cashDelta') or 0)
-        side = (tx.get('side') or tx.get('type') or '').lower()
-        if side in ('sell', 'short'):
-            qty = -qty
-        cash += cash_delta
-        if inst_id not in agg:
-            agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
-        agg[inst_id]['quantity'] += qty
+        # Apply all transactions on this date to state
+        for tx in group:
+            sym = tx.get('instrumentSymbol') or ''
+            inst_id = tx.get('instrumentId') or sym or ''
+            cash_delta = float(tx.get('cashDelta') or 0)
+            side = (tx.get('side') or tx.get('type') or '').lower()
+            cash += cash_delta
+            # Skip deposit/withdrawal from holdings (cash-only)
+            if side in cash_only_sides:
+                continue
+            if not inst_id:
+                continue
+            qty = int(tx.get('quantity') or 0)
+            if side in ('sell', 'short'):
+                qty = -qty
+            if inst_id not in agg:
+                agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+            agg[inst_id]['quantity'] += qty
 
         # Market value of holdings (current prices as proxy)
         mv = 0.0
@@ -98,9 +138,15 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
                     price = 0
             mv += q * float(price)
 
-        items.append({'label': date_str, 'value': round(cash + mv, 2)})
+        item = {'label': date_str, 'value': round(cash + mv, 2)}
+        if show_dw:
+            item['depositWithdraw'] = dw_cumulative.get(date_str, 0.0)
+        items.append(item)
 
-    return {'items': items}
+    return {
+        'items': items,
+        'colors': {'value': '#22c55e', 'depositWithdraw': 'gold'},
+    }
 `,
   functions: ['get_portfolio_growth'],
 };
