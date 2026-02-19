@@ -13,34 +13,57 @@ import { InputControl } from './InputControl';
 import { useUIStore } from '@/store/ui-store';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
-/** 24 built-in colors; custom rgb/rgba/#hex also supported */
-export const BUILT_IN_COLORS: Record<string, string> = {
-  red: '#dc2626',
-  orange: '#ea580c',
-  yellow: '#ca8a04',
-  lime: '#65a30d',
-  green: '#16a34a',
-  teal: '#0d9488',
-  cyan: '#0891b2',
-  blue: '#2563eb',
-  indigo: '#4f46e5',
-  purple: '#7c3aed',
-  pink: '#db2777',
-  gray: '#6b7280',
-  crimson: '#b91c1c',
-  amber: '#f59e0b',
-  emerald: '#059669',
-  sky: '#0ea5e9',
-  violet: '#8b5cf6',
-  fuchsia: '#d946ef',
-  rose: '#e11d48',
-  slate: '#64748b',
-  zinc: '#71717a',
-  stone: '#78716c',
-  brown: '#92400e',
-  navy: '#1e3a8a',
-  gold: '#d4af37',
-};
+/** Blend hex color with white or black. amount in [0,1]: 0 = all base, 1 = all blend */
+function blendHex(hex: string, withColor: '#ffffff' | '#000000', amount: number): string {
+  const parse = (h: string) => ({
+    r: parseInt(h.slice(1, 3), 16),
+    g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16),
+  });
+  const a = parse(hex);
+  const b = parse(withColor);
+  const lerp = (x: number, y: number) => Math.round(x * (1 - amount) + y * amount);
+  const r = lerp(a.r, b.r);
+  const g = lerp(a.g, b.g);
+  const bl = lerp(a.b, b.b);
+  return '#' + [r, g, bl].map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+/** 12 main built-in colors with 5 variants each. Custom rgb/rgba/#hex also supported. */
+const MAIN_COLORS: { name: string; hex: string }[] = [
+  { name: 'red', hex: '#FF1200' },
+  { name: 'orange', hex: '#FF8900' },
+  { name: 'yellow', hex: '#FFDB00' },
+  { name: 'lime', hex: '#DBFF00' },
+  { name: 'green', hex: '#00d800' },
+  { name: 'mint', hex: '#00FFA4' },
+  { name: 'cyan', hex: '#00C8FF' },
+  { name: 'blue', hex: '#0052FF' },
+  { name: 'violet', hex: '#9200FF' },
+  { name: 'magenta', hex: '#F600FF' },
+  { name: 'grey', hex: '#666666' },
+  { name: 'offwhite', hex: '#E2E2E2' },
+];
+
+export const BUILT_IN_COLORS: Record<string, string> = {};
+for (const { name, hex } of MAIN_COLORS) {
+  BUILT_IN_COLORS[`${name}-0`] = blendHex(hex, '#ffffff', 0.50); // lightest (50% white)
+  BUILT_IN_COLORS[`${name}-1`] = blendHex(hex, '#ffffff', 0.30); // lighter (30% white)
+  BUILT_IN_COLORS[`${name}-2`] = hex; // default
+  BUILT_IN_COLORS[`${name}-3`] = blendHex(hex, '#000000', 0.20); // darker (20% black)
+  BUILT_IN_COLORS[`${name}-4`] = blendHex(hex, '#000000', 0.40); // darkest (40% black)
+  BUILT_IN_COLORS[name] = hex; // alias for default (name-2)
+}
+// Backward compatibility
+BUILT_IN_COLORS['gold'] = BUILT_IN_COLORS['orange-2'];
+// No variants
+BUILT_IN_COLORS['black'] = '#131313';
+BUILT_IN_COLORS['white'] = '#f2f2f2';
+
+/** Default branding/accent green (green-2 from built-in colors) */
+export const BRANDING_GREEN = BUILT_IN_COLORS['green-2'];
+/** Hover state for branding (green-3, darker) */
+export const BRANDING_GREEN_HOVER = BUILT_IN_COLORS['green-3'];
 
 /** Resolve color: built-in name -> hex; rgb/rgba/hsl/hsla/#hex passed through */
 function resolveColor(color: string | undefined): string | undefined {
@@ -374,7 +397,7 @@ function ContentRenderer({
     } else if (chart.type === 'line' && items.length > 0) {
       const lineColor = resolveColor(dataColors?.value) ?? resolveColor((chart as { color?: string }).color) ?? 'var(--color-chart-1)';
       const hasDepositWithdraw = items.some((i) => 'depositWithdraw' in i && (i as { depositWithdraw?: number }).depositWithdraw != null);
-      const dwColor = resolveColor(dataColors?.depositWithdraw) ?? resolveColor('orange') ?? '#ea580c';
+      const dwColor = resolveColor(dataColors?.depositWithdraw) ?? resolveColor('orange') ?? '#FF8900';
 
       const LineTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey?: string; value?: number }[]; label?: string }) => {
         if (!active || !payload?.length) return null;

@@ -2,7 +2,7 @@ import { SquarePlus, Settings, Database, Wallet, Pencil, PencilOff } from 'lucid
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { CanvasGrid } from '@/features/canvas/CanvasGrid';
-import { OPTIMIZED_CANVAS_WIDTH } from '@/features/canvas/canvas-grid-config';
+import { CANVAS_GRID_CONFIG, OPTIMIZED_CANVAS_WIDTH } from '@/features/canvas/canvas-grid-config';
 import { StrategyInputsBar } from '@/features/canvas/StrategyInputsBar';
 
 const floatingButton =
@@ -62,7 +62,7 @@ export function CanvasArea() {
         <div
           className="flex-1 flex flex-col min-h-0 min-w-0 overflow-auto"
           style={{
-            padding: 'var(--space-section)',
+            padding: CANVAS_GRID_CONFIG.margin[0],
             backgroundColor: 'var(--color-bg-page)',
           }}
         >

@@ -43,7 +43,7 @@ export const FLEX_PADDING_EXAMPLE: SubviewSpec = {
     ]},
     [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, showBorder: true, content: [{ text: { value: 'column-reverse', size: 'xs' } }] }],
     { flex: { flexDirection: 'column-reverse', justifyContent: 'center', alignItems: 'center', gap: 8 }, cells: [
-      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'emerald', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
+      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'green', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'green', textColor: 'white', content: [{ text: { value: 'B', size: 'sm' } }] },
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'lime', textColor: 'black', content: [{ text: { value: 'C', size: 'sm' } }] },
     ]},
@@ -122,7 +122,7 @@ export const FLEX_PADDING_EXAMPLE: SubviewSpec = {
     ]},
     [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, showBorder: true, content: [{ text: { value: 'stretch', size: 'xs' } }] }],
     { flex: { flexDirection: 'row', justifyContent: 'center', alignItems: 'stretch', gap: 8, minHeight: 56 }, cells: [
-      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'emerald', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
+      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'green', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'green', textColor: 'white', content: [{ text: { value: 'B', size: 'sm' } }] },
     ]},
     ...SEP,
@@ -233,7 +233,7 @@ export const FLEX_PADDING_EXAMPLE: SubviewSpec = {
     ...SEP,
     [{ flex: { flex: 1, justifyContent: 'center', alignItems: 'center' }, padding: 4, showBorder: true, content: [{ text: { value: 'Regular row [A, B, C]', size: 'xs' } }] }],
     [
-      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'emerald', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
+      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'green', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'teal', textColor: 'white', content: [{ text: { value: 'B', size: 'sm' } }] },
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'indigo', textColor: 'white', content: [{ text: { value: 'C', size: 'sm' } }] },
     ],
@@ -241,7 +241,7 @@ export const FLEX_PADDING_EXAMPLE: SubviewSpec = {
     {
       flex: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
       cells: [
-        { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'emerald', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
+        { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'green', textColor: 'white', content: [{ text: { value: 'A', size: 'sm' } }] },
         { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'teal', textColor: 'white', content: [{ text: { value: 'B', size: 'sm' } }] },
         { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 8, showBorder: true, backgroundColor: 'indigo', textColor: 'white', content: [{ text: { value: 'C', size: 'sm' } }] },
       ],
@@ -296,7 +296,7 @@ export const FLEX_PADDING_EXAMPLE: SubviewSpec = {
     [
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: 16, showBorder: true, backgroundColor: 'teal', textColor: 'rgb(255,255,255)', content: [{ text: { value: 'padding: 16', size: 'xs', padding: { bottom: 2 } } }, { text: { value: '16px all sides', size: 'sm' } }] },
       { flex: { justifyContent: 'center', alignItems: 'center' }, padding: { top: 4, right: 32, bottom: 4, left: 32 }, showBorder: true, backgroundColor: 'indigo', textColor: 'rgb(255,255,255)', content: [{ text: { value: 'padding: { top:4, right:32, bottom:4, left:32 }', size: 'xs', padding: { bottom: 2 } } }, { text: { value: '4 top/bottom, 32 L/R', size: 'sm' } }] },
-      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: { top: 32, right: 4, bottom: 32, left: 4 }, showBorder: true, backgroundColor: 'emerald', textColor: 'rgb(255,255,255)', content: [{ text: { value: 'padding: { top:32, right:4, bottom:32, left:4 }', size: 'xs', padding: { bottom: 2 } } }, { text: { value: '32 T/B, 4 L/R', size: 'sm' } }] },
+      { flex: { justifyContent: 'center', alignItems: 'center' }, padding: { top: 32, right: 4, bottom: 32, left: 4 }, showBorder: true, backgroundColor: 'green', textColor: 'rgb(255,255,255)', content: [{ text: { value: 'padding: { top:32, right:4, bottom:32, left:4 }', size: 'xs', padding: { bottom: 2 } } }, { text: { value: '32 T/B, 4 L/R', size: 'sm' } }] },
     ],
   ],
   python_code: '',

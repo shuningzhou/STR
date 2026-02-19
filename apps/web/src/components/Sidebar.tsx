@@ -1,12 +1,4 @@
-import {
-  LayoutDashboard,
-  Plus,
-  ChevronLeft,
-  Sun,
-  Moon,
-  User,
-  Settings,
-} from 'lucide-react';
+import { LayoutDashboard, Plus, ChevronLeft, User, Settings } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { useThemeStore } from '@/store/theme-store';
 import { useUIStore } from '@/store/ui-store';
@@ -16,7 +8,7 @@ import { cn } from '@/lib/utils';
 const CURRENCIES = ['USD', 'CAD'] as const;
 
 export function Sidebar() {
-  const { mode, toggleMode, viewingCurrency, setViewingCurrency } = useThemeStore();
+  const { viewingCurrency, setViewingCurrency } = useThemeStore();
   const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen } = useUIStore();
   const {
     strategies,
@@ -217,27 +209,6 @@ export function Sidebar() {
           )}
 
           <div className={cn('flex', sidebarCollapsed ? 'flex-col gap-3' : 'flex-row justify-center gap-2')}>
-            <button
-              type="button"
-              className={cn(
-                'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
-                sidebarCollapsed ? 'w-full py-2' : 'w-7 h-7 shrink-0',
-              )}
-              style={{ color: 'var(--color-text-secondary)' }}
-              onClick={toggleMode}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-                e.currentTarget.style.color = 'var(--color-text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--color-text-secondary)';
-              }}
-              title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
-            >
-              {mode === 'dark' ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
-            </button>
-
             <button
               type="button"
               className={cn(

@@ -13,8 +13,8 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   categories: ['essential', 'stock-etf'],
   defaultSize: { w: 600, h: 100 },
   icon: 'TrendingUp',
-  iconColor: '#22c55e',
-  titleColor: '#22c55e',
+  iconColor: 'green-2',
+  titleColor: 'green-2',
   inputs: {
     showDepositWithdraw: {
       type: 'checkbox',
@@ -145,7 +145,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
 
     return {
         'items': items,
-        'colors': {'value': '#22c55e', 'depositWithdraw': 'gold'},
+        'colors': {'value': 'green-2', 'depositWithdraw': 'gold'},
     }
 `,
   functions: ['get_portfolio_growth'],

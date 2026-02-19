@@ -302,8 +302,8 @@ export function TransactionListPanel() {
                           style={{
                             color:
                               tx.cashDelta < 0
-                                ? 'var(--color-negative, #dc2626)'
-                                : 'var(--color-positive, #16a34a)',
+                                ? 'var(--color-negative, #f87171)'
+                                : 'var(--color-positive, var(--color-active))',
                             borderRight: '1px solid var(--color-border)',
                             padding: CELL_PADDING,
                           }}

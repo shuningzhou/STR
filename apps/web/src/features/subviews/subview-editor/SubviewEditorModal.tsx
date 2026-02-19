@@ -470,8 +470,8 @@ export function SubviewEditorModal() {
             <div
               className="flex items-center shrink-0 h-9"
               style={{
-                backgroundColor: '#252526',
-                borderBottom: '1px solid #444446',
+                backgroundColor: 'var(--color-bg-sidebar)',
+                borderBottom: '1px solid var(--color-border)',
                 paddingRight: 10,
               }}
             >
@@ -482,18 +482,18 @@ export function SubviewEditorModal() {
                 style={{
                   paddingLeft: 10,
                   paddingRight: 10,
-                  color: editMode === 'json' ? '#ffffff' : '#8f8f8f',
-                  backgroundColor: editMode === 'json' ? '#1e1e1e' : 'transparent',
+                  color: editMode === 'json' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                  backgroundColor: editMode === 'json' ? 'var(--color-bg-input)' : 'transparent',
                   ...(editMode === 'json' && {
                     marginBottom: -1,
-                    borderBottom: '1px solid #1e1e1e',
+                    borderBottom: '1px solid var(--color-border)',
                   }),
                 }}
               >
-                <Braces size={14} className="shrink-0" style={{ color: '#6c9dcb' }} />
+                <Braces size={14} className="shrink-0" style={{ color: 'var(--color-accent)' }} />
                 JSON
               </button>
-              <div className="w-px h-4 shrink-0 self-center bg-[#444446]" role="separator" aria-hidden />
+              <div className="w-px h-4 shrink-0 self-center bg-[var(--color-border)]" role="separator" aria-hidden />
               <button
                 type="button"
                 onClick={() => setEditMode('python')}
@@ -501,18 +501,18 @@ export function SubviewEditorModal() {
                 style={{
                   paddingLeft: 10,
                   paddingRight: 10,
-                  color: editMode === 'python' ? '#ffffff' : '#8f8f8f',
-                  backgroundColor: editMode === 'python' ? '#1e1e1e' : 'transparent',
+                  color: editMode === 'python' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                  backgroundColor: editMode === 'python' ? 'var(--color-bg-input)' : 'transparent',
                   ...(editMode === 'python' && {
                     marginBottom: -1,
-                    borderBottom: '1px solid #1e1e1e',
+                    borderBottom: '1px solid var(--color-border)',
                   }),
                 }}
               >
-                <FileCode size={14} className="shrink-0" style={{ color: '#6c9dcb' }} />
+                <FileCode size={14} className="shrink-0" style={{ color: 'var(--color-accent)' }} />
                 Python
               </button>
-              <div className="w-px h-4 shrink-0 self-center bg-[#444446]" role="separator" aria-hidden />
+              <div className="w-px h-4 shrink-0 self-center bg-[var(--color-border)]" role="separator" aria-hidden />
               <button
                 type="button"
                 onClick={() => setEditMode('transactions')}
@@ -520,18 +520,18 @@ export function SubviewEditorModal() {
                 style={{
                   paddingLeft: 10,
                   paddingRight: 10,
-                  color: editMode === 'transactions' ? '#ffffff' : '#8f8f8f',
-                  backgroundColor: editMode === 'transactions' ? '#1e1e1e' : 'transparent',
+                  color: editMode === 'transactions' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                  backgroundColor: editMode === 'transactions' ? 'var(--color-bg-input)' : 'transparent',
                   ...(editMode === 'transactions' && {
                     marginBottom: -1,
-                    borderBottom: '1px solid #1e1e1e',
+                    borderBottom: '1px solid var(--color-border)',
                   }),
                 }}
               >
-                <Receipt size={14} className="shrink-0" style={{ color: '#6c9dcb' }} />
+                <Receipt size={14} className="shrink-0" style={{ color: 'var(--color-accent)' }} />
                 Transactions
               </button>
-              <div className="w-px h-4 shrink-0 self-center bg-[#444446]" role="separator" aria-hidden />
+              <div className="w-px h-4 shrink-0 self-center bg-[var(--color-border)]" role="separator" aria-hidden />
               <button
                 type="button"
                 onClick={() => setEditMode('wallet')}
@@ -539,15 +539,15 @@ export function SubviewEditorModal() {
                 style={{
                   paddingLeft: 10,
                   paddingRight: 10,
-                  color: editMode === 'wallet' ? '#ffffff' : '#8f8f8f',
-                  backgroundColor: editMode === 'wallet' ? '#1e1e1e' : 'transparent',
+                  color: editMode === 'wallet' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                  backgroundColor: editMode === 'wallet' ? 'var(--color-bg-input)' : 'transparent',
                   ...(editMode === 'wallet' && {
                     marginBottom: -1,
-                    borderBottom: '1px solid #1e1e1e',
+                    borderBottom: '1px solid var(--color-border)',
                   }),
                 }}
               >
-                <Wallet size={14} className="shrink-0" style={{ color: '#6c9dcb' }} />
+                <Wallet size={14} className="shrink-0" style={{ color: 'var(--color-accent)' }} />
                 Wallet
               </button>
               <div className="flex-1" />
@@ -557,7 +557,7 @@ export function SubviewEditorModal() {
                     type="button"
                     onClick={triggerEditorSearch}
                     title="Search (Ctrl+F)"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     <Search size={16} />
                   </button>
@@ -565,7 +565,7 @@ export function SubviewEditorModal() {
                     type="button"
                     onClick={handleFormat}
                     title="Format"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     <Wand2 size={16} />
                   </button>
@@ -573,7 +573,7 @@ export function SubviewEditorModal() {
                     type="button"
                     onClick={handleReset}
                     title="Reset"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     <RotateCcw size={16} />
                   </button>
@@ -585,7 +585,7 @@ export function SubviewEditorModal() {
                     type="button"
                     onClick={triggerEditorSearch}
                     title="Search (Ctrl+F)"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     <Search size={16} />
                   </button>
@@ -594,7 +594,7 @@ export function SubviewEditorModal() {
                     onClick={handleTestFunctions}
                     disabled={testLoading || !parseResult.success}
                     title="Test Functions"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     {testLoading ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -654,7 +654,7 @@ export function SubviewEditorModal() {
                     type="button"
                     onClick={handleResetSeedData}
                     title="Reset to default"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     <RotateCcw size={16} />
                   </button>
@@ -666,7 +666,7 @@ export function SubviewEditorModal() {
                     type="button"
                     onClick={handleResetSeedData}
                     title="Reset"
-                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[#c0c0c0] hover:text-white active:text-[var(--color-active)]"
+                    className="p-2 cursor-pointer bg-transparent hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] active:text-[var(--color-active)]"
                   >
                     <RotateCcw size={16} />
                   </button>

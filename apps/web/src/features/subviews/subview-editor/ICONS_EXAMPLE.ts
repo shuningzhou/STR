@@ -7,7 +7,7 @@
 import type { SubviewSpec } from '@str/shared';
 import { ICONS_BY_CATEGORY } from '@/lib/icons';
 
-const COLORS = ['#22c55e', '#6c9dcb', '#a78bfa', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6'];
+const COLORS = ['#00d800', '#6c9dcb', '#a78bfa', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6'];
 const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 
 // Build layout: header + category sections. Each category has a title + grid of icon cells.
@@ -51,8 +51,8 @@ const layoutRows: SubviewSpec['layout'] = [
       padding: 8,
       content: [
         { text: { value: 'Icon gallery — use in JSON layout', size: 'md', bold: true } },
-        { text: { value: 'Card bar: "icon": "Star", "iconColor": "green"', size: 'xs', padding: { top: 4 } } },
-        { text: { value: 'Layout: { "icon": { "name": "Wallet", "color": "#22c55e", "size": 20 } }', size: 'xs', padding: { top: 2 } } },
+        { text: { value: 'Card bar: "icon": "Star", "iconColor": "green-2"', size: 'xs', padding: { top: 4 } } },
+        { text: { value: 'Layout: { "icon": { "name": "Wallet", "color": "green-2", "size": 20 } }', size: 'xs', padding: { top: 2 } } },
       ],
     },
   ],

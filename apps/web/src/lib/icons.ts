@@ -1,6 +1,6 @@
 /**
  * Icon utilities: maps icon names (PascalCase) to Lucide icons.
- * Use in subview spec: { "icon": "ChartPie" } or layout: { icon: { name: "Wallet", color: "#22c55e" } }
+ * Use in subview spec: { "icon": "ChartPie" } or layout: { icon: { name: "Wallet", color: "green-2" } }
  */
 import {
   LayoutDashboard,

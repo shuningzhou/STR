@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { BRANDING_GREEN, BRANDING_GREEN_HOVER, BUILT_IN_COLORS } from '@/features/subviews/SubviewSpecRenderer';
 
 export interface ThemeColors {
   '--color-bg-page': string;
   '--color-bg-card': string;
   '--color-bg-hover': string;
   '--color-active': string;
+  '--color-bg-primary': string;
+  '--color-bg-primary-hover': string;
   '--color-border': string;
   '--color-shadow': string;
   '--color-text-primary': string;
@@ -22,17 +25,19 @@ export interface ThemeColors {
 }
 
 const DARK_DEFAULTS: ThemeColors = {
-  '--color-bg-page': '#1e1e1e',
-  '--color-bg-card': '#2d2d30',
-  '--color-bg-hover': '#2a2d2e',
-  '--color-active': '#22c55e',
-  '--color-border': '#5a5a5c',
+  '--color-bg-page': BUILT_IN_COLORS['black'],
+  '--color-bg-card': '#262626',
+  '--color-bg-hover': '#3d3d3d',
+  '--color-active': BRANDING_GREEN,
+  '--color-bg-primary': BRANDING_GREEN,
+  '--color-bg-primary-hover': BRANDING_GREEN_HOVER,
+  '--color-border': BUILT_IN_COLORS['grey-4'],
   '--color-shadow': 'rgba(0, 0, 0, 0.3)',
-  '--color-text-primary': '#e0e0e0',
-  '--color-text-secondary': '#bbbbbb',
+  '--color-text-primary': '#f2f2f2',
+  '--color-text-secondary': '#c8c8c8',
   '--color-accent': '#6c9dcb',
   '--color-accent-hover': '#5a8aba',
-  '--color-positive': '#4caf50',
+  '--color-positive': BRANDING_GREEN,
   '--color-negative': '#f87171',
   '--color-chart-1': '#e0e0e0',
   '--color-chart-2': '#a78bfa',
@@ -40,36 +45,11 @@ const DARK_DEFAULTS: ThemeColors = {
   '--color-chart-4': '#fbbf24',
   '--color-chart-5': '#f472b6',
 };
-
-const LIGHT_DEFAULTS: ThemeColors = {
-  '--color-bg-page': '#f3f3f3',
-  '--color-bg-card': '#ffffff',
-  '--color-bg-hover': '#e8e8ea',
-  '--color-active': '#22c55e',
-  '--color-border': '#b8b8b8',
-  '--color-shadow': 'rgba(0, 0, 0, 0.08)',
-  '--color-text-primary': '#333333',
-  '--color-text-secondary': '#666666',
-  '--color-accent': '#6c9dcb',
-  '--color-accent-hover': '#5a8aba',
-  '--color-positive': '#4caf50',
-  '--color-negative': '#f87171',
-  '--color-chart-1': '#e0e0e0',
-  '--color-chart-2': '#a78bfa',
-  '--color-chart-3': '#22d3ee',
-  '--color-chart-4': '#fbbf24',
-  '--color-chart-5': '#f472b6',
-};
-
-type ThemeMode = 'light' | 'dark';
 
 interface ThemeState {
-  mode: ThemeMode;
   customColors: Partial<ThemeColors>;
   viewingCurrency: string;
 
-  toggleMode: () => void;
-  setMode: (mode: ThemeMode) => void;
   setCustomColor: (key: keyof ThemeColors, value: string) => void;
   resetColor: (key: keyof ThemeColors) => void;
   resetAllColors: () => void;
@@ -80,54 +60,43 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      mode: 'dark',
       customColors: {},
       viewingCurrency: 'USD',
-
-      toggleMode: () => {
-        const newMode = get().mode === 'dark' ? 'light' : 'dark';
-        set({ mode: newMode });
-        applyTheme(newMode, get().customColors);
-      },
-
-      setMode: (mode) => {
-        set({ mode });
-        applyTheme(mode, get().customColors);
-      },
 
       setCustomColor: (key, value) => {
         const customColors = { ...get().customColors, [key]: value };
         set({ customColors });
-        applyTheme(get().mode, customColors);
+        applyTheme(get().customColors);
       },
 
       resetColor: (key) => {
         const customColors = { ...get().customColors };
         delete customColors[key];
         set({ customColors });
-        applyTheme(get().mode, customColors);
+        applyTheme(customColors);
       },
 
       resetAllColors: () => {
         set({ customColors: {} });
-        applyTheme(get().mode, {});
+        applyTheme({});
       },
 
       setViewingCurrency: (currency) => set({ viewingCurrency: currency }),
 
-      getDefaults: () =>
-        get().mode === 'dark' ? { ...DARK_DEFAULTS } : { ...LIGHT_DEFAULTS },
+      getDefaults: () => ({ ...DARK_DEFAULTS }),
     }),
-    { name: 'str-theme' }
+    {
+      name: 'str-theme',
+      partialize: (s) => ({ customColors: s.customColors, viewingCurrency: s.viewingCurrency }),
+    }
   )
 );
 
-/** Apply theme: CSS class + custom color overrides */
-export function applyTheme(mode: ThemeMode, customColors: Partial<ThemeColors>) {
+/** Apply theme: dark mode only, with optional custom color overrides */
+export function applyTheme(customColors: Partial<ThemeColors> = {}) {
   const root = document.documentElement;
-  root.classList.toggle('light', mode === 'light');
-  const defaults = mode === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS;
-  const merged = { ...defaults, ...customColors };
+  root.classList.remove('light');
+  const merged = { ...DARK_DEFAULTS, ...customColors };
   for (const [key, value] of Object.entries(merged)) {
     root.style.setProperty(key, value);
   }
@@ -136,5 +105,5 @@ export function applyTheme(mode: ThemeMode, customColors: Partial<ThemeColors>) 
 /** Initialize theme on app load */
 export function initializeTheme() {
   const state = useThemeStore.getState();
-  applyTheme(state.mode, state.customColors);
+  applyTheme(state.customColors);
 }

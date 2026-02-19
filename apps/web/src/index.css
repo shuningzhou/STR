@@ -2,35 +2,35 @@
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
 
-/* ── Cursor-style design tokens ────────────────────────── */
+/* ── Grayscale palette: black, grey, offwhite, white ────── */
 :root {
   /* Backgrounds */
-  --color-bg-page: #1e1e1e;
-  --color-bg-card: #2d2d30;
-  --color-bg-sidebar: #252526;
-  --color-bg-input: #3c3c3c;
-  --color-bg-hover: #2a2d2e;
-  --color-bg-tab: #2d2d30;
-  --color-active: #22c55e;
-  --color-bg-active-tab: #2d2d30;
-  --color-bg-primary: #2ecc71;
-  --color-bg-primary-hover: #27ae60;
+  --color-bg-page: #131313;
+  --color-bg-card: #262626;
+  --color-bg-sidebar: #131313;
+  --color-bg-input: #3d3d3d;
+  --color-bg-hover: #3d3d3d;
+  --color-bg-tab: #262626;
+  --color-active: #00d800;
+  --color-bg-active-tab: #262626;
+  --color-bg-primary: #00d800;
+  --color-bg-primary-hover: #00ad00;
 
-  /* Text – higher contrast */
-  --color-text-primary: #e8e8e8;
+  /* Text */
+  --color-text-primary: #f2f2f2;
   --color-text-secondary: #c8c8c8;
   --color-text-muted: #a0a0a0;
-  --color-text-active: #ffffff;
+  --color-text-active: #f2f2f2;
   --color-text-on-primary: #ffffff;
 
-  /* Borders & accents */
-  --color-border: #5a5a5c;
+  /* Borders & accents (grey-4 = 40% black blend of grey #666666) */
+  --color-border: #3d3d3d;
   --color-shadow: rgba(0, 0, 0, 0.3);
   --color-accent: #6c9dcb;
   --color-accent-hover: #5a8aba;
 
   /* Semantic */
-  --color-positive: #4caf50;
+  --color-positive: #00d800;
   --color-negative: #f87171;
   --color-chart-1: #e0e0e0;
   --color-chart-2: #a78bfa;
@@ -67,28 +67,6 @@
   --font-size-xxxl: 40px;
   --font-weight-label: 500;
   --letter-spacing-label: 0.5px;
-}
-
-.dark {
-  /* Dark is default; light overrides below */
-}
-
-.light {
-  --color-bg-page: #f3f3f3;
-  --color-bg-card: #ffffff;
-  --color-bg-sidebar: #f0f0f0;
-  --color-bg-input: #eeeeef;
-  --color-bg-hover: #e8e8ea;
-  --color-bg-tab: #eeeeef;
-  --color-active: #22c55e;
-  --color-bg-active-tab: #ffffff;
-  --color-bg-primary: #2ecc71;
-  --color-bg-primary-hover: #27ae60;
-  --color-text-primary: #333333;
-  --color-text-secondary: #555555;
-  --color-text-muted: #707070;
-  --color-border: #b8b8b8;
-  --color-shadow: rgba(0, 0, 0, 0.08);
 }
 
 @theme {
@@ -161,7 +139,7 @@ body {
 }
 
 /* Date input calendar icon – visible in dark theme */
-html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator {
+input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.85);
   cursor: pointer;
 }
@@ -177,7 +155,7 @@ input.number-input-with-gap[type="number"] {
   padding-right: 6px !important;
 }
 
-/* Checkboxes use default green (matches app accent) */
+/* Checkboxes use accent color */
 input[type="checkbox"] {
   accent-color: var(--color-active);
 }
