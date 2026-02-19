@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Trash2, Plus } from 'lucide-react';
 import type { StrategyInputConfig } from '@/store/strategy-store';
+import { IconPicker } from '@/components/IconPicker';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
@@ -53,12 +54,15 @@ export function StrategySettingsModal() {
 
   const strategy = strategies.find((s) => s.id === activeStrategyId);
 
+  const [icon, setIcon] = useState<string | undefined>('');
+
   useEffect(() => {
     if (strategy) {
       setName(strategy.name);
       setBaseCurrency((strategy.baseCurrency as 'USD' | 'CAD') || 'USD');
       setMarginAccountEnabled(strategy.marginAccountEnabled ?? false);
       setCollateralEnabled(strategy.collateralEnabled ?? false);
+      setIcon(strategy.icon ?? '');
     }
     setDeleteConfirm(false);
     setError(null);
@@ -77,12 +81,13 @@ export function StrategySettingsModal() {
       updateStrategy(strategy.id, {
         name: trimmed,
         baseCurrency,
+        icon: icon || undefined,
         marginAccountEnabled,
         collateralEnabled,
       });
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, marginAccountEnabled, collateralEnabled, strategy, updateStrategy, setStrategySettingsModalOpen]
+    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, updateStrategy, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -200,35 +205,46 @@ export function StrategySettingsModal() {
   return (
     <Modal title="Strategy settings" onClose={handleClose} className="w-[520px] max-w-[95vw]">
       <form onSubmit={handleSubmit}>
-        {/* Content: strategy name */}
-        <div style={{ marginBottom: 20 }}>
-          <Label htmlFor="strategy-name-edit">Strategy name</Label>
-          <div className="mt-1">
-            <Input
-              id="strategy-name-edit"
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError(null);
-              }}
-              placeholder="e.g. Growth Portfolio"
-              error={error ?? undefined}
+        {/* Name and Icon on same row */}
+        <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
+          <div className="flex-1 min-w-0">
+            <Label htmlFor="strategy-name-edit">Name</Label>
+            <div className="mt-1">
+              <Input
+                id="strategy-name-edit"
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError(null);
+                }}
+                placeholder="e.g. Growth Portfolio"
+                error={error ?? undefined}
+              />
+            </div>
+          </div>
+          <div style={{ minWidth: 160 }}>
+            <IconPicker
+              value={icon || undefined}
+              onChange={(v) => setIcon(v ?? '')}
+              label="Icon"
+              placeholder="Default"
+              showColorPicker={false}
+              defaultIcon="LayoutDashboard"
             />
           </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <div style={{ marginBottom: 14 }}>
-            <Label>Base currency</Label>
-            <SegmentControl
-              value={baseCurrency}
-              options={CURRENCIES}
-              onChange={(c) => setBaseCurrency(c)}
-              className="flex-1 min-w-0 mt-1"
-            />
-          </div>
-          <div className="flex flex-col gap-3">
+          <Label>Base currency</Label>
+          <div className="flex flex-wrap items-center gap-4 mt-1">
+            <div style={{ width: 150 }}>
+              <SegmentControl
+                value={baseCurrency}
+                options={CURRENCIES}
+                onChange={(c) => setBaseCurrency(c)}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -237,33 +253,29 @@ export function StrategySettingsModal() {
                 onChange={(e) => setMarginAccountEnabled(e.target.checked)}
               />
               <Label htmlFor="strategy-margin" className="!mb-0 cursor-pointer">
-                Enable margin account
+                Margin
               </Label>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="strategy-collateral"
-                checked={collateralEnabled}
-                onChange={(e) => setCollateralEnabled(e.target.checked)}
-              />
-              <Label htmlFor="strategy-collateral" className="!mb-0 cursor-pointer">
-                Enable collateral
-              </Label>
-            </div>
+            {marginAccountEnabled && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="strategy-collateral"
+                  checked={collateralEnabled}
+                  onChange={(e) => setCollateralEnabled(e.target.checked)}
+                />
+                <Label htmlFor="strategy-collateral" className="!mb-0 cursor-pointer">
+                  Collateral
+                </Label>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Strategy inputs section */}
+        {/* Inputs section */}
         <div style={{ marginBottom: 20 }}>
-          <div
-            className="flex items-center justify-between"
-            style={{ marginBottom: 10 }}
-          >
-            <Label>Strategy inputs</Label>
-            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Subviews reference via global.&lt;id&gt;
-            </span>
+          <div style={{ marginBottom: 10 }}>
+            <Label>Inputs</Label>
           </div>
           <div
             className="grid gap-x-2 gap-y-2"

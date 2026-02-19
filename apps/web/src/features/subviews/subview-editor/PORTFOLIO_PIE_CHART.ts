@@ -6,6 +6,7 @@ import type { SubviewSpec } from '@str/shared';
 export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   type: 'readonly',
   name: 'Portfolio %',
+  icon: 'ChartPie',
   description: 'Pie chart showing % of portfolio by holding',
   maker: 'official',
   categories: ['essential', 'stock-etf'],

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Pencil, Plus, Minus } from 'lucide-react';
+import { getIconComponent } from '@/lib/icons';
 import type { Strategy, Subview } from '@/store/strategy-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
@@ -125,8 +126,12 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   );
 
   const hasSpec = !!effectiveSpec;
-  type SpecLike = { headerActions?: { title: string; icon: string; handler: string }[]; type?: string; python_code?: string };
+  type SpecLike = { headerActions?: { title: string; icon: string; handler: string }[]; type?: string; python_code?: string; icon?: string; iconColor?: string; titleColor?: string };
   const specLike = effectiveSpec as SpecLike | undefined;
+  const subviewIcon = subview.icon ?? specLike?.icon;
+  const subviewIconColor = subview.iconColor ?? specLike?.iconColor ?? 'var(--color-text-primary)';
+  const subviewTitleColor = subviewIcon ? subviewIconColor : (specLike?.titleColor ?? 'var(--color-text-primary)');
+  const SubviewIconComp = subviewIcon ? getIconComponent(subviewIcon) : null;
   const headerActions =
     specLike?.headerActions ??
     (specLike?.type === 'readwrite'
@@ -161,14 +166,22 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       >
         <div
           className={cn(
-            'subview-drag-handle flex-1 flex items-center min-w-0 h-full',
+            'subview-drag-handle flex-1 flex items-center gap-2 min-w-0 h-full',
             isEditMode && 'cursor-grab active:cursor-grabbing'
           )}
           style={{ paddingLeft: 5, paddingRight: 4 }}
         >
+          {SubviewIconComp && (
+            <SubviewIconComp
+              size={16}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: subviewIconColor }}
+            />
+          )}
           <span
             className="min-w-0 flex-1 truncate text-[13px] font-medium"
-            style={{ color: 'var(--color-text-primary)' }}
+            style={{ color: subviewTitleColor }}
           >
             {subview.name}
           </span>

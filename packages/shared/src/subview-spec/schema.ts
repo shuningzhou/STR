@@ -150,6 +150,19 @@ const separatorContentSchema = z.object({
   }),
 });
 
+/** Icon content: Lucide icon by name. Color: built-in name, rgb, #hex, etc. */
+const iconContentSchema = z.object({
+  icon: z.object({
+    /** Lucide icon name (PascalCase), e.g. ChartPie, Wallet, TrendingUp */
+    name: z.string(),
+    /** Color: built-in name (green, red, blue) or rgb(r,g,b), #hex */
+    color: z.string().optional(),
+    /** Size in px; default 16 */
+    size: z.number().optional(),
+    padding: paddingSchema.optional(),
+  }),
+});
+
 const contentItemSchema = z.union([
   textContentSchema,
   numberContentSchema,
@@ -157,6 +170,7 @@ const contentItemSchema = z.union([
   chartContentSchema,
   inputContentSchema,
   separatorContentSchema,
+  iconContentSchema,
 ]);
 
 /** Built-in: red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, pink, gray, crimson, amber, emerald, sky, violet, fuchsia, rose, slate, zinc, stone, brown, navy. Or custom: rgb(r,g,b), #hex, hsl(...) */
@@ -222,6 +236,12 @@ export const subviewSpecSchema = z
     name: z.string(),
     description: z.string(),
     maker: z.string(),
+    /** Icon shown in subview card title bar (left of title). Lucide name, e.g. ChartPie, Wallet. */
+    icon: z.string().optional(),
+    /** Color for spec icon and title: built-in name or rgb/#hex */
+    iconColor: z.string().optional(),
+    /** Color for title text when no icon. When icon present, iconColor applies to both. */
+    titleColor: z.string().optional(),
     /** Categories for gallery: example, essential, stock-etf, margin, option, income. A subview can be in multiple. */
     categories: z.array(z.enum(['example', 'essential', 'stock-etf', 'margin', 'option', 'income'])).optional(),
     defaultSize: z.union([sizeShapeSchema, z.string()]).optional(),

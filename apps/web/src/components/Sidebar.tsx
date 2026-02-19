@@ -7,6 +7,7 @@ import {
   User,
   Settings,
 } from 'lucide-react';
+import { getIconComponent } from '@/lib/icons';
 import { useThemeStore } from '@/store/theme-store';
 import { useUIStore } from '@/store/ui-store';
 import { useStrategyStore } from '@/store/strategy-store';
@@ -27,7 +28,7 @@ export function Sidebar() {
     <aside
       className="relative h-full flex flex-col shrink-0 transition-[width] duration-200 ease-out"
       style={{
-        width: sidebarCollapsed ? 56 : 240,
+        width: sidebarCollapsed ? 56 : 200,
         backgroundColor: 'var(--color-bg-sidebar)',
         borderRight: '1px solid var(--color-border)',
       }}
@@ -41,11 +42,11 @@ export function Sidebar() {
           paddingRight: sidebarCollapsed ? 8 : 'var(--space-sidebar)',
         }}
       >
-        {/* STR Logo + collapse toggle */}
+        {/* OptiCanvas Logo + collapse toggle */}
         <div className={cn('flex items-center gap-3 shrink-0', sidebarCollapsed && 'justify-center')}>
           <button
             type="button"
-            className="w-9 h-9 shrink-0 flex items-center justify-center rounded-[var(--radius-medium)] transition-colors"
+            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-[var(--radius-medium)] transition-colors"
             style={{
               backgroundColor: 'var(--color-text-primary)',
               color: 'var(--color-bg-card)',
@@ -55,19 +56,19 @@ export function Sidebar() {
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
             title={sidebarCollapsed ? 'Expand sidebar' : undefined}
           >
-            <LayoutDashboard size={18} />
+            <LayoutDashboard size={14} strokeWidth={1.5} />
           </button>
           {!sidebarCollapsed && (
             <>
               <span
-                className="text-base font-semibold truncate flex-1"
+                className="text-sm font-semibold truncate flex-1"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                STR
+                OptiCanvas
               </span>
               <button
                 type="button"
-                className="w-7 h-7 shrink-0 flex items-center justify-center rounded-full cursor-pointer transition-colors"
+                className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full cursor-pointer transition-colors"
                 style={{
                   backgroundColor: 'var(--color-bg-tab)',
                   color: 'var(--color-text-secondary)',
@@ -81,7 +82,7 @@ export function Sidebar() {
                 }}
                 title="Collapse sidebar"
               >
-                <ChevronLeft size={14} strokeWidth={2} />
+                <ChevronLeft size={12} strokeWidth={2} />
               </button>
             </>
           )}
@@ -96,14 +97,14 @@ export function Sidebar() {
                 key={s.id}
                 type="button"
                 className={cn(
-                  'flex items-center gap-3 text-left cursor-pointer transition-colors',
-                  sidebarCollapsed ? 'w-10 h-10 min-w-10 min-h-10 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full',
+                  'flex items-center gap-2 text-left cursor-pointer transition-colors',
+                  sidebarCollapsed ? 'w-8 h-8 min-w-8 min-h-8 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full',
                   !sidebarCollapsed && 'rounded-[var(--radius-medium)]'
                 )}
                 style={{
-                  padding: sidebarCollapsed ? 0 : '10px 12px 10px 16px',
-                  width: sidebarCollapsed ? 40 : undefined,
-                  height: sidebarCollapsed ? 40 : undefined,
+                  padding: sidebarCollapsed ? 0 : '8px 10px 8px 12px',
+                  width: sidebarCollapsed ? 32 : undefined,
+                  height: sidebarCollapsed ? 32 : undefined,
                   backgroundColor: isActive ? 'var(--color-active)' : 'var(--color-bg-tab)',
                   color: isActive ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
                 }}
@@ -122,8 +123,15 @@ export function Sidebar() {
                 }}
                 title={sidebarCollapsed ? s.name : undefined}
               >
-                <LayoutDashboard size={20} className="shrink-0" strokeWidth={1.5} />
-                {!sidebarCollapsed && <span className="text-sm font-medium truncate">{s.name}</span>}
+                {(() => {
+                  const StrategyIcon = s.icon ? getIconComponent(s.icon) : null;
+                  return StrategyIcon ? (
+                    <StrategyIcon size={16} className="shrink-0" strokeWidth={1.5} />
+                  ) : (
+                    <LayoutDashboard size={16} className="shrink-0" strokeWidth={1.5} />
+                  );
+                })()}
+                {!sidebarCollapsed && <span className="text-xs font-medium truncate">{s.name}</span>}
               </button>
             );
           })}
@@ -132,13 +140,13 @@ export function Sidebar() {
           <button
             type="button"
             className={cn(
-              'flex items-center gap-3 text-left cursor-pointer transition-colors',
-              sidebarCollapsed ? 'w-10 h-10 min-w-10 min-h-10 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full rounded-[var(--radius-medium)]',
+              'flex items-center gap-2 text-left cursor-pointer transition-colors',
+              sidebarCollapsed ? 'w-8 h-8 min-w-8 min-h-8 shrink-0 justify-center rounded-full p-0 overflow-hidden' : 'w-full rounded-[var(--radius-medium)]',
             )}
             style={{
-              padding: sidebarCollapsed ? 0 : '10px 12px',
-              width: sidebarCollapsed ? 40 : undefined,
-              height: sidebarCollapsed ? 40 : undefined,
+              padding: sidebarCollapsed ? 0 : '8px 10px',
+              width: sidebarCollapsed ? 32 : undefined,
+              height: sidebarCollapsed ? 32 : undefined,
               backgroundColor: 'var(--color-bg-tab)',
               color: 'var(--color-text-secondary)',
             }}
@@ -153,8 +161,8 @@ export function Sidebar() {
             }}
             title={sidebarCollapsed ? 'Add Strategy' : undefined}
           >
-            <Plus size={20} className="shrink-0" strokeWidth={2} />
-            {!sidebarCollapsed && <span className="text-sm font-medium">Add Strategy</span>}
+            <Plus size={16} className="shrink-0" strokeWidth={2} />
+            {!sidebarCollapsed && <span className="text-xs font-medium">Add Strategy</span>}
           </button>
         </nav>
 
@@ -164,10 +172,10 @@ export function Sidebar() {
         >
           {sidebarCollapsed ? (
             <div
-              className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-xs font-medium"
+              className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full text-[10px] font-medium"
               style={{
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 backgroundColor: 'var(--color-active)',
                 color: 'var(--color-text-active)',
               }}
@@ -176,17 +184,18 @@ export function Sidebar() {
               {viewingCurrency}
             </div>
           ) : (
-            <div
-              className="flex p-0.5 rounded-[var(--radius-medium)]"
-              style={{ backgroundColor: 'var(--color-bg-input)' }}
-            >
+            <div className="flex justify-center w-full">
+              <div
+                className="flex p-0.5 rounded-[var(--radius-medium)]"
+                style={{ backgroundColor: 'var(--color-bg-input)', width: 150 }}
+              >
               {CURRENCIES.map((c) => {
                 const isSelected = viewingCurrency === c;
                 return (
                   <button
                     key={c}
                     type="button"
-                    className="flex-1 min-h-[calc(var(--control-height)-4px)] flex items-center justify-center text-[13px] font-medium cursor-pointer transition-colors rounded-[6px]"
+                    className="flex-1 min-h-[calc(var(--control-height)-4px)] flex items-center justify-center text-xs font-medium cursor-pointer transition-colors rounded-[6px]"
                     style={{
                       backgroundColor: isSelected ? 'var(--color-active)' : 'transparent',
                       color: isSelected ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
@@ -203,6 +212,7 @@ export function Sidebar() {
                   </button>
                 );
               })}
+              </div>
             </div>
           )}
 
@@ -211,7 +221,7 @@ export function Sidebar() {
               type="button"
               className={cn(
                 'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
-                sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
+                sidebarCollapsed ? 'w-full py-2' : 'w-7 h-7 shrink-0',
               )}
               style={{ color: 'var(--color-text-secondary)' }}
               onClick={toggleMode}
@@ -225,14 +235,14 @@ export function Sidebar() {
               }}
               title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
             >
-              {mode === 'dark' ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
+              {mode === 'dark' ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
             </button>
 
             <button
               type="button"
               className={cn(
                 'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
-                sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
+                sidebarCollapsed ? 'w-full py-2' : 'w-7 h-7 shrink-0',
               )}
               style={{ color: 'var(--color-text-secondary)' }}
               onMouseEnter={(e) => {
@@ -245,14 +255,14 @@ export function Sidebar() {
               }}
               title="Account"
             >
-              <User size={20} strokeWidth={1.5} />
+              <User size={16} strokeWidth={1.5} />
             </button>
 
             <button
               type="button"
               className={cn(
                 'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
-                sidebarCollapsed ? 'w-full py-2' : 'w-9 h-9 shrink-0',
+                sidebarCollapsed ? 'w-full py-2' : 'w-7 h-7 shrink-0',
               )}
               style={{ color: 'var(--color-text-secondary)' }}
               onMouseEnter={(e) => {
@@ -265,7 +275,7 @@ export function Sidebar() {
               }}
               title="Settings"
             >
-              <Settings size={20} strokeWidth={1.5} />
+              <Settings size={16} strokeWidth={1.5} />
             </button>
           </div>
         </div>

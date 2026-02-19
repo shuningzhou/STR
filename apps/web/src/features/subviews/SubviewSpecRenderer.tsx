@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { SubviewSpec, ContentItem, LayoutRow, LayoutCell } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
@@ -374,6 +375,22 @@ function ContentRenderer({
       );
     }
     return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
+  }
+  if ('icon' in item) {
+    const ic = item.icon as { name: string; color?: string; size?: number; padding?: PaddingValue };
+    const IconComp = getIconComponent(ic.name);
+    const size = ic.size ?? 16;
+    const color = ic.color ? (resolveColor(ic.color) ?? ic.color) : (textColor ?? 'var(--color-text-primary)');
+    const inner = IconComp ? (
+      <IconComp size={size} strokeWidth={1.5} style={{ color, flexShrink: 0 }} />
+    ) : (
+      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>[{ic.name}]</span>
+    );
+    return ic.padding != null ? (
+      <div style={paddingToStyle(ic.padding)}>{inner}</div>
+    ) : (
+      inner
+    );
   }
   if ('separator' in item) {
     const sep = item.separator as { orientation?: 'horizontal' | 'vertical'; padding?: PaddingValue };

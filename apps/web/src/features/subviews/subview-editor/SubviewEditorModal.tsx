@@ -25,6 +25,7 @@ import { safeParseSubviewSpec, type SubviewSpec } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { SEED_CONTEXT, SEED_INPUTS, type SeedContext } from '@/lib/subview-seed-data';
 import { generateStockTransactions, generateOptionTransactions } from '@/lib/subview-seed-generators';
+import { IconPicker } from '@/components/IconPicker';
 import { BLANK_SPEC } from './BLANK_SPEC';
 import { WIN_RATE_EXAMPLE } from './WIN_RATE_EXAMPLE';
 import { CHART_TABLE_EXAMPLE } from './CHART_TABLE_EXAMPLE';
@@ -426,6 +427,25 @@ export function SubviewEditorModal() {
             className="flex flex-col shrink-0 overflow-hidden"
             style={{ width: `${leftWidth}%`, minWidth: 200 }}
           >
+            {/* Card icon — syncs with spec.icon in JSON */}
+            <div
+              className="shrink-0 py-2 px-3 border-b"
+              style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+            >
+              <IconPicker
+                value={(parseResult.success && parseResult.data ? (parseResult.data as { icon?: string }).icon : undefined) ?? undefined}
+                color={parseResult.success && parseResult.data ? (parseResult.data as { iconColor?: string }).iconColor : undefined}
+                onChange={(iconVal, colorVal) => {
+                  if (!parseResult.success || !parseResult.data) return;
+                  const spec = parseResult.data as Record<string, unknown>;
+                  const updated = { ...spec, icon: iconVal ?? undefined, iconColor: colorVal ?? undefined };
+                  setJsonText(JSON.stringify(updated, null, 2));
+                  setParseResult({ success: true, data: updated as SubviewSpec });
+                }}
+                label="Card icon (title bar)"
+                placeholder="None"
+              />
+            </div>
             {/* Tabs — dark IDE style (VS Code–like), fixed height, separators with gap */}
             <div
               className="flex items-center shrink-0 h-9"

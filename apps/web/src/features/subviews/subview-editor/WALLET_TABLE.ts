@@ -7,6 +7,7 @@ import type { SubviewSpec } from '@str/shared';
 export const WALLET_TABLE: SubviewSpec = {
   type: 'readwrite',
   name: 'Wallet',
+  icon: 'Wallet',
   description: 'Strategy wallet balance; deposit and withdraw',
   maker: 'official',
   categories: ['essential'],

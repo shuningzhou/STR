@@ -8,6 +8,7 @@ import type { SubviewSpec } from '@str/shared';
 export const HOLDINGS_TABLE: SubviewSpec = {
   type: 'readonly',
   name: 'Holdings',
+  icon: 'Table',
   description: 'Current stock and ETF holdings with cost basis, market value, and gain',
   maker: 'official',
   categories: ['essential', 'stock-etf'],

@@ -7,6 +7,7 @@ import { WALLET_TABLE } from './subview-editor/WALLET_TABLE';
 import { CHART_TABLE_EXAMPLE } from './subview-editor/CHART_TABLE_EXAMPLE';
 import { TEXT_INPUT_COLOR_EXAMPLE } from './subview-editor/TEXT_INPUT_COLOR_EXAMPLE';
 import { FLEX_PADDING_EXAMPLE } from './subview-editor/FLEX_PADDING_EXAMPLE';
+import { ICONS_EXAMPLE } from './subview-editor/ICONS_EXAMPLE';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -30,6 +31,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'chart-table', name: 'Chart & Table', description: 'Table and Chart (pie, line, bar) examples', defaultSize: { w: 800, h: 420 }, categories: ['example'], spec: CHART_TABLE_EXAMPLE as unknown as SubviewSpec },
   { id: 'text-input-color', name: 'Text, Input & Color', description: 'Text sizes/styles, inputs, number formats, and colors', defaultSize: { w: 700, h: 480 }, categories: ['example'], spec: TEXT_INPUT_COLOR_EXAMPLE as unknown as SubviewSpec },
   { id: 'flex-padding', name: 'Flex & Padding', description: 'Every flex property and padding examples', defaultSize: { w: 900, h: 680 }, categories: ['example'], spec: FLEX_PADDING_EXAMPLE as unknown as SubviewSpec },
+  { id: 'icons-example', name: 'Icon Gallery', description: 'All available icons with names and JSON layout usage', defaultSize: { w: 900, h: 420 }, categories: ['example'], spec: ICONS_EXAMPLE as unknown as SubviewSpec },
   { id: 'monthly-returns', name: 'Monthly Returns', description: 'Bar chart grouped by month', defaultSize: { w: 600, h: 120 }, categories: ['stock-etf'] },
   { id: 'exposure-breakdown', name: 'Exposure Breakdown', description: 'Pie chart by asset type or sector', defaultSize: { w: 300, h: 80 }, categories: ['stock-etf'] },
   { id: 'realized-pnl-table', name: 'Realized P&L Table', description: 'Sortable table of closed trades', defaultSize: { w: 600, h: 120 }, categories: ['stock-etf'] },

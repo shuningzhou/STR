@@ -28,6 +28,10 @@ export interface Subview {
   templateId?: string;
   /** JSON+Python spec (Phase 5+); when present, takes precedence over pipeline */
   spec?: SubviewSpec;
+  /** Icon shown in card title bar (left of title). Overrides spec.icon when set. */
+  icon?: string;
+  /** Color for subview icon. Overrides spec.iconColor when set. */
+  iconColor?: string;
   /** @deprecated Pipeline graph; legacy, replaced by spec */
   pipeline?: PipelineGraph | null;
   /** Runtime values for inputs (from spec.inputs or legacy pipeline) */
@@ -64,6 +68,8 @@ export interface Strategy {
   id: string;
   name: string;
   baseCurrency: string;
+  /** Icon shown in sidebar. Lucide name (e.g. ChartPie, LayoutDashboard). */
+  icon?: string;
   /** Starting cash balance for non-margin account */
   initialBalance?: number;
   /** Enable margin account (allows borrowing to trade) */
@@ -102,8 +108,8 @@ interface StrategyState {
   strategies: Strategy[];
   activeStrategyId: string | null;
 
-  addStrategy: (name: string, baseCurrency: string) => Strategy;
-  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'initialBalance' | 'marginAccountEnabled' | 'collateralEnabled' | 'loanAmount' | 'loanInterest' | 'marginRequirement' | 'collateralAmount' | 'collateralRequirement' | 'inputs' | 'inputValues' | 'transactions'>>) => void;
+  addStrategy: (name: string, baseCurrency: string, icon?: string) => Strategy;
+  updateStrategy: (id: string, updates: Partial<Pick<Strategy, 'name' | 'baseCurrency' | 'icon' | 'initialBalance' | 'marginAccountEnabled' | 'collateralEnabled' | 'loanAmount' | 'loanInterest' | 'marginRequirement' | 'collateralAmount' | 'collateralRequirement' | 'inputs' | 'inputValues' | 'transactions'>>) => void;
   addTransaction: (strategyId: string, transaction: Omit<StrategyTransaction, 'id'>) => StrategyTransaction;
   updateTransaction: (strategyId: string, transactionId: number, updates: Partial<Omit<StrategyTransaction, 'id'>>) => void;
   removeTransaction: (strategyId: string, transactionId: number) => void;
@@ -113,11 +119,12 @@ interface StrategyState {
 
   addSubview: (
     strategyId: string,
-    options?: { name?: string; defaultSize?: { w: number; h: number }; spec?: SubviewSpec; templateId?: string }
+    options?: { name?: string; defaultSize?: { w: number; h: number }; spec?: SubviewSpec; templateId?: string; icon?: string; iconColor?: string }
   ) => Subview;
   updateSubviewLayout: (strategyId: string, layout: Layout, containerWidth: number) => void;
   removeSubview: (strategyId: string, subviewId: string) => void;
   updateSubviewName: (strategyId: string, subviewId: string, name: string) => void;
+  updateSubviewIcon: (strategyId: string, subviewId: string, icon: string | undefined, iconColor?: string) => void;
   updateSubviewPipeline: (
     strategyId: string,
     subviewId: string,
@@ -146,11 +153,12 @@ export const useStrategyStore = create<StrategyState>()(
       strategies: [],
       activeStrategyId: null,
 
-      addStrategy: (name, baseCurrency) => {
+      addStrategy: (name, baseCurrency, icon) => {
         const strategy: Strategy = {
           id: generateId(),
           name,
           baseCurrency,
+          ...(icon && { icon }),
           transactions: [],
           subviews: [],
         };
@@ -297,12 +305,16 @@ export const useStrategyStore = create<StrategyState>()(
         const maxBottom = subviews.length > 0
           ? Math.max(...subviews.map((sv) => sv.position.y + sv.position.h))
           : 0;
+        const specIcon = (options.spec as { icon?: string; iconColor?: string } | undefined)?.icon;
+        const specIconColor = (options.spec as { icon?: string; iconColor?: string } | undefined)?.iconColor;
         const subview: Subview = {
           id: generateSubviewId(),
           name,
           position: { x: 0, y: maxBottom, w: gridSize.w, h: gridSize.h },
           ...(options.templateId && { templateId: options.templateId }),
           ...(options.spec && { spec: options.spec }),
+          ...((options.icon ?? specIcon) && { icon: options.icon ?? specIcon }),
+          ...((options.iconColor ?? specIconColor) && { iconColor: options.iconColor ?? specIconColor }),
         };
         set((s) => ({
           strategies: s.strategies.map((st) =>
@@ -362,6 +374,23 @@ export const useStrategyStore = create<StrategyState>()(
                   ...st,
                   subviews: st.subviews.map((sv) =>
                     sv.id === subviewId ? { ...sv, name } : sv
+                  ),
+                }
+              : st
+          ),
+        }));
+      },
+
+      updateSubviewIcon: (strategyId, subviewId, icon, iconColor) => {
+        set((s) => ({
+          strategies: s.strategies.map((st) =>
+            st.id === strategyId
+              ? {
+                  ...st,
+                  subviews: st.subviews.map((sv) =>
+                    sv.id === subviewId
+                      ? { ...sv, ...(icon !== undefined && { icon: icon || undefined }), ...(iconColor !== undefined && { iconColor: iconColor || undefined }) }
+                      : sv
                   ),
                 }
               : st

@@ -19,7 +19,7 @@ const rowStyle = {
   justifyContent: 'space-between',
   alignItems: 'center',
   gap: 16,
-  padding: '10px 0',
+  padding: '5px 0',
   borderBottom: '1px solid var(--color-border)',
 } as const;
 
@@ -42,7 +42,7 @@ function Row({ label, equation, value }: { label: string; equation?: string; val
   return (
     <div style={rowStyle}>
       <div>
-        <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>{label}</div>
+        <div style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>{label}</div>
         {equation && <div style={equationStyle}>{equation}</div>}
       </div>
       <div style={valueColumnStyle}>
@@ -66,7 +66,7 @@ function FieldWithInput({
   return (
     <div style={rowStyle}>
       <div>
-        <Label htmlFor={id} className="!mb-0" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+        <Label htmlFor={id} className="!mb-0" style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>
           {label}
         </Label>
         {equation && <div style={equationStyle}>{equation}</div>}
@@ -165,6 +165,7 @@ export function WalletSettingsModal() {
       title="Wallet"
       onClose={handleClose}
       size="lg"
+      className="max-w-[538px]"
       headerRight={
         <span
           style={{
@@ -238,14 +239,19 @@ export function WalletSettingsModal() {
         {marginAccountEnabled && collateralEnabled && (
         <Group title="Collateral">
           <FieldWithInput label="Collateral" id="wallet-collateral-amount">
-            <Input
-              id="wallet-collateral-amount"
-              type="number"
-              value={collateralAmount}
-              onChange={(e) => setCollateralAmount(e.target.value)}
-              placeholder="0"
-              style={inputStyle}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Input
+                id="wallet-collateral-amount"
+                type="number"
+                step="0.01"
+                min={0}
+                value={collateralAmount}
+                onChange={(e) => setCollateralAmount(e.target.value)}
+                placeholder="0.00"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{currency}</span>
+            </div>
           </FieldWithInput>
           <FieldWithInput label="Collateral requirement" id="wallet-collateral-req">
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
