@@ -176,8 +176,8 @@ export function TransactionListPanel() {
             <div
               className="subview-table-container flex flex-col min-w-full w-full overflow-hidden flex-1 min-h-0"
               style={{
-                borderTop: '1px solid var(--color-border)',
-                borderBottom: '1px solid var(--color-border)',
+                borderTop: '1px solid var(--color-table-border)',
+                borderBottom: '1px solid var(--color-table-border)',
                 backgroundColor: 'var(--color-bg-input)',
               }}
             >
@@ -200,7 +200,7 @@ export function TransactionListPanel() {
                     <col style={{ width: 56 }} />
                   </colgroup>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                    <tr style={{ backgroundColor: 'var(--color-bg-hover)' }}>
+                    <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
                       {[
                         ['Id', 'text-right'],
                         ['Date', 'text-left'],
@@ -217,9 +217,9 @@ export function TransactionListPanel() {
                           key={String(label)}
                           className="font-medium"
                           style={{
-                            color: 'var(--color-text-secondary)',
-                            borderBottom: '1px solid var(--color-border)',
-                            borderRight: '1px solid var(--color-border)',
+                            color: 'var(--color-table-header-text)',
+                            borderBottom: '1px solid var(--color-table-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                             whiteSpace: 'nowrap',
                           }}
@@ -229,7 +229,7 @@ export function TransactionListPanel() {
                       ))}
                       <th
                         style={{
-                          borderBottom: '1px solid var(--color-border)',
+                          borderBottom: '1px solid var(--color-table-border)',
                           padding: CELL_PADDING,
                           whiteSpace: 'nowrap',
                         }}
@@ -238,12 +238,12 @@ export function TransactionListPanel() {
                   </thead>
                   <tbody>
                     {sortedTransactions.map((tx) => (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--color-table-border)' }}>
                         <td
                           className="text-right"
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -252,7 +252,7 @@ export function TransactionListPanel() {
                         <td
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -262,7 +262,7 @@ export function TransactionListPanel() {
                           className="truncate"
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -271,7 +271,7 @@ export function TransactionListPanel() {
                         <td
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -281,7 +281,7 @@ export function TransactionListPanel() {
                           className="text-right"
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -291,7 +291,7 @@ export function TransactionListPanel() {
                           className="text-right"
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -302,9 +302,9 @@ export function TransactionListPanel() {
                           style={{
                             color:
                               tx.cashDelta < 0
-                                ? 'var(--color-negative, #f87171)'
+                                ? 'var(--color-negative)'
                                 : 'var(--color-positive, var(--color-active))',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                         >
@@ -313,7 +313,7 @@ export function TransactionListPanel() {
                         <td
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                             whiteSpace: 'nowrap',
                             minWidth: 140,
@@ -325,7 +325,7 @@ export function TransactionListPanel() {
                         <td
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                             whiteSpace: 'nowrap',
                             minWidth: 200,
@@ -338,7 +338,7 @@ export function TransactionListPanel() {
                           className="truncate max-w-[80px]"
                           style={{
                             color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
                           }}
                           title={formatCustomData(tx)}

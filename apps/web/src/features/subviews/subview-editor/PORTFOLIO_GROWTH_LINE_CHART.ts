@@ -145,7 +145,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
 
     return {
         'items': items,
-        'colors': {'value': 'green-2', 'depositWithdraw': 'gold'},
+        'colors': {'value': 'green-2', 'depositWithdraw': 'orange-2'},
     }
 `,
   functions: ['get_portfolio_growth'],

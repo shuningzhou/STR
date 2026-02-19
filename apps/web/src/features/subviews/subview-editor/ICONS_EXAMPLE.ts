@@ -7,7 +7,7 @@
 import type { SubviewSpec } from '@str/shared';
 import { ICONS_BY_CATEGORY } from '@/lib/icons';
 
-const COLORS = ['#00d800', '#6c9dcb', '#a78bfa', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6'];
+const COLORS = ['green-2', 'blue-1', 'violet-1', 'orange-2', 'red-2', 'magenta-2', 'mint-2', 'violet-2'];
 const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 
 // Build layout: header + category sections. Each category has a title + grid of icon cells.
@@ -66,7 +66,7 @@ export const ICONS_EXAMPLE: SubviewSpec = {
   maker: 'official',
   categories: ['example'],
   icon: 'Star',
-  iconColor: '#f59e0b',
+  iconColor: 'orange-2',
   defaultSize: { w: 800, h: 600 },
   inputs: {},
   layout: layoutRows,

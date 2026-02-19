@@ -105,11 +105,11 @@ export function SubviewGalleryModal() {
         <div className="flex-1 min-w-0 overflow-auto border rounded-[var(--radius-medium)] p-2" style={{ borderColor: 'var(--color-border)' }}>
           <table className="w-full min-w-[500px] border-collapse table-fixed">
             <thead>
-              <tr style={{ backgroundColor: 'var(--color-bg-input)', borderBottom: '1px solid var(--color-border)' }}>
-                <th className="text-left text-xs font-medium pr-4 w-48" style={{ paddingLeft: 5, paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)' }}>Name</th>
-                <th className="text-left text-xs font-medium pr-4 pl-[5px]" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)' }}>Description</th>
-                <th className="text-left text-xs font-medium pr-4 pl-[5px] w-24" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)' }}>Maker</th>
-                <th className="text-left text-xs font-medium pr-4 pl-[5px] w-20" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-text-secondary)' }}>Size</th>
+              <tr style={{ backgroundColor: 'var(--color-table-header-bg)', borderBottom: '1px solid var(--color-table-border)' }}>
+                <th className="text-left text-xs font-medium pr-4 w-48" style={{ paddingLeft: 5, paddingTop: 5, paddingBottom: 5, color: 'var(--color-table-header-text)' }}>Name</th>
+                <th className="text-left text-xs font-medium pr-4 pl-[5px]" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-table-header-text)' }}>Description</th>
+                <th className="text-left text-xs font-medium pr-4 pl-[5px] w-24" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-table-header-text)' }}>Maker</th>
+                <th className="text-left text-xs font-medium pr-4 pl-[5px] w-20" style={{ paddingTop: 5, paddingBottom: 5, color: 'var(--color-table-header-text)' }}>Size</th>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +123,7 @@ export function SubviewGalleryModal() {
                   onClick={() => handleSelect(t.id)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSelect(t.id)}
                   className="cursor-pointer transition-colors"
-                  style={{ borderBottom: '1px solid var(--color-border)' }}
+                  style={{ borderBottom: '1px solid var(--color-table-border)' }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
                   }}

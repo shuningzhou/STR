@@ -54,8 +54,6 @@ for (const { name, hex } of MAIN_COLORS) {
   BUILT_IN_COLORS[`${name}-4`] = blendHex(hex, '#000000', 0.40); // darkest (40% black)
   BUILT_IN_COLORS[name] = hex; // alias for default (name-2)
 }
-// Backward compatibility
-BUILT_IN_COLORS['gold'] = BUILT_IN_COLORS['orange-2'];
 // No variants
 BUILT_IN_COLORS['black'] = '#131313';
 BUILT_IN_COLORS['white'] = '#f2f2f2';
@@ -270,7 +268,7 @@ function ContentRenderer({
 
     const cellPadding = 5;
     const inner = (
-      <div className="subview-table-container flex flex-col min-w-full w-full overflow-hidden" style={{ borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-input)', width: '100%', minWidth: '100%' }}>
+      <div className="subview-table-container flex flex-col min-w-full w-full overflow-hidden" style={{ borderTop: '1px solid var(--color-table-border)', borderBottom: '1px solid var(--color-table-border)', backgroundColor: 'var(--color-bg-input)', width: '100%', minWidth: '100%' }}>
         <div className="overflow-auto min-h-0 min-w-0 flex-1 subview-table-body w-full" style={{ maxHeight: 200, width: '100%' }}>
           <table className="w-full border-collapse text-[12px]" style={{ tableLayout: 'fixed', width: '100%' }}>
             <colgroup>
@@ -282,14 +280,14 @@ function ContentRenderer({
               )}
             </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-              <tr style={{ backgroundColor: 'var(--color-bg-hover)' }}>
+              <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
                 {columns.map((col, i) => (
-                  <th key={col} className="text-left font-medium" style={{ color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
+                  <th key={col} className="text-left font-medium" style={{ color: 'var(--color-table-header-text)', borderBottom: '1px solid var(--color-table-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding }}>
                     {(tbl.columnLabels as Record<string, string> | undefined)?.[col] ?? humanizeColumnKey(col)}
                   </th>
                 ))}
                 {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
-                  <th style={{ borderBottom: '1px solid var(--color-border)', padding: cellPadding, whiteSpace: 'nowrap' }} />
+                  <th style={{ borderBottom: '1px solid var(--color-table-border)', padding: cellPadding, whiteSpace: 'nowrap' }} />
                 )}
               </tr>
             </thead>
@@ -302,9 +300,9 @@ function ContentRenderer({
                 </tr>
               ) : (
                 data.map((row, ri) => (
-                  <tr key={ri} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <tr key={ri} style={{ borderBottom: '1px solid var(--color-table-border)' }}>
                     {columns.map((col, i) => (
-                      <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-border)' : undefined, padding: cellPadding }}>
+                      <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding }}>
                         {formatCellValue(getNested(row as Record<string, unknown>, col), col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
                       </td>
                     ))}
@@ -397,7 +395,7 @@ function ContentRenderer({
     } else if (chart.type === 'line' && items.length > 0) {
       const lineColor = resolveColor(dataColors?.value) ?? resolveColor((chart as { color?: string }).color) ?? 'var(--color-chart-1)';
       const hasDepositWithdraw = items.some((i) => 'depositWithdraw' in i && (i as { depositWithdraw?: number }).depositWithdraw != null);
-      const dwColor = resolveColor(dataColors?.depositWithdraw) ?? resolveColor('orange') ?? '#FF8900';
+      const dwColor = resolveColor(dataColors?.depositWithdraw) ?? resolveColor('orange-2');
 
       const LineTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey?: string; value?: number }[]; label?: string }) => {
         if (!active || !payload?.length) return null;
@@ -407,7 +405,7 @@ function ContentRenderer({
           <div
             style={{
               padding: '6px 10px',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              backgroundColor: 'rgba(19, 19, 19, 0.5)', // black from palette
               borderRadius: 4,
               fontSize: 12,
               fontWeight: 500,
@@ -726,7 +724,7 @@ export function SubviewSpecRenderer({
                       ...(cell.showBorder
                         ? {
                             border: resolveColor(cell.backgroundColor)
-                              ? '2px solid rgba(255,255,255,0.5)'
+                              ? '2px solid rgba(242, 242, 242, 0.5)' // white from palette
                               : '1px solid var(--color-border)',
                           }
                         : {}),

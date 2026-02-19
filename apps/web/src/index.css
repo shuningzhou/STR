@@ -2,41 +2,69 @@
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
 
-/* ── Grayscale palette: black, grey, offwhite, white ────── */
+/* ── Built-in color system (matches BUILT_IN_COLORS) ────── */
 :root {
+  /* Palette tokens */
+  --palette-black: #131313;
+  --palette-white: #f2f2f2;
+  --palette-grey-0: #b3b3b3;
+  --palette-grey-1: #949494;
+  --palette-grey-2: #666666;
+  --palette-grey-3: #525252;
+  --palette-grey-4: #3d3d3d;
+
+  /* Table borders (grey-2, lighter than general border) */
+  --color-table-border: var(--palette-grey-2);
+  --palette-green-2: #00d800;
+  --palette-green-3: #00ad00;
+  --palette-blue-1: #4d86ff;
+  --palette-blue-3: #0042cc;
+  --palette-red-1: #ff594d;
+  --palette-offwhite-0: #f1f1f1;
+  --palette-offwhite-3: #b5b5b5;
+  --palette-offwhite-4: #888888;
+
+  /* Table header */
+  --color-table-header-text: var(--palette-offwhite-3);
+  --color-table-header-bg: var(--palette-grey-3);
+  --palette-violet-1: #b34dff;
+  --palette-cyan-2: #00c8ff;
+  --palette-yellow-2: #ffdb00;
+  --palette-magenta-1: #f94dff;
+
   /* Backgrounds */
-  --color-bg-page: #131313;
-  --color-bg-card: #262626;
-  --color-bg-sidebar: #131313;
-  --color-bg-input: #3d3d3d;
-  --color-bg-hover: #3d3d3d;
-  --color-bg-tab: #262626;
-  --color-active: #00d800;
-  --color-bg-active-tab: #262626;
-  --color-bg-primary: #00d800;
-  --color-bg-primary-hover: #00ad00;
+  --color-bg-page: var(--palette-black);
+  --color-bg-card: var(--palette-grey-4);
+  --color-bg-sidebar: var(--palette-black);
+  --color-bg-input: var(--palette-grey-4);
+  --color-bg-hover: var(--palette-grey-4);
+  --color-bg-tab: var(--palette-grey-4);
+  --color-bg-active-tab: var(--palette-grey-4);
+  --color-active: var(--palette-green-2);
+  --color-bg-primary: var(--palette-green-2);
+  --color-bg-primary-hover: var(--palette-green-3);
 
   /* Text */
-  --color-text-primary: #f2f2f2;
-  --color-text-secondary: #c8c8c8;
-  --color-text-muted: #a0a0a0;
-  --color-text-active: #f2f2f2;
-  --color-text-on-primary: #ffffff;
+  --color-text-primary: var(--palette-white);
+  --color-text-secondary: var(--palette-grey-0);
+  --color-text-muted: var(--palette-grey-1);
+  --color-text-active: var(--palette-white);
+  --color-text-on-primary: var(--palette-white);
 
-  /* Borders & accents (grey-4 = 40% black blend of grey #666666) */
-  --color-border: #3d3d3d;
-  --color-shadow: rgba(0, 0, 0, 0.3);
-  --color-accent: #6c9dcb;
-  --color-accent-hover: #5a8aba;
+  /* Borders & accents */
+  --color-border: var(--palette-grey-4);
+  --color-shadow: rgba(19, 19, 19, 0.3);
+  --color-accent: var(--palette-blue-1);
+  --color-accent-hover: var(--palette-blue-3);
 
   /* Semantic */
-  --color-positive: #00d800;
-  --color-negative: #f87171;
-  --color-chart-1: #e0e0e0;
-  --color-chart-2: #a78bfa;
-  --color-chart-3: #22d3ee;
-  --color-chart-4: #fbbf24;
-  --color-chart-5: #f472b6;
+  --color-positive: var(--palette-green-2);
+  --color-negative: var(--palette-red-1);
+  --color-chart-1: var(--palette-offwhite-0);
+  --color-chart-2: var(--palette-violet-1);
+  --color-chart-3: var(--palette-cyan-2);
+  --color-chart-4: var(--palette-yellow-2);
+  --color-chart-5: var(--palette-magenta-1);
 
   /* Radius: Cursor uses 6-8px cards, 8-10px buttons */
   --radius-card: 8px;
@@ -176,10 +204,11 @@ input[type="checkbox"] {
 .subview-table-body {
   padding: 0 !important;
 }
-/* Ensure header row background spans full width of table */
+/* Table header: offwhite-4 text, grey-4 background */
 .subview-table-body table thead tr,
 .subview-table-body table thead th {
-  background: var(--color-bg-hover) !important;
+  background: var(--color-table-header-bg) !important;
+  color: var(--color-table-header-text) !important;
 }
 .subview-spec-root {
   padding-top: var(--subview-top-bar-height) !important;

@@ -8,7 +8,7 @@ export const LOAN_INTEREST_SUBVIEW: SubviewSpec = {
   type: 'readonly',
   name: 'Loan Interest',
   icon: 'Percent',
-  iconColor: '#ef4444',
+  iconColor: 'red-2',
   description: 'Loan interest rate (APR) and daily interest cost',
   maker: 'official',
   categories: ['essential'],

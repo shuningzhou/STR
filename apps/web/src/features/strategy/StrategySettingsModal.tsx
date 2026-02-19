@@ -283,7 +283,7 @@ export function StrategySettingsModal() {
               padding: 12,
               borderRadius: 'var(--radius-medium)',
               backgroundColor: 'var(--color-bg-hover)',
-              border: '1px solid var(--color-border)',
+              border: '1px solid var(--color-table-border)',
               gridTemplateColumns: '120px 120px 150px 32px',
               width: 'fit-content',
               minWidth: 442,
@@ -301,8 +301,11 @@ export function StrategySettingsModal() {
               <Label className="text-[11px]">Type</Label>
             </div>
             <div style={{ gridColumn: 4 }} />
-            {strategyInputs.map((inp) => (
+            {strategyInputs.map((inp, idx) => (
               <React.Fragment key={inp.id}>
+                {idx > 0 && (
+                  <div style={{ gridColumn: '1 / -1', height: 0, borderTop: '1px solid var(--color-table-border)' }} aria-hidden />
+                )}
                 <div style={{ gridColumn: 1 }}>
                   <Input
                     defaultValue={inp.id}

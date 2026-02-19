@@ -26,24 +26,24 @@ export interface ThemeColors {
 
 const DARK_DEFAULTS: ThemeColors = {
   '--color-bg-page': BUILT_IN_COLORS['black'],
-  '--color-bg-card': '#262626',
-  '--color-bg-hover': '#3d3d3d',
+  '--color-bg-card': BUILT_IN_COLORS['grey-4'],
+  '--color-bg-hover': BUILT_IN_COLORS['grey-4'],
   '--color-active': BRANDING_GREEN,
   '--color-bg-primary': BRANDING_GREEN,
   '--color-bg-primary-hover': BRANDING_GREEN_HOVER,
   '--color-border': BUILT_IN_COLORS['grey-4'],
-  '--color-shadow': 'rgba(0, 0, 0, 0.3)',
-  '--color-text-primary': '#f2f2f2',
-  '--color-text-secondary': '#c8c8c8',
-  '--color-accent': '#6c9dcb',
-  '--color-accent-hover': '#5a8aba',
+  '--color-shadow': 'rgba(19, 19, 19, 0.3)', // black with alpha
+  '--color-text-primary': BUILT_IN_COLORS['white'],
+  '--color-text-secondary': BUILT_IN_COLORS['grey-0'],
+  '--color-accent': BUILT_IN_COLORS['blue-1'],
+  '--color-accent-hover': BUILT_IN_COLORS['blue-3'],
   '--color-positive': BRANDING_GREEN,
-  '--color-negative': '#f87171',
-  '--color-chart-1': '#e0e0e0',
-  '--color-chart-2': '#a78bfa',
-  '--color-chart-3': '#22d3ee',
-  '--color-chart-4': '#fbbf24',
-  '--color-chart-5': '#f472b6',
+  '--color-negative': BUILT_IN_COLORS['red-1'],
+  '--color-chart-1': BUILT_IN_COLORS['offwhite-0'],
+  '--color-chart-2': BUILT_IN_COLORS['violet-1'],
+  '--color-chart-3': BUILT_IN_COLORS['cyan-2'],
+  '--color-chart-4': BUILT_IN_COLORS['yellow-2'],
+  '--color-chart-5': BUILT_IN_COLORS['magenta-1'],
 };
 
 interface ThemeState {
