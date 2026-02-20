@@ -301,15 +301,14 @@ export function InputControl({
       ) : inputType === 'chart_nav' ? (
         (() => {
           const cfgNav = cfg as { default?: number; min?: number };
-          const minVal = cfgNav.min ?? 0;
+          const minVal = cfgNav.min;
           const val = Number(inputs[inputKey] ?? cfgNav.default ?? 0);
           return isEditable ? (
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
-                onClick={() => onInputChange!(inputKey, Math.max(minVal, val - 1))}
-                disabled={val <= minVal}
-                className="rounded-[var(--radius-medium)] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => onInputChange!(inputKey, val + 1)}
+                className="rounded-[var(--radius-medium)] flex items-center justify-center"
                 style={{
                   width: 28,
                   height: 'var(--control-height)',
@@ -317,14 +316,14 @@ export function InputControl({
                   border: '1px solid var(--color-border)',
                   color: 'var(--color-text-primary)',
                 }}
-                title="Previous (more recent)"
+                title="Past"
               >
                 <ChevronLeft size={14} strokeWidth={2} />
               </button>
               <button
                 type="button"
-                onClick={() => onInputChange!(inputKey, minVal)}
-                disabled={val <= minVal}
+                onClick={() => onInputChange!(inputKey, 0)}
+                disabled={val === 0}
                 className="rounded-[var(--radius-medium)] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   width: 20,
@@ -346,7 +345,7 @@ export function InputControl({
               </button>
               <button
                 type="button"
-                onClick={() => onInputChange!(inputKey, val + 1)}
+                onClick={() => onInputChange!(inputKey, val - 1)}
                 className="rounded-[var(--radius-medium)] flex items-center justify-center"
                 style={{
                   width: 28,
@@ -355,7 +354,7 @@ export function InputControl({
                   border: '1px solid var(--color-border)',
                   color: 'var(--color-text-primary)',
                 }}
-                title="Next (older)"
+                title="Future"
               >
                 <ChevronRight size={14} strokeWidth={2} />
               </button>
