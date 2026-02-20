@@ -16,6 +16,7 @@ import { SECURED_PUTS_CAPITAL } from './subview-editor/SECURED_PUTS_CAPITAL';
 import { PREMIUM_INCOME_CHART } from './subview-editor/PREMIUM_INCOME_CHART';
 import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
 import { DIVIDEND_TABLE } from './subview-editor/DIVIDEND_TABLE';
+import { DIVIDEND_SUMMARY } from './subview-editor/DIVIDEND_SUMMARY';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -39,6 +40,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'options-timeline', name: 'Options Timeline', description: 'Timeline of option expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['essential', 'option'], spec: OPTIONS_TIMELINE as unknown as SubviewSpec },
   { id: 'holdings', name: 'Stock & ETF Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
   { id: 'dividend', name: 'Dividends', description: 'Track dividend income from stocks and ETFs', defaultSize: { w: 500, h: 120 }, categories: ['essential', 'stock-etf', 'income'], spec: DIVIDEND_TABLE as unknown as SubviewSpec },
+  { id: 'dividend-summary', name: 'Dividend Summary', description: 'Dividend summary per symbol: cumulative, monthly avg, yield, yearly estimate', defaultSize: { w: 650, h: 120 }, categories: ['essential', 'stock-etf', 'income'], spec: DIVIDEND_SUMMARY as unknown as SubviewSpec },
   { id: 'portfolio-pie', name: 'Portfolio %', description: 'Pie chart showing % of portfolio by holding', defaultSize: { w: 400, h: 220 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_PIE_CHART as unknown as SubviewSpec },
   { id: 'portfolio-growth', name: 'Portfolio Growth', description: 'Line chart of portfolio value over time', defaultSize: { w: 600, h: 100 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_GROWTH_LINE_CHART as unknown as SubviewSpec },
   { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 175, h: 40 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },

@@ -432,7 +432,7 @@ function ContentRenderer({
           items?: { label: string; value: number }[];
           labels?: string[];
           series?: { name: string; data: number[] }[];
-          colors?: { value?: string; depositWithdraw?: string } & Record<string, string>;
+          colors?: { value?: string; depositWithdraw?: string; loan?: string; holdingsValue?: string } & Record<string, string>;
         }
       | undefined;
     const items = data?.items ?? [];
@@ -481,12 +481,18 @@ function ContentRenderer({
     } else if (chart.type === 'line' && items.length > 0) {
       const lineColor = resolveColor(dataColors?.value) ?? resolveColor((chart as { color?: string }).color) ?? 'var(--color-chart-1)';
       const hasDepositWithdraw = items.some((i) => 'depositWithdraw' in i && (i as { depositWithdraw?: number }).depositWithdraw != null);
+      const hasLoan = items.some((i) => 'loan' in i && (i as { loan?: number }).loan != null);
+      const hasHoldingsValue = items.some((i) => 'holdingsValue' in i && (i as { holdingsValue?: number }).holdingsValue != null);
       const dwColor = resolveColor(dataColors?.depositWithdraw) ?? resolveColor('orange-2');
+      const loanColor = resolveColor(dataColors?.loan) ?? resolveColor('red-2');
+      const holdingsColor = resolveColor(dataColors?.holdingsValue) ?? resolveColor('blue-1');
 
       const LineTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey?: string; value?: number }[]; label?: string }) => {
         if (!active || !payload?.length) return null;
         const portfolioPayload = payload.find((p) => p.dataKey === 'value');
         const dwPayload = payload.find((p) => p.dataKey === 'depositWithdraw');
+        const loanPayload = payload.find((p) => p.dataKey === 'loan');
+        const holdingsPayload = payload.find((p) => p.dataKey === 'holdingsValue');
         return (
           <div
             style={{
@@ -501,6 +507,12 @@ function ContentRenderer({
             <div style={{ color: lineColor }}>Portfolio: ${Number(portfolioPayload?.value ?? 0).toLocaleString()}</div>
             {dwPayload != null && (
               <div style={{ color: dwColor }}>Deposit: ${Number(dwPayload.value ?? 0).toLocaleString()}</div>
+            )}
+            {loanPayload != null && (
+              <div style={{ color: loanColor }}>Loan: ${Number(loanPayload.value ?? 0).toLocaleString()}</div>
+            )}
+            {holdingsPayload != null && (
+              <div style={{ color: holdingsColor }}>Holdings: ${Number(holdingsPayload.value ?? 0).toLocaleString()}</div>
             )}
           </div>
         );
@@ -519,6 +531,12 @@ function ContentRenderer({
                 <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={{ r: 2, fill: lineColor }} isAnimationActive={false} name="Portfolio" />
                 {hasDepositWithdraw && (
                   <Line type="monotone" dataKey="depositWithdraw" stroke={dwColor} strokeWidth={2} dot={{ r: 2, fill: dwColor }} isAnimationActive={false} name="Deposit" />
+                )}
+                {hasLoan && (
+                  <Line type="monotone" dataKey="loan" stroke={loanColor} strokeWidth={2} dot={{ r: 2, fill: loanColor }} isAnimationActive={false} name="Loan" />
+                )}
+                {hasHoldingsValue && (
+                  <Line type="monotone" dataKey="holdingsValue" stroke={holdingsColor} strokeWidth={2} dot={{ r: 2, fill: holdingsColor }} isAnimationActive={false} name="Holdings" />
                 )}
               </LineChart>
             </ResponsiveContainer>

@@ -23,6 +23,20 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
       topbar: 0,
       topbarShowTitle: true,
     },
+    showLoan: {
+      type: 'checkbox',
+      title: 'Show loan',
+      default: false,
+      topbar: 1,
+      topbarShowTitle: true,
+    },
+    showHoldingsValue: {
+      type: 'checkbox',
+      title: 'Show holdings',
+      default: false,
+      topbar: 2,
+      topbarShowTitle: true,
+    },
   },
   layout: [
     [
@@ -41,14 +55,19 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     ],
   ],
   python_code: `def get_portfolio_growth(context, inputs):
-    """Return line chart data: { items: [{ label, value, depositWithdraw? }, ...] }.
+    """Return line chart data: { items: [{ label, value, depositWithdraw?, loan?, holdingsValue? }, ...] }.
     Portfolio value at each date = cash balance + market value of holdings.
-    When showDepositWithdraw is true, also include cumulative deposit/withdraw sum (orange line)."""
+    When showDepositWithdraw is true, also include cumulative deposit/withdraw sum (orange line).
+    When showLoan is true and margin account enabled, include loan amount at each date (red line).
+    When showHoldingsValue is true, include market value of holdings at each date (blue line)."""
     txs = context.get('transactions') or []
     wallet = context.get('wallet') or {}
     initial = float(wallet.get('initialBalance', 0) or 0)
     current_prices = context.get('currentPrices') or {}
     show_dw = inputs.get('showDepositWithdraw')
+    show_loan = inputs.get('showLoan')
+    show_holdings = inputs.get('showHoldingsValue')
+    margin_enabled = bool(wallet.get('marginAccountEnabled'))
 
     def is_non_option(tx):
         opt = tx.get('option')
@@ -98,6 +117,10 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     items = [{'label': 'Start', 'value': round(initial, 2)}]
     if show_dw:
         items[0]['depositWithdraw'] = dw_cumulative.get('Start', 0.0)
+    if show_loan and margin_enabled:
+        items[0]['loan'] = round(max(0.0, -initial), 2)
+    if show_holdings:
+        items[0]['holdingsValue'] = 0.0
     cash = initial
     agg = {}
 
@@ -141,12 +164,14 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         item = {'label': date_str, 'value': round(cash + mv, 2)}
         if show_dw:
             item['depositWithdraw'] = dw_cumulative.get(date_str, 0.0)
+        if show_loan and margin_enabled:
+            item['loan'] = round(max(0.0, -cash), 2)
+        if show_holdings:
+            item['holdingsValue'] = round(mv, 2)
         items.append(item)
 
-    return {
-        'items': items,
-        'colors': {'value': 'green-2', 'depositWithdraw': 'orange-2'},
-    }
+    colors = {'value': 'green-2', 'depositWithdraw': 'orange-2', 'loan': 'red-2', 'holdingsValue': 'blue-1'}
+    return {'items': items, 'colors': colors}
 `,
   functions: ['get_portfolio_growth'],
 };
