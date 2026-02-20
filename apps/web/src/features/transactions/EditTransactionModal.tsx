@@ -34,6 +34,7 @@ export function EditTransactionModal() {
   const mode = editTransactionModalOpen?.mode ?? 'full';
   const isSimple = mode === 'stock-etf';
   const isOption = mode === 'option';
+  const isDividend = mode === 'dividend';
 
   const [symbol, setSymbol] = useState('');
   const [side, setSide] = useState('buy');
@@ -61,7 +62,7 @@ export function EditTransactionModal() {
       setPrice(String(transaction.price ?? ''));
       setCashDelta(isSimple ? '' : String(transaction.cashDelta ?? ''));
       setDate((transaction.timestamp ?? '').slice(0, 10));
-      if (!isSimple) {
+      if (!isSimple && !isDividend) {
         const opt = transaction.option;
         const hasOpt = !!opt;
         setHasOption(hasOpt);
@@ -168,7 +169,7 @@ export function EditTransactionModal() {
 
       const mult = hasOption ? 100 : 1; // options: premium per share × 100 shares/contract
       const computedCashDelta = (() => {
-        if (side === 'deposit') {
+        if (side === 'deposit' || side === 'dividend') {
           const amt = Math.abs((cd ?? qty * pr) ?? transaction.cashDelta ?? 0);
           return Math.round(amt * 100) / 100;
         }
@@ -223,7 +224,41 @@ export function EditTransactionModal() {
     ]
   );
 
-  const handleSubmit = isSimple ? handleSubmitSimple : handleSubmitFull;
+  const handleSubmitDividend = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!strategyId || !transaction) return;
+
+      const sym = symbol.trim().toUpperCase();
+      if (!sym) {
+        setError('Symbol is required');
+        return;
+      }
+      const amt = parseFloat(cashDelta);
+      if (isNaN(amt) || amt <= 0) {
+        setError('Amount must be a positive number');
+        return;
+      }
+
+      setError(null);
+      const timestamp = `${date}T12:00:00Z`;
+
+      updateTransaction(strategyId, transaction.id, {
+        side: 'dividend',
+        cashDelta: Math.round(amt * 100) / 100,
+        timestamp,
+        instrumentSymbol: sym,
+        quantity: 0,
+        price: 0,
+        option: null,
+        customData: {},
+      });
+      setEditTransactionModalOpen(null);
+    },
+    [strategyId, transaction, symbol, cashDelta, date, updateTransaction, setEditTransactionModalOpen]
+  );
+
+  const handleSubmit = isDividend ? handleSubmitDividend : isSimple ? handleSubmitSimple : handleSubmitFull;
 
   const handleClose = useCallback(() => {
     setEditTransactionModalOpen(null);
@@ -240,14 +275,58 @@ export function EditTransactionModal() {
   );
 
   return (
-    <Modal title={isSimple ? 'Edit Stock/ETF Transaction' : isOption ? 'Edit Option' : 'Edit Transaction'} onClose={handleClose} size={isSimple ? 'default' : 'lg'}>
+    <Modal
+      title={
+        isDividend ? 'Edit dividend income received' : isSimple ? 'Edit Stock/ETF Transaction' : isOption ? 'Edit Option' : 'Edit Transaction'
+      }
+      onClose={handleClose}
+      size={isSimple || isDividend ? 'default' : 'lg'}
+    >
       <form onSubmit={handleSubmit}>
-        {(isSimple || isOption) && (
+        {(isSimple || isOption) && !isDividend && (
           <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
             Edit {isOption ? 'option' : 'transaction'} in <strong>{strategy?.name}</strong>
           </p>
         )}
-        {isSimple ? (
+        {isDividend ? (
+          <div style={{ marginBottom: 20 }}>
+            <div className="flex flex-col gap-4">
+              {field('Stock or ETF (symbol)', (
+                <Input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => {
+                    setSymbol(e.target.value.toUpperCase());
+                    setError(null);
+                  }}
+                  placeholder="e.g. AAPL, VOO, SCHD"
+                  className="w-full"
+                  autoFocus
+                />
+              ))}
+              <div className="grid grid-cols-[1fr_1fr] gap-4">
+                {field('Amount received ($)', (
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={cashDelta}
+                    onChange={(e) => {
+                      setCashDelta(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="e.g. 25.50"
+                    error={error ?? undefined}
+                    className="w-full"
+                  />
+                ))}
+                {field('Payment date', (
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : isSimple ? (
           <div style={{ marginBottom: 20 }}>
             {field('Symbol', (
               <Input

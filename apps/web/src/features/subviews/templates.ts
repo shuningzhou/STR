@@ -15,6 +15,7 @@ import { LOAN_INTEREST_SUBVIEW } from './subview-editor/LOAN_INTEREST_SUBVIEW';
 import { SECURED_PUTS_CAPITAL } from './subview-editor/SECURED_PUTS_CAPITAL';
 import { PREMIUM_INCOME_CHART } from './subview-editor/PREMIUM_INCOME_CHART';
 import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
+import { DIVIDEND_TABLE } from './subview-editor/DIVIDEND_TABLE';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -36,7 +37,8 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'secured-puts-capital', name: 'Secured Puts Capital', description: 'Total money occupied by secured puts (strike × 100 × contracts)', defaultSize: { w: 220, h: 50 }, categories: ['essential', 'option'], spec: SECURED_PUTS_CAPITAL as unknown as SubviewSpec },
   { id: 'premium-income', name: 'Premium Income', description: 'Stacked bar chart of option premium income by Covered Call and Secured Put', defaultSize: { w: 700, h: 220 }, categories: ['essential', 'option', 'income'], spec: PREMIUM_INCOME_CHART as unknown as SubviewSpec },
   { id: 'options-timeline', name: 'Options Timeline', description: 'Timeline of option expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['essential', 'option'], spec: OPTIONS_TIMELINE as unknown as SubviewSpec },
-  { id: 'holdings', name: 'Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
+  { id: 'holdings', name: 'Stock & ETF Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
+  { id: 'dividend', name: 'Dividends', description: 'Track dividend income from stocks and ETFs', defaultSize: { w: 500, h: 120 }, categories: ['essential', 'stock-etf', 'income'], spec: DIVIDEND_TABLE as unknown as SubviewSpec },
   { id: 'portfolio-pie', name: 'Portfolio %', description: 'Pie chart showing % of portfolio by holding', defaultSize: { w: 400, h: 220 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_PIE_CHART as unknown as SubviewSpec },
   { id: 'portfolio-growth', name: 'Portfolio Growth', description: 'Line chart of portfolio value over time', defaultSize: { w: 600, h: 100 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_GROWTH_LINE_CHART as unknown as SubviewSpec },
   { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 175, h: 40 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },

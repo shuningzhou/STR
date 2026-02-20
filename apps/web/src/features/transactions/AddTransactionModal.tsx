@@ -40,6 +40,7 @@ export function AddTransactionModal() {
   const mode = addTransactionModalOpen?.mode ?? 'stock-etf';
   const isFull = mode === 'full';
   const isOption = mode === 'option';
+  const isDividend = mode === 'dividend';
 
   const [symbol, setSymbol] = useState('');
   const [side, setSide] = useState('buy');
@@ -59,7 +60,7 @@ export function AddTransactionModal() {
     [strategies, strategyId]
   );
 
-  const title = isFull ? 'Add Transaction' : isOption ? 'Sell Option' : 'Add Stock/ETF Transaction';
+  const title = isFull ? 'Add Transaction' : isOption ? 'Sell Option' : isDividend ? 'Record dividend income received' : 'Add Stock/ETF Transaction';
 
   const resetForm = useCallback(() => {
     setSymbol('');
@@ -171,7 +172,7 @@ export function AddTransactionModal() {
 
       const mult = hasOption ? 100 : 1; // options: premium per share × 100 shares/contract
       const computedCashDelta = (() => {
-        if (side === 'deposit') {
+        if (side === 'deposit' || side === 'dividend') {
           const amt = Math.abs((cd ?? qty * pr) || 0);
           return Math.round(amt * 100) / 100;
         }
@@ -293,7 +294,54 @@ export function AddTransactionModal() {
     [strategyId, symbol, quantity, optExpiration, optStrike, optCallPut, price, date, addTransaction, setAddTransactionModalOpen, resetForm]
   );
 
-  const handleSubmit = isFull ? handleSubmitFull : isOption ? handleSubmitOption : handleSubmitSimple;
+  const handleSubmitDividend = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!strategyId) return;
+
+      const sym = symbol.trim().toUpperCase();
+      if (!sym) {
+        setError('Symbol is required');
+        return;
+      }
+      const amt = parseFloat(cashDelta);
+      if (isNaN(amt) || amt <= 0) {
+        setError('Amount must be a positive number');
+        return;
+      }
+
+      setError(null);
+      const timestamp = `${date}T12:00:00Z`;
+
+      try {
+        addTransaction(strategyId, {
+          side: 'dividend',
+          cashDelta: Math.round(amt * 100) / 100,
+          timestamp,
+          instrumentSymbol: sym,
+          option: null,
+          customData: {},
+          quantity: 0,
+          price: 0,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add dividend');
+        return;
+      }
+
+      resetForm();
+      setAddTransactionModalOpen(null);
+    },
+    [strategyId, symbol, cashDelta, date, addTransaction, setAddTransactionModalOpen, resetForm]
+  );
+
+  const handleSubmit = isFull
+    ? handleSubmitFull
+    : isOption
+      ? handleSubmitOption
+      : isDividend
+        ? handleSubmitDividend
+        : handleSubmitSimple;
 
   const handleClose = useCallback(() => {
     setAddTransactionModalOpen(null);
@@ -312,12 +360,50 @@ export function AddTransactionModal() {
   return (
     <Modal title={title} onClose={handleClose} size={isFull ? 'lg' : 'default'}>
       <form onSubmit={handleSubmit}>
-        {!isFull && !isOption && (
+        {!isFull && !isOption && !isDividend && (
           <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
             Add transaction to <strong>{strategy?.name}</strong>
           </p>
         )}
-        {isOption ? (
+        {isDividend ? (
+          <div style={{ marginBottom: 20 }}>
+            <div className="flex flex-col gap-4">
+              {field('Stock or ETF (symbol)', (
+                <Input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => {
+                    setSymbol(e.target.value.toUpperCase());
+                    setError(null);
+                  }}
+                  placeholder="e.g. AAPL, VOO, SCHD"
+                  className="w-full"
+                  autoFocus
+                />
+              ))}
+              <div className="grid grid-cols-[1fr_1fr] gap-4">
+                {field('Amount received ($)', (
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={cashDelta}
+                    onChange={(e) => {
+                      setCashDelta(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="e.g. 25.50"
+                    error={error ?? undefined}
+                    className="w-full"
+                  />
+                ))}
+                {field('Payment date', (
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : isOption ? (
           <div style={{ marginBottom: 20 }}>
             <div className="mb-4">
               {field('Type', (

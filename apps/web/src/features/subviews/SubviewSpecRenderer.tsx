@@ -896,8 +896,8 @@ export interface SubviewSpecRendererProps {
   onGlobalInputChange?: (key: string, value: string | number) => void;
   /** For readwrite tables: strategyId to edit/delete transactions */
   strategyId?: string;
-  /** For option tables: pass 'option' for edit/roll/close modals */
-  editTransactionMode?: 'stock-etf' | 'option';
+  /** For option tables: pass 'option'; for dividend: pass 'dividend' */
+  editTransactionMode?: 'stock-etf' | 'option' | 'dividend';
   /** When false, edit and delete row actions are hidden */
   isEditMode?: boolean;
 }

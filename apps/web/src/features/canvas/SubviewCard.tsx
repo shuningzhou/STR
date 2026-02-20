@@ -153,6 +153,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const handleHeaderAction = (handler: string) => {
     if (handler === 'addTransactionModal') {
       setAddTransactionModalOpen({ strategyId, mode: 'stock-etf' });
+    } else if (handler === 'addDividendTransactionModal') {
+      setAddTransactionModalOpen({ strategyId, mode: 'dividend' });
     } else if (handler === 'addOptionTransactionModal') {
       setAddTransactionModalOpen({ strategyId, mode: 'option' });
     } else if (handler === 'depositWallet') {
@@ -321,7 +323,13 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             updateStrategyInputValue(strategyId, key, value)
           }
           strategyId={strategyId}
-          editTransactionMode={subview.templateId === 'option-income' ? 'option' : 'stock-etf'}
+          editTransactionMode={
+            subview.templateId === 'option-income'
+              ? 'option'
+              : subview.templateId === 'dividend'
+                ? 'dividend'
+                : 'stock-etf'
+          }
           isEditMode={isEditMode}
         />
       ) : (

@@ -7,8 +7,8 @@ import type { SubviewSpec } from '@str/shared';
 
 export const HOLDINGS_TABLE: SubviewSpec = {
   type: 'readonly',
-  name: 'Holdings',
-  icon: 'Table',
+  name: 'Stock & ETF Holdings',
+  icon: 'Landmark',
   description: 'Current stock and ETF holdings with cost basis, market value, and gain',
   maker: 'official',
   categories: ['essential', 'stock-etf'],
@@ -22,7 +22,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
           {
             Table: {
               header: {
-                title: 'Holdings',
+                title: 'Stock & ETF Holdings',
               },
               source: 'py:get_holdings',
               columns: ['instrumentSymbol', 'quantity', 'costBasis', 'currentPrice', 'marketValue', 'gain', 'gainPct', 'portfolioPct'],
@@ -44,7 +44,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
                 gainPct: 'percent',
                 portfolioPct: 'percent',
               },
-              emptyMessage: 'No holdings',
+              emptyMessage: 'No stock or ETF holdings',
             },
           },
         ],

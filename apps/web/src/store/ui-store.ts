@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
-export type AddTransactionModalMode = 'full' | 'stock-etf' | 'option';
+export type AddTransactionModalMode = 'full' | 'stock-etf' | 'option' | 'dividend';
 
 interface UIState {
   sidebarCollapsed: boolean;
@@ -13,11 +13,11 @@ interface UIState {
   subviewGalleryModalOpen: boolean;
   /** When open: { strategyId, mode }. mode: 'full' = toolbar (all transactions), 'stock-etf' = subview (stocks/ETFs only) */
   addTransactionModalOpen: { strategyId: string; mode: AddTransactionModalMode } | null;
-  /** When open: { strategyId, transaction, mode? }. mode: 'stock-etf' = simple (subview), 'full' = full (transaction list) */
+  /** When open: { strategyId, transaction, mode? }. mode: 'stock-etf' = simple, 'option' = option, 'dividend' = dividend, 'full' = full */
   editTransactionModalOpen: {
     strategyId: string;
     transaction: StrategyTransaction;
-    mode?: 'stock-etf' | 'option' | 'full';
+    mode?: 'stock-etf' | 'option' | 'dividend' | 'full';
   } | null;
   /** When open: { strategyId, mode: 'deposit' | 'withdraw' } for wallet deposit/withdraw */
   depositWithdrawModalOpen: { strategyId: string; mode: 'deposit' | 'withdraw' } | null;
@@ -44,7 +44,7 @@ interface UIState {
   setEditTransactionModalOpen: (value: {
     strategyId: string;
     transaction: StrategyTransaction;
-    mode?: 'stock-etf' | 'option' | 'full';
+    mode?: 'stock-etf' | 'option' | 'dividend' | 'full';
   } | null) => void;
   setDepositWithdrawModalOpen: (value: { strategyId: string; mode: 'deposit' | 'withdraw' } | null) => void;
   setWalletSettingsModalOpen: (value: string | null) => void;
