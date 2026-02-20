@@ -14,6 +14,7 @@ const INPUT_TYPES = [
   { value: 'number_input', label: 'Number' },
   { value: 'select', label: 'Select' },
   { value: 'segment', label: 'Segment' },
+  { value: 'chart_nav', label: 'Chart nav' },
   { value: 'checkbox', label: 'Checkbox' },
 ] as const;
 
@@ -32,6 +33,8 @@ function defaultForType(type: StrategyInputConfig['type']): unknown {
     case 'select':
     case 'segment':
       return '';
+    case 'chart_nav':
+      return 0;
     case 'checkbox':
       return false;
     default:

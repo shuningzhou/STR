@@ -310,11 +310,17 @@ function ContentRenderer({
               ) : (
                 data.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: '1px solid var(--color-table-border)' }}>
-                    {columns.map((col, i) => (
-                      <td key={col} style={{ color: 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding }}>
-                        {formatCellValue(getNested(row as Record<string, unknown>, col), col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
-                      </td>
-                    ))}
+                    {columns.map((col, i) => {
+                      const cellVal = getNested(row as Record<string, unknown>, col);
+                      const cellColors = (tbl as { columnCellColors?: Record<string, Record<string, string>> }).columnCellColors;
+                      const colorMap = cellColors?.[col];
+                      const resolvedColor = colorMap && typeof cellVal === 'string' ? resolveColor(colorMap[cellVal]) : undefined;
+                      return (
+                        <td key={col} style={{ color: resolvedColor ?? 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding }}>
+                          {formatCellValue(cellVal, col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
+                        </td>
+                      );
+                    })}
                     {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (() => {
                       const visibleRowActions = isEditMode
                         ? tbl.rowActions
@@ -534,7 +540,7 @@ function ContentRenderer({
                   const hoverFill = /^#[0-9a-fA-F]{6}$/.test(seriesColor) ? blendHex(seriesColor, '#ffffff', 0.2) : seriesColor;
                   const isTopBar = i === barSeries.length - 1;
                   return (
-                    <Bar key={s.name} dataKey={s.name} stackId="stack" fill={seriesColor} name={s.name} isAnimationActive={false} activeBar={{ fill: hoverFill }}>
+                    <Bar key={s.name} dataKey={s.name} stackId="stack" fill={seriesColor} name={s.name} isAnimationActive={false} activeBar={{ fill: hoverFill }} radius={isTopBar ? [4, 4, 0, 0] : i === 0 ? [0, 0, 4, 4] : 0}>
                       {isTopBar && (
                         <LabelList
                           position="top"

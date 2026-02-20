@@ -27,6 +27,13 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
       topbar: 0,
       topbarShowTitle: false,
     },
+    chartOffset: {
+      type: 'chart_nav',
+      default: 0,
+      min: 0,
+      topbar: 1,
+      topbarShowTitle: false,
+    },
   },
   layout: [
     [
@@ -47,19 +54,20 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
   ],
   python_code: `def get_premium_income_chart(context, inputs):
     """Return stacked bar chart data: { labels, series: [{ name, data }], colors }.
-    Aggregates option premium (cashDelta) by Covered Call vs Secured Put, grouped by period."""
-    from datetime import datetime
+    Always returns exactly 10 bars. chartOffset scrolls back in history (0 = most recent 10)."""
+    from datetime import datetime, timedelta
     from collections import defaultdict
 
+    BAR_COUNT = 10
     txs = context.get('transactions') or []
     period = (inputs.get('period') or 'daily').lower()
+    chart_offset = int(inputs.get('chartOffset') or 0)
     global_inputs = inputs.get('global') or {}
     global_config = inputs.get('globalInputConfig') or []
     ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
     ticker_id = ticker_inp.get('id') if ticker_inp else None
     ticker = global_inputs.get(ticker_id, 'all') if ticker_id else 'all'
 
-    # time_range from global or top-level inputs
     tr = global_inputs.get('timeRange') or global_inputs.get('time_range') or inputs.get('timeRange') or inputs.get('time_range') or {}
     if isinstance(tr, str):
         try:
@@ -69,11 +77,64 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
             tr = {}
     start_str = tr.get('start') or tr.get('startDate') or ''
     end_str = tr.get('end') or tr.get('endDate') or ''
+    if not end_str:
+        end_dt = datetime.now()
+        end_str = end_dt.strftime('%Y-%m-%d')
+    if not start_str:
+        start_dt = datetime.now() - timedelta(days=730)
+        start_str = start_dt.strftime('%Y-%m-%d')
 
-    # Aggregate premium by (bucket_key, category) where category = 'Covered Call' | 'Secured Put'
+    # Build full range of buckets for period (chronological)
+    def bucket_keys():
+        keys = []
+        try:
+            cur = datetime.strptime(start_str, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_str, '%Y-%m-%d')
+        except ValueError:
+            return keys
+        if period == 'daily':
+            while cur <= end_dt:
+                keys.append(cur.strftime('%Y-%m-%d'))
+                cur += timedelta(days=1)
+        elif period == 'weekly':
+            cur = cur - timedelta(days=cur.weekday())
+            while cur <= end_dt:
+                y, w, _ = cur.isocalendar()
+                keys.append(f"{y}-W{w:02d}")
+                cur += timedelta(days=7)
+        elif period == 'monthly':
+            cur = cur.replace(day=1)
+            while cur <= end_dt:
+                keys.append(cur.strftime('%Y-%m'))
+                if cur.month == 12:
+                    cur = cur.replace(year=cur.year + 1, month=1)
+                else:
+                    cur = cur.replace(month=cur.month + 1)
+        else:
+            y = int(start_str[:4])
+            ye = int(end_str[:4])
+            for yy in range(y, ye + 1):
+                keys.append(str(yy))
+        return keys
+
+    all_keys = bucket_keys()
+    all_keys = sorted(set(all_keys))
+
+    # Aggregate premium by bucket
     def default_bucket():
         return {'Covered Call': 0.0, 'Secured Put': 0.0, '_label': ''}
-    agg = defaultdict(default_bucket)
+    agg = defaultdict(lambda: {'Covered Call': 0.0, 'Secured Put': 0.0, '_label': ''})
+    for k in all_keys:
+        agg[k]  # ensure key exists
+    for k in all_keys:
+        if period == 'daily':
+            agg[k]['_label'] = k[5:10]
+        elif period == 'weekly':
+            agg[k]['_label'] = k
+        elif period == 'monthly':
+            agg[k]['_label'] = k
+        else:
+            agg[k]['_label'] = k
 
     for tx in txs:
         sym = tx.get('instrumentSymbol') or ''
@@ -98,9 +159,9 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
         side = (tx.get('side') or '').lower()
         premium = float(tx.get('cashDelta') or 0)
         if side == 'sell':
-            pass  # premium is positive
+            pass
         elif side == 'buy_to_cover':
-            premium = -premium  # closing cost as negative
+            premium = -premium
         else:
             continue
 
@@ -111,26 +172,29 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
 
         if period == 'daily':
             key = date_str
-            label = date_str[5:10]  # MM-DD for display
         elif period == 'weekly':
             iso = dt.isocalendar()
-            key = f"{date_str[:4]}-W{iso[1]:02d}"
-            label = key
+            key = date_str[:4] + '-W' + str(iso[1]).zfill(2)
         elif period == 'monthly':
             key = date_str[:7]
-            label = key
-        else:  # annually
+        else:
             key = date_str[:4]
-            label = key
+        if key in agg:
+            agg[key][category] += premium
 
-        agg[key][category] += premium
-        agg[key]['_label'] = label
+    # Slice to 10 bars: offset 0 = last 10, offset 1 = 11-20 from end
+    total = len(all_keys)
+    start_idx = max(0, total - BAR_COUNT - chart_offset * BAR_COUNT)
+    end_idx = min(total, start_idx + BAR_COUNT)
+    keys_slice = all_keys[start_idx:end_idx]
 
-    # Build labels sorted chronologically
-    keys_sorted = sorted(agg.keys())
-    labels = [agg[k]['_label'] for k in keys_sorted]
-    covered_call_data = [round(agg[k]['Covered Call'], 2) for k in keys_sorted]
-    secured_put_data = [round(agg[k]['Secured Put'], 2) for k in keys_sorted]
+    # Pad to 10 bars (empty at start if needed)
+    while len(keys_slice) < BAR_COUNT:
+        keys_slice.insert(0, '')
+
+    labels = [agg[k]['_label'] if k else '—' for k in keys_slice]
+    covered_call_data = [round(agg[k]['Covered Call'], 2) if k else 0 for k in keys_slice]
+    secured_put_data = [round(agg[k]['Secured Put'], 2) if k else 0 for k in keys_slice]
 
     return {
         'labels': labels,
@@ -139,8 +203,8 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
             {'name': 'Secured Put', 'data': secured_put_data},
         ],
         'colors': {
-            'Covered Call': 'mint-2',
-            'Secured Put': 'cyan-2',
+            'Covered Call': 'green-1',
+            'Secured Put': 'blue-1',
         },
     }
 `,

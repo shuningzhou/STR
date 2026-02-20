@@ -54,6 +54,15 @@ const segmentInputSchema = z.object({
   topbarShowTitle: topbarShowTitleSchema,
 });
 
+const chartNavInputSchema = z.object({
+  type: z.literal('chart_nav'),
+  title: z.string().optional(),
+  default: z.number(),
+  min: z.number().optional(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
+});
+
 const checkboxInputSchema = z.object({
   type: z.literal('checkbox'),
   title: z.string(),
@@ -68,6 +77,7 @@ const inputConfigSchema = z.discriminatedUnion('type', [
   numberInputSchema,
   selectInputSchema,
   segmentInputSchema,
+  chartNavInputSchema,
   checkboxInputSchema,
 ]);
 
@@ -135,6 +145,8 @@ const tableContentSchema = z.object({
     columnLabels: z.record(z.string(), z.string()).optional(),
     /** Column key -> format: currency ($), percent (%), or number */
     columnFormats: z.record(z.string(), columnFormatSchema).optional(),
+    /** Column key -> { cellValue: color } e.g. { optionType: { 'Covered call': 'green-1', 'Secured put': 'blue-1' } } */
+    columnCellColors: z.record(z.string(), z.record(z.string(), z.string())).optional(),
     /** Message when table has no rows */
     emptyMessage: z.string().optional(),
     padding: paddingSchema,

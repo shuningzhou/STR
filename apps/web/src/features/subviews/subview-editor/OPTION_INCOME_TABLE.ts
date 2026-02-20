@@ -6,7 +6,7 @@ import type { SubviewSpec } from '@str/shared';
 
 export const OPTION_INCOME_TABLE: SubviewSpec = {
   type: 'readwrite',
-  name: 'Option Income',
+  name: 'Open Options',
   icon: 'Coins',
   iconColor: 'yellow-2',
   description: 'Covered calls and secured puts. Add, edit, delete, roll, or close (partial close supported)',
@@ -24,22 +24,24 @@ export const OPTION_INCOME_TABLE: SubviewSpec = {
           {
             Table: {
               header: {
-                title: 'Option Income',
+                title: 'Open Options',
                 actions: [
                   { title: 'Add', icon: 'plus', handler: 'addOptionTransactionModal' },
                 ],
               },
               source: 'py:get_option_income_transactions',
-              columns: ['date', 'instrumentSymbol', 'optionType', 'expiration', 'strike', 'callPut', 'quantity', 'premium'],
+              columns: ['date', 'instrumentSymbol', 'optionType', 'expiration', 'strike', 'quantity', 'premium'],
               columnLabels: {
                 date: 'Date',
                 instrumentSymbol: 'Symbol',
                 optionType: 'Type',
                 expiration: 'Exp',
                 strike: 'Strike',
-                callPut: 'C/P',
                 quantity: 'Qty',
                 premium: 'Premium',
+              },
+              columnCellColors: {
+                optionType: { 'Covered call': 'green-1', 'Secured put': 'blue-1' },
               },
               columnFormats: { strike: 'number', premium: 'currency' },
               emptyMessage: 'No option trades',
@@ -113,9 +115,7 @@ export const OPTION_INCOME_TABLE: SubviewSpec = {
         ts = tx.get('timestamp') or ''
         date = ts[:10] if len(ts) >= 10 else ts
         exp_short = (opt.get('expiration') or '')[:10]
-        cp_upper = (opt.get('callPut') or 'call').upper()
-        cp_short = cp_upper[0] if cp_upper else 'C'
-        opt_type = 'CC' if cp == 'call' else 'SP'
+        opt_type = 'Covered call' if cp == 'call' else 'Secured put'
         result.append({
             'id': tx.get('id'),
             'side': tx.get('side'),
@@ -129,7 +129,6 @@ export const OPTION_INCOME_TABLE: SubviewSpec = {
             'date': date,
             'expiration': exp_short,
             'strike': strike,
-            'callPut': cp_short,
             'optionType': opt_type,
             'premium': pos['premium'],
         })

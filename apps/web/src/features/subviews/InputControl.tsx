@@ -3,6 +3,7 @@
  * Shared by SubviewSpecRenderer and StrategyInputsBar.
  */
 import { useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input, SegmentControl } from '@/components/ui';
 
 export const INPUT_WIDTHS: Record<string, number> = {
@@ -11,6 +12,7 @@ export const INPUT_WIDTHS: Record<string, number> = {
   number_input: 100,
   select: 120,
   segment: 280,
+  chart_nav: 82,
   checkbox: 75,
 };
 
@@ -296,6 +298,82 @@ export function InputControl({
             {String(inputs[inputKey] ?? (cfg as { default?: string }).default ?? '')}
           </div>
         )
+      ) : inputType === 'chart_nav' ? (
+        (() => {
+          const cfgNav = cfg as { default?: number; min?: number };
+          const minVal = cfgNav.min ?? 0;
+          const val = Number(inputs[inputKey] ?? cfgNav.default ?? 0);
+          return isEditable ? (
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onInputChange!(inputKey, Math.max(minVal, val - 1))}
+                disabled={val <= minVal}
+                className="rounded-[var(--radius-medium)] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  width: 28,
+                  height: 'var(--control-height)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+                title="Previous (more recent)"
+              >
+                <ChevronLeft size={14} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onInputChange!(inputKey, minVal)}
+                disabled={val <= minVal}
+                className="rounded-[var(--radius-medium)] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  width: 20,
+                  height: 'var(--control-height)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+                title="Back to today"
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--color-text-primary)',
+                  }}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => onInputChange!(inputKey, val + 1)}
+                className="rounded-[var(--radius-medium)] flex items-center justify-center"
+                style={{
+                  width: 28,
+                  height: 'var(--control-height)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+                title="Next (older)"
+              >
+                <ChevronRight size={14} strokeWidth={2} />
+              </button>
+            </div>
+          ) : (
+            <div
+              className="rounded-[var(--radius-medium)] border text-[13px] flex items-center justify-center gap-1"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              {val}
+            </div>
+          );
+        })()
       ) : inputType === 'checkbox' ? (
         isEditable ? (
           <label className="flex items-center gap-2 cursor-pointer h-[var(--control-height)]">
