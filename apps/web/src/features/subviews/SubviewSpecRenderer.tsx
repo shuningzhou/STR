@@ -313,7 +313,7 @@ function ContentRenderer({
     const inner = (
       <div className="subview-table-container flex flex-col min-w-full w-full" style={{ borderTop: '1px solid var(--color-table-border)', borderBottom: '1px solid var(--color-table-border)', backgroundColor: 'transparent', width: '100%', minWidth: '100%' }}>
         <div className="subview-table-body w-full" style={{ width: '100%' }}>
-          <table className="w-full border-collapse text-[12px]" style={{ tableLayout: 'fixed', width: '100%' }}>
+          <table className="subview-spec-table border-collapse text-[12px]" style={{ tableLayout: 'auto', width: 'max-content', minWidth: '100%' }}>
             <colgroup>
               {columns.map((col) => (
                 <col key={col} />
@@ -327,7 +327,7 @@ function ContentRenderer({
             <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
                 {columns.map((col, i) => (
-                  <th key={col} className="text-left font-medium" style={{ color: 'var(--color-table-header-text)', borderBottom: '1px solid var(--color-table-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding }}>
+                  <th key={col} className="font-medium" style={{ color: 'var(--color-table-header-text)', borderBottom: '1px solid var(--color-table-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
                     {(tbl.columnLabels as Record<string, string> | undefined)?.[col] ?? humanizeColumnKey(col)}
                   </th>
                 ))}
@@ -339,7 +339,7 @@ function ContentRenderer({
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length + (tbl.rowActions?.length ? 1 : 0)} className="text-center" style={{ color: 'var(--color-text-muted)', padding: cellPadding }}>
+                  <td colSpan={columns.length + (tbl.rowActions?.length ? 1 : 0)} style={{ color: 'var(--color-text-muted)', padding: cellPadding, textAlign: 'right' }}>
                     {(tbl as { emptyMessage?: string }).emptyMessage ?? 'No data'}
                   </td>
                 </tr>
@@ -352,7 +352,7 @@ function ContentRenderer({
                       const colorMap = cellColors?.[col];
                       const resolvedColor = colorMap && typeof cellVal === 'string' ? resolveColor(colorMap[cellVal]) : undefined;
                       return (
-                        <td key={col} style={{ color: resolvedColor ?? 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding }}>
+                        <td key={col} style={{ color: resolvedColor ?? 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
                           {formatCellValue(cellVal, col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
                         </td>
                       );

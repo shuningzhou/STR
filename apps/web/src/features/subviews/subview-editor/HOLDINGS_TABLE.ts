@@ -9,10 +9,10 @@ export const HOLDINGS_TABLE: SubviewSpec = {
   type: 'readonly',
   name: 'Stock & ETF Holdings',
   icon: 'Landmark',
-  description: 'Current stock and ETF holdings with cost basis, market value, and gain',
+  description: 'Current stock and ETF holdings with cost basis, market value, gain, and dividends',
   maker: 'official',
   categories: ['essential', 'stock-etf'],
-  defaultSize: { w: 600, h: 100 },
+  defaultSize: { w: 750, h: 100 },
   inputs: {},
   layout: [
     [
@@ -25,7 +25,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
                 title: 'Stock & ETF Holdings',
               },
               source: 'py:get_holdings',
-              columns: ['instrumentSymbol', 'quantity', 'costBasis', 'currentPrice', 'marketValue', 'gain', 'gainPct', 'portfolioPct'],
+              columns: ['instrumentSymbol', 'quantity', 'costBasis', 'currentPrice', 'marketValue', 'gain', 'gainPct', 'dividends', 'dividendGainPct', 'portfolioPct'],
               columnLabels: {
                 instrumentSymbol: 'Symbol',
                 quantity: 'Qty',
@@ -34,6 +34,8 @@ export const HOLDINGS_TABLE: SubviewSpec = {
                 marketValue: 'Market Value',
                 gain: 'Gain',
                 gainPct: 'Gain %',
+                dividends: 'Dividends',
+                dividendGainPct: 'Div. Gain %',
                 portfolioPct: '% of Portfolio',
               },
               columnFormats: {
@@ -41,7 +43,9 @@ export const HOLDINGS_TABLE: SubviewSpec = {
                 currentPrice: 'currency',
                 marketValue: 'currency',
                 gain: 'currency',
+                dividends: 'currency',
                 gainPct: 'percent',
+                dividendGainPct: 'percent',
                 portfolioPct: 'percent',
               },
               emptyMessage: 'No stock or ETF holdings',
@@ -52,7 +56,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
     ],
   ],
   python_code: `def get_holdings(context, inputs):
-    """Return current stock/ETF holdings with cost basis, market value, gain, and % of portfolio."""
+    """Return current stock/ETF holdings with cost basis, market value, gain, dividends, and % of portfolio."""
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
     base_currency = (context.get('wallet') or {}).get('baseCurrency') or 'USD'
@@ -67,6 +71,20 @@ export const HOLDINGS_TABLE: SubviewSpec = {
             )
         except Exception:
             return True
+    
+    # Aggregate dividends by symbol (cumulative dividend amount per holding)
+    dividend_by_sym = {}
+    for tx in txs:
+        side = (tx.get('side') or tx.get('type') or '').lower()
+        if side != 'dividend':
+            continue
+        sym = tx.get('instrumentSymbol')
+        if not sym:
+            continue
+        cash = float(tx.get('cashDelta') or 0)
+        if sym not in dividend_by_sym:
+            dividend_by_sym[sym] = 0.0
+        dividend_by_sym[sym] += cash
     
     # Aggregate by instrument (instrumentId or instrumentSymbol for stocks/ETFs)
     # Exclude deposit, withdrawal, interest, fee (cash-only, not holdings)
@@ -109,6 +127,8 @@ export const HOLDINGS_TABLE: SubviewSpec = {
         market_value = qty * float(price)
         gain = market_value - cost_total
         gain_pct = (gain / cost_total * 100) if cost_total else 0
+        cumulative_dividends = dividend_by_sym.get(sym, 0.0)
+        dividend_gain_pct = (cumulative_dividends / cost_total * 100) if cost_total else 0
         holdings.append({
             'instrumentSymbol': sym,
             'instrumentId': inst_id,
@@ -118,6 +138,8 @@ export const HOLDINGS_TABLE: SubviewSpec = {
             'marketValue': round(market_value, 2),
             'gain': round(gain, 2),
             'gainPct': round(gain_pct, 2),
+            'dividends': round(cumulative_dividends, 2),
+            'dividendGainPct': round(dividend_gain_pct, 2),
             'portfolioPct': 0,
         })
     # Sort by market value desc
