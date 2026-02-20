@@ -150,6 +150,7 @@ function ContentRenderer({
   setDeleteTransactionConfirmOpen,
   setRollOptionModalOpen,
   setCloseOptionModalOpen,
+  isEditMode = true,
 }: {
   item: ContentItem;
   resolved: Record<string, unknown>;
@@ -167,6 +168,7 @@ function ContentRenderer({
   setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transactionId: number } | null) => void;
   setRollOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  isEditMode?: boolean;
 }) {
   if ('input' in item) {
     const inp = item.input as { ref: string; padding?: PaddingValue };
@@ -281,7 +283,8 @@ function ContentRenderer({
                 <col key={col} />
               ))}
               {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (() => {
-                const actionsColWidth = 10 + 10 + tbl.rowActions.length * 12 + (tbl.rowActions.length - 1) * 10;
+                const visibleCount = isEditMode ? tbl.rowActions.length : tbl.rowActions.filter((ra) => ra.handler !== 'editTransactionModal' && ra.handler !== 'deleteTransaction').length;
+                const actionsColWidth = visibleCount === 0 ? 1 : 10 + 10 + visibleCount * 12 + (visibleCount - 1) * 10;
                 return <col key="actions" style={{ width: actionsColWidth, minWidth: actionsColWidth }} />;
               })()}
             </colgroup>
@@ -312,10 +315,17 @@ function ContentRenderer({
                         {formatCellValue(getNested(row as Record<string, unknown>, col), col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
                       </td>
                     ))}
-                    {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
+                    {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (() => {
+                      const visibleRowActions = isEditMode
+                        ? tbl.rowActions
+                        : tbl.rowActions.filter((ra) => ra.handler !== 'editTransactionModal' && ra.handler !== 'deleteTransaction');
+                      if (visibleRowActions.length === 0) {
+                        return <td style={{ padding: cellPadding }} />;
+                      }
+                      return (
                       <td style={{ paddingTop: cellPadding, paddingBottom: cellPadding, paddingLeft: 10, paddingRight: 10, whiteSpace: 'nowrap' }}>
                         <div className="flex" style={{ gap: 10 }}>
-                          {tbl.rowActions.map((ra, rai) => {
+                          {visibleRowActions.map((ra, rai) => {
                             const handleClick = () => {
                               const rowData = row as Record<string, unknown>;
                               const txId = rowData.id as number | undefined;
@@ -361,7 +371,7 @@ function ContentRenderer({
                           })}
                         </div>
                       </td>
-                    )}
+                    );})()}
                   </tr>
                 ))
               )}
@@ -577,6 +587,8 @@ export interface SubviewSpecRendererProps {
   strategyId?: string;
   /** For option tables: pass 'option' for edit/roll/close modals */
   editTransactionMode?: 'stock-etf' | 'option';
+  /** When false, edit and delete row actions are hidden */
+  isEditMode?: boolean;
 }
 
 export function SubviewSpecRenderer({
@@ -591,6 +603,7 @@ export function SubviewSpecRenderer({
   onGlobalInputChange,
   strategyId,
   editTransactionMode = 'stock-etf',
+  isEditMode = true,
 }: SubviewSpecRendererProps) {
   const [resolved, setResolved] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
@@ -781,6 +794,7 @@ export function SubviewSpecRenderer({
                         setDeleteTransactionConfirmOpen={strategyId ? setDeleteTransactionConfirmOpen : undefined}
                         setRollOptionModalOpen={strategyId ? setRollOptionModalOpen : undefined}
                         setCloseOptionModalOpen={strategyId ? setCloseOptionModalOpen : undefined}
+                        isEditMode={isEditMode}
                       />
                     ))}
                   </div>

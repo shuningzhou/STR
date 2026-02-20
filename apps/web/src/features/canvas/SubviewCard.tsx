@@ -321,6 +321,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
           }
           strategyId={strategyId}
           editTransactionMode={subview.templateId === 'option-income' ? 'option' : 'stock-etf'}
+          isEditMode={isEditMode}
         />
       ) : (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingTop: 'var(--subview-top-bar-height)' }}>
