@@ -4,7 +4,7 @@
  * Inputs are NOT auto-rendered; they appear only when referenced in layout via { "input": { "ref": "key" } }.
  */
 import { useState, useEffect } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Repeat, X } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import type { SubviewSpec, ContentItem, LayoutRow, LayoutCell } from '@str/shared';
@@ -35,7 +35,7 @@ const MAIN_COLORS: { name: string; hex: string }[] = [
   { name: 'orange', hex: '#FF8900' },
   { name: 'yellow', hex: '#FFDB00' },
   { name: 'lime', hex: '#DBFF00' },
-  { name: 'green', hex: '#00d800' },
+  { name: 'green', hex: '#28c207' },
   { name: 'mint', hex: '#00FFA4' },
   { name: 'cyan', hex: '#00C8FF' },
   { name: 'blue', hex: '#0052FF' },
@@ -148,6 +148,8 @@ function ContentRenderer({
   onEditTransaction,
   textColor,
   setDeleteTransactionConfirmOpen,
+  setRollOptionModalOpen,
+  setCloseOptionModalOpen,
 }: {
   item: ContentItem;
   resolved: Record<string, unknown>;
@@ -163,6 +165,8 @@ function ContentRenderer({
   /** Resolved text color for text/number content (from cell.textColor) */
   textColor?: string;
   setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transactionId: number } | null) => void;
+  setRollOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setCloseOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
 }) {
   if ('input' in item) {
     const inp = item.input as { ref: string; padding?: PaddingValue };
@@ -276,9 +280,10 @@ function ContentRenderer({
               {columns.map((col) => (
                 <col key={col} />
               ))}
-              {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
-                <col key="actions" style={{ width: 56 }} />
-              )}
+              {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (() => {
+                const actionsColWidth = 10 + 10 + tbl.rowActions.length * 12 + (tbl.rowActions.length - 1) * 10;
+                return <col key="actions" style={{ width: actionsColWidth, minWidth: actionsColWidth }} />;
+              })()}
             </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
@@ -308,29 +313,49 @@ function ContentRenderer({
                       </td>
                     ))}
                     {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
-                      <td style={{ padding: cellPadding, whiteSpace: 'nowrap' }}>
-                        <div className="flex gap-1 shrink-0">
+                      <td style={{ paddingTop: cellPadding, paddingBottom: cellPadding, paddingLeft: 10, paddingRight: 10, whiteSpace: 'nowrap' }}>
+                        <div className="flex" style={{ gap: 10 }}>
                           {tbl.rowActions.map((ra, rai) => {
                             const handleClick = () => {
                               const rowData = row as Record<string, unknown>;
                               const txId = rowData.id as number | undefined;
+                              const toTx = (): StrategyTransaction => ({
+                                id: rowData.id as number,
+                                side: (rowData.side as string) ?? '',
+                                cashDelta: (rowData.cashDelta as number) ?? 0,
+                                timestamp: (rowData.timestamp as string) ?? '',
+                                instrumentSymbol: (rowData.instrumentSymbol as string) ?? '',
+                                option: (rowData.option as StrategyTransaction['option']) ?? null,
+                                optionRoll: rowData.optionRoll as StrategyTransaction['optionRoll'],
+                                customData: (rowData.customData as Record<string, unknown>) ?? {},
+                                quantity: (rowData.quantity as number) ?? 0,
+                                price: (rowData.price as number) ?? 0,
+                              });
                               if (ra.handler === 'editTransactionModal' && strategyId && onEditTransaction && txId != null) {
                                 onEditTransaction(rowData);
                               } else if (ra.handler === 'deleteTransaction' && strategyId && txId != null && setDeleteTransactionConfirmOpen) {
                                 setDeleteTransactionConfirmOpen({ strategyId, transactionId: txId });
+                              } else if (ra.handler === 'rollOptionModal' && strategyId && setRollOptionModalOpen) {
+                                const tx = toTx();
+                                if (tx.option) setRollOptionModalOpen({ strategyId, transaction: tx });
+                              } else if (ra.handler === 'closeOptionModal' && strategyId && setCloseOptionModalOpen) {
+                                setCloseOptionModalOpen({ strategyId, transaction: toTx() });
                               }
                             };
+                            const icon = ra.icon?.toLowerCase();
                             return (
                               <button
                                 key={rai}
                                 type="button"
-                                className="p-1 rounded"
-                                style={{ color: 'var(--color-text-secondary)' }}
+                                className="rounded"
+                                style={{ color: 'var(--color-text-secondary)', padding: 0 }}
                                 onClick={handleClick}
                                 title={ra.title}
                               >
-                                {ra.icon?.toLowerCase() === 'pencil' && <Pencil size={12} />}
-                                {ra.icon?.toLowerCase() === 'trash' && <Trash2 size={12} />}
+                                {icon === 'pencil' && <Pencil size={12} />}
+                                {icon === 'trash' && <Trash2 size={12} />}
+                                {icon === 'repeat' && <Repeat size={12} />}
+                                {icon === 'x' && <X size={12} />}
                               </button>
                             );
                           })}
@@ -550,6 +575,8 @@ export interface SubviewSpecRendererProps {
   onGlobalInputChange?: (key: string, value: string | number) => void;
   /** For readwrite tables: strategyId to edit/delete transactions */
   strategyId?: string;
+  /** For option tables: pass 'option' for edit/roll/close modals */
+  editTransactionMode?: 'stock-etf' | 'option';
 }
 
 export function SubviewSpecRenderer({
@@ -563,11 +590,14 @@ export function SubviewSpecRenderer({
   globalInputValues,
   onGlobalInputChange,
   strategyId,
+  editTransactionMode = 'stock-etf',
 }: SubviewSpecRendererProps) {
   const [resolved, setResolved] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
   const setEditTransactionModalOpen = useUIStore((s) => s.setEditTransactionModalOpen);
   const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
+  const setRollOptionModalOpen = useUIStore((s) => s.setRollOptionModalOpen);
+  const setCloseOptionModalOpen = useUIStore((s) => s.setCloseOptionModalOpen);
 
   const handleEditTransaction = (row: Record<string, unknown>) => {
     if (!strategyId) return;
@@ -578,11 +608,12 @@ export function SubviewSpecRenderer({
       timestamp: (row.timestamp as string) ?? '',
       instrumentSymbol: (row.instrumentSymbol as string) ?? '',
       option: (row.option as StrategyTransaction['option']) ?? null,
+      optionRoll: row.optionRoll as StrategyTransaction['optionRoll'],
       customData: (row.customData as Record<string, unknown>) ?? {},
       quantity: (row.quantity as number) ?? 0,
       price: (row.price as number) ?? 0,
     };
-    setEditTransactionModalOpen({ strategyId, transaction: tx, mode: 'stock-etf' });
+    setEditTransactionModalOpen({ strategyId, transaction: tx, mode: editTransactionMode });
   };
 
   // Explicitly track transactions so table refreshes when they change (addTransaction)
@@ -748,6 +779,8 @@ export function SubviewSpecRenderer({
                         onEditTransaction={handleEditTransaction}
                         textColor={resolveColor(cell.textColor)}
                         setDeleteTransactionConfirmOpen={strategyId ? setDeleteTransactionConfirmOpen : undefined}
+                        setRollOptionModalOpen={strategyId ? setRollOptionModalOpen : undefined}
+                        setCloseOptionModalOpen={strategyId ? setCloseOptionModalOpen : undefined}
                       />
                     ))}
                   </div>

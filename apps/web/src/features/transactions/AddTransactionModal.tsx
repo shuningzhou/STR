@@ -23,6 +23,11 @@ const CALL_PUT_OPTIONS = [
   { value: 'put', label: 'Put' },
 ];
 
+const OPTION_TYPE_OPTIONS = [
+  { value: 'call', label: 'Covered Call' },
+  { value: 'put', label: 'Secured Put' },
+];
+
 const INPUT_WIDTH = { width: 200 };
 
 export function AddTransactionModal() {
@@ -34,6 +39,7 @@ export function AddTransactionModal() {
   const strategyId = addTransactionModalOpen?.strategyId ?? null;
   const mode = addTransactionModalOpen?.mode ?? 'stock-etf';
   const isFull = mode === 'full';
+  const isOption = mode === 'option';
 
   const [symbol, setSymbol] = useState('');
   const [side, setSide] = useState('buy');
@@ -60,7 +66,7 @@ export function AddTransactionModal() {
     [strategies, strategyId]
   );
 
-  const title = isFull ? 'Add Transaction' : 'Add Stock/ETF Transaction';
+  const title = isFull ? 'Add Transaction' : isOption ? 'Sell Option' : 'Add Stock/ETF Transaction';
 
   const resetForm = useCallback(() => {
     setSymbol('');
@@ -272,7 +278,67 @@ export function AddTransactionModal() {
     ]
   );
 
-  const handleSubmit = isFull ? handleSubmitFull : handleSubmitSimple;
+  const handleSubmitOption = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!strategyId) return;
+
+      const sym = symbol.trim().toUpperCase();
+      if (!sym) {
+        setError('Symbol is required');
+        return;
+      }
+      const qty = parseFloat(quantity);
+      if (isNaN(qty) || qty <= 0) {
+        setError('Quantity must be a positive number');
+        return;
+      }
+      if (!optExpiration) {
+        setError('Expiration is required');
+        return;
+      }
+      const strike = parseFloat(optStrike);
+      if (isNaN(strike) || strike < 0) {
+        setError('Strike must be non-negative');
+        return;
+      }
+      const pr = parseFloat(price);
+      if (isNaN(pr) || pr < 0) {
+        setError('Premium must be non-negative');
+        return;
+      }
+
+      setError(null);
+      const premium = Math.round(qty * pr * 100) / 100; // sell = positive cash
+      const timestamp = `${date}T12:00:00Z`;
+
+      try {
+        addTransaction(strategyId, {
+          side: 'sell',
+          cashDelta: premium,
+          timestamp,
+          instrumentSymbol: sym,
+          option: {
+            expiration: `${optExpiration}T00:00:00Z`,
+            strike,
+            callPut: optCallPut,
+          },
+          customData: {},
+          quantity: qty,
+          price: pr,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add option');
+        return;
+      }
+
+      resetForm();
+      setAddTransactionModalOpen(null);
+    },
+    [strategyId, symbol, quantity, optExpiration, optStrike, optCallPut, price, date, addTransaction, setAddTransactionModalOpen, resetForm]
+  );
+
+  const handleSubmit = isFull ? handleSubmitFull : isOption ? handleSubmitOption : handleSubmitSimple;
 
   const handleClose = useCallback(() => {
     setAddTransactionModalOpen(null);
@@ -291,12 +357,97 @@ export function AddTransactionModal() {
   return (
     <Modal title={title} onClose={handleClose} size={isFull ? 'lg' : 'default'}>
       <form onSubmit={handleSubmit}>
-        {!isFull && (
+        {!isFull && !isOption && (
           <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
             Add transaction to <strong>{strategy?.name}</strong>
           </p>
         )}
-        {isFull ? (
+        {isOption ? (
+          <div style={{ marginBottom: 20 }}>
+            <div className="mb-4">
+              {field('Type', (
+                <Select
+                  options={OPTION_TYPE_OPTIONS}
+                  value={optCallPut}
+                  onChange={(v) => setOptCallPut(v)}
+                  className="w-full"
+                  autoFocus
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-[1fr_1fr] gap-4 mb-4">
+              {field('Underlying', (
+                <Input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => {
+                    setSymbol(e.target.value.toUpperCase());
+                    setError(null);
+                  }}
+                  placeholder="e.g. AAPL, SPY"
+                  className="w-full"
+                  autoFocus
+                />
+              ))}
+              {field('Expiration', (
+                <Input type="date" value={optExpiration} onChange={(e) => setOptExpiration(e.target.value)} className="w-full" />
+              ))}
+              {field('Strike', (
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={optStrike}
+                  onChange={(e) => setOptStrike(e.target.value)}
+                  placeholder="e.g. 180"
+                  className="w-full"
+                />
+              ))}
+              {field('Contracts', (
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={(e) => {
+                    setQuantity(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="1"
+                  className="w-full"
+                />
+              ))}
+              {field('Premium ($/share)', (
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="e.g. 1"
+                  error={error ?? undefined}
+                  className="w-full"
+                />
+              ))}
+              {field('Trade date', (
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
+              ))}
+            </div>
+            {(() => {
+              const q = parseFloat(quantity);
+              const p = parseFloat(price);
+              if (isNaN(q) || isNaN(p) || q <= 0 || p < 0) return null;
+              return (
+                <p className="text-[13px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Total premium received: <strong>${(q * p * 100).toFixed(2)}</strong>
+                </p>
+              );
+            })()}
+          </div>
+        ) : isFull ? (
           <div className="overflow-y-auto max-h-[65vh] pr-1" style={{ marginBottom: 20 }}>
             <div className="grid grid-cols-[1fr_1fr_auto] gap-4 mb-4">
               {field('Side', (
@@ -605,7 +756,7 @@ export function AddTransactionModal() {
             Cancel
           </Button>
           <Button type="submit" variant="primary" className="flex-1">
-            Add
+            {isOption ? 'Sell' : 'Add'}
           </Button>
         </div>
       </form>

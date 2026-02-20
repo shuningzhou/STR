@@ -1,6 +1,7 @@
 import type { SubviewSpec, SubviewCategory } from '@str/shared';
 import { WIN_RATE_EXAMPLE } from './subview-editor/WIN_RATE_EXAMPLE';
 import { STOCK_ETF_TRANSACTIONS_TABLE } from './subview-editor/STOCK_ETF_TRANSACTIONS_TABLE';
+import { OPTION_INCOME_TABLE } from './subview-editor/OPTION_INCOME_TABLE';
 import { HOLDINGS_TABLE } from './subview-editor/HOLDINGS_TABLE';
 import { PORTFOLIO_PIE_CHART } from './subview-editor/PORTFOLIO_PIE_CHART';
 import { PORTFOLIO_GROWTH_LINE_CHART } from './subview-editor/PORTFOLIO_GROWTH_LINE_CHART';
@@ -28,6 +29,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'equity-curve', name: 'Equity Curve', description: 'Cumulative P&L over time (line chart)', defaultSize: { w: 600, h: 120 }, categories: ['stock-etf'] },
   { id: 'win-rate', name: 'Win Rate', description: '% of profitable trades', defaultSize: { w: 400, h: 70 }, categories: ['essential', 'stock-etf'], spec: WIN_RATE_EXAMPLE as unknown as SubviewSpec },
   { id: 'stock-etf-transactions', name: 'Stock & ETF Transactions', description: 'Table of stock and ETF transactions (no options)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec },
+  { id: 'option-income', name: 'Option Income', description: 'Covered calls and secured puts. Add, edit, delete, roll, or close (partial close supported)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'option'], spec: OPTION_INCOME_TABLE as unknown as SubviewSpec },
   { id: 'holdings', name: 'Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
   { id: 'portfolio-pie', name: 'Portfolio %', description: 'Pie chart showing % of portfolio by holding', defaultSize: { w: 400, h: 220 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_PIE_CHART as unknown as SubviewSpec },
   { id: 'portfolio-growth', name: 'Portfolio Growth', description: 'Line chart of portfolio value over time', defaultSize: { w: 600, h: 100 }, categories: ['essential', 'stock-etf'], spec: PORTFOLIO_GROWTH_LINE_CHART as unknown as SubviewSpec },

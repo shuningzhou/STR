@@ -14,8 +14,8 @@ export const WALLET_TABLE: SubviewSpec = {
   defaultSize: { w: 175, h: 40 },
   inputs: {},
   headerActions: [
-    { title: 'Deposit', icon: 'plus', handler: 'depositWallet' },
-    { title: 'Withdraw', icon: 'minus', handler: 'withdrawWallet' },
+    { title: 'Deposit', label: 'Deposit', handler: 'depositWallet' },
+    { title: 'Withdraw', label: 'Withdraw', color: 'red-2', handler: 'withdrawWallet' },
   ],
   layout: [
     [

@@ -240,7 +240,9 @@ function parseSizeString(s: string): { w: number; h: number } {
 
 const headerActionSchema = z.object({
   title: z.string(),
-  icon: z.string(),
+  icon: z.string().optional(),
+  label: z.string().optional(),
+  color: z.string().optional(),
   handler: z.string(),
 });
 

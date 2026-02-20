@@ -345,8 +345,8 @@ export function TransactionListPanel() {
                         >
                           {formatCustomData(tx)}
                         </td>
-                        <td style={{ padding: CELL_PADDING, whiteSpace: 'nowrap' }}>
-                          <div className="flex gap-1 shrink-0">
+                        <td style={{ paddingTop: CELL_PADDING, paddingBottom: CELL_PADDING, paddingLeft: 10, paddingRight: 10, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          <div className="inline-flex shrink-0" style={{ gap: 10 }}>
                             <button
                               type="button"
                               className="p-1 rounded"

@@ -10,6 +10,8 @@ import { EditTransactionModal } from '@/features/transactions/EditTransactionMod
 import { DepositWithdrawModal } from '@/features/transactions/DepositWithdrawModal';
 import { WalletSettingsModal } from '@/features/transactions/WalletSettingsModal';
 import { DeleteTransactionConfirmModal } from '@/features/transactions/DeleteTransactionConfirmModal';
+import { RollOptionModal } from '@/features/transactions/RollOptionModal';
+import { CloseOptionModal } from '@/features/transactions/CloseOptionModal';
 import { TransactionListPanel } from '@/features/transactions/TransactionListPanel';
 import { initializeTheme } from '@/store/theme-store';
 
@@ -31,6 +33,8 @@ export default function App() {
       <DepositWithdrawModal />
       <WalletSettingsModal />
       <DeleteTransactionConfirmModal />
+      <RollOptionModal />
+      <CloseOptionModal />
       <TransactionListPanel />
     </div>
   );

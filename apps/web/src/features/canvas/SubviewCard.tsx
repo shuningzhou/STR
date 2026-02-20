@@ -7,7 +7,7 @@ import { useUIStore } from '@/store/ui-store';
 import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
 import { Input } from '@/components/ui';
-import { SubviewSpecRenderer } from '@/features/subviews/SubviewSpecRenderer';
+import { SubviewSpecRenderer, BUILT_IN_COLORS } from '@/features/subviews/SubviewSpecRenderer';
 import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
@@ -152,6 +152,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const handleHeaderAction = (handler: string) => {
     if (handler === 'addTransactionModal') {
       setAddTransactionModalOpen({ strategyId, mode: 'stock-etf' });
+    } else if (handler === 'addOptionTransactionModal') {
+      setAddTransactionModalOpen({ strategyId, mode: 'option' });
     } else if (handler === 'depositWallet') {
       setDepositWithdrawModalOpen({ strategyId, mode: 'deposit' });
     } else if (handler === 'withdrawWallet') {
@@ -197,25 +199,32 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             {subview.name}
           </span>
         </div>
-        {headerActions.map((action: { title: string; icon: string; handler: string }, i: number) => {
+        {headerActions.map((action: { title: string; icon?: string; label?: string; color?: string; handler: string }, i: number) => {
           const iconName = action.icon?.toLowerCase();
           const isSecondary = action.handler === 'withdrawWallet' || iconName === 'minus';
+          const IconComp = action.label ? null : getIconComponent(action.icon);
+          const isTextButton = !!action.label;
+          const actionColor = action.color ? BUILT_IN_COLORS[action.color] : undefined;
+          const bgColor = actionColor ?? (isSecondary ? 'transparent' : 'var(--color-active)');
+          const hoverBg = actionColor ? BUILT_IN_COLORS[`${action.color.replace(/-[0-9]$/, '')}-3`] ?? actionColor : (isSecondary ? 'var(--color-bg-hover)' : 'var(--color-bg-primary-hover)');
+          const textColor = actionColor ? 'white' : (isSecondary ? 'var(--color-text-secondary)' : 'var(--color-text-on-primary)');
           return (
             <button
               key={i}
               type="button"
-              className="w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors"
+              className={isTextButton ? 'h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors text-[12px] font-medium' : 'w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors'}
               style={{
                 marginRight: 5,
-                backgroundColor: isSecondary ? 'transparent' : 'var(--color-active)',
-                color: isSecondary ? 'var(--color-text-secondary)' : 'var(--color-text-on-primary)',
-                border: isSecondary ? '1px solid var(--color-border)' : undefined,
+                ...(isTextButton && { width: 65 }),
+                backgroundColor: bgColor,
+                color: textColor,
+                border: !actionColor && isSecondary ? '1px solid var(--color-border)' : undefined,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = isSecondary ? 'var(--color-bg-hover)' : 'var(--color-bg-primary-hover)';
+                e.currentTarget.style.backgroundColor = hoverBg;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = isSecondary ? 'transparent' : 'var(--color-active)';
+                e.currentTarget.style.backgroundColor = bgColor;
               }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -223,7 +232,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
               }}
               title={action.title}
             >
-              {iconName === 'minus' ? <Minus size={12} strokeWidth={1.5} /> : <Plus size={12} strokeWidth={1.5} />}
+              {isTextButton ? action.label : IconComp ? <IconComp size={12} strokeWidth={1.5} /> : iconName === 'minus' ? <Minus size={12} strokeWidth={1.5} /> : <Plus size={12} strokeWidth={1.5} />}
             </button>
           );
         })}
@@ -311,6 +320,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
             updateStrategyInputValue(strategyId, key, value)
           }
           strategyId={strategyId}
+          editTransactionMode={subview.templateId === 'option-income' ? 'option' : 'stock-etf'}
         />
       ) : (
         <div className="flex-1 flex flex-col min-h-0" style={{ paddingTop: 'var(--subview-top-bar-height)' }}>

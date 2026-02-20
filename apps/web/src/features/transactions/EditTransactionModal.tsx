@@ -33,6 +33,7 @@ export function EditTransactionModal() {
 
   const mode = editTransactionModalOpen?.mode ?? 'full';
   const isSimple = mode === 'stock-etf';
+  const isOption = mode === 'option';
 
   const [symbol, setSymbol] = useState('');
   const [side, setSide] = useState('buy');
@@ -300,11 +301,11 @@ export function EditTransactionModal() {
   );
 
   return (
-    <Modal title={isSimple ? 'Edit Stock/ETF Transaction' : 'Edit Transaction'} onClose={handleClose} size={isSimple ? 'default' : 'lg'}>
+    <Modal title={isSimple ? 'Edit Stock/ETF Transaction' : isOption ? 'Edit Option' : 'Edit Transaction'} onClose={handleClose} size={isSimple ? 'default' : 'lg'}>
       <form onSubmit={handleSubmit}>
-        {isSimple && (
+        {(isSimple || isOption) && (
           <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
-            Edit transaction in <strong>{strategy?.name}</strong>
+            Edit {isOption ? 'option' : 'transaction'} in <strong>{strategy?.name}</strong>
           </p>
         )}
         {isSimple ? (
