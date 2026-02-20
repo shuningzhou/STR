@@ -4,8 +4,6 @@ import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label } from '@/components/ui';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
-const INPUT_WIDTH = { width: 200 };
-
 export function CloseOptionModal() {
   const closeOptionModalOpen = useUIStore((s) => s.closeOptionModalOpen);
   const setCloseOptionModalOpen = useUIStore((s) => s.setCloseOptionModalOpen);
@@ -40,7 +38,7 @@ export function CloseOptionModal() {
         return;
       }
 
-      const premium = -Math.round(qty * pr * 100) / 100; // buy to cover = negative cash
+      const premium = -Math.round(qty * pr * 10000) / 100; // premium per share × 100 shares × qty; round to cents
       const timestamp = `${date}T12:00:00Z`;
 
       try {
@@ -73,6 +71,7 @@ export function CloseOptionModal() {
 
   const opt = transaction.option;
   const exp = (opt.expiration ?? '').slice(0, 10);
+  const modalTitle = `Close ${transaction.instrumentSymbol} ${opt.callPut?.toUpperCase()} ${exp} @ ${opt.strike} (total: ${totalQty} contracts)`;
 
   const field = (label: string, children: React.ReactNode) => (
     <div style={{ marginBottom: 10 }}>
@@ -82,12 +81,9 @@ export function CloseOptionModal() {
   );
 
   return (
-    <Modal title="Close Option" onClose={handleClose} size="default">
+    <Modal title={modalTitle} onClose={handleClose} size="default">
       <form onSubmit={handleSubmit}>
-        <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
-          Close <strong>{transaction.instrumentSymbol}</strong> {opt.callPut?.toUpperCase()} {exp} @ {opt.strike} (total: {totalQty} contracts)
-        </p>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4" style={{ marginBottom: 'var(--space-modal)' }}>
           {field('Quantity to close', (
             <Input
               type="number"
@@ -101,10 +97,10 @@ export function CloseOptionModal() {
               }}
               placeholder={`1-${totalQty}`}
               error={error ?? undefined}
-              style={INPUT_WIDTH}
+              className="w-full"
             />
           ))}
-          {field('Price (premium/contract)', (
+          {field('Price ($/share)', (
             <Input
               type="number"
               min="0"
@@ -112,14 +108,14 @@ export function CloseOptionModal() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="e.g. 2.50"
-              style={INPUT_WIDTH}
+              className="w-full"
             />
           ))}
           {field('Date', (
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={INPUT_WIDTH} />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
           ))}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3" style={{ marginTop: 'var(--space-modal)' }}>
           <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
             Cancel
           </Button>

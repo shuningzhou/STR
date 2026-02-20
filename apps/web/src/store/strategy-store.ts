@@ -57,7 +57,6 @@ export interface StrategyTransaction {
   timestamp: string;
   instrumentSymbol: string;
   option: { expiration: string; strike: number; callPut: string } | null;
-  optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
   customData: Record<string, unknown>;
   quantity: number;
   price: number;

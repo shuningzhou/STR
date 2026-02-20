@@ -71,10 +71,6 @@ export const WIN_RATE_EXAMPLE = {
         side = tx.get('side', '')
         qty = max(0, tx.get('quantity', 1))
         cash = tx.get('cashDelta', 0)
-        if side == 'option_roll':
-            trades.append(cash)
-            print(f"  roll {sym} {exp} {strike} {cp}: P&L={cash:.2f}")
-            continue
         if side == 'buy':
             remaining = qty
             while remaining > 0 and short_opens.get(key):

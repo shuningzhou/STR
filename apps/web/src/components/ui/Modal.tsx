@@ -37,7 +37,7 @@ export function Modal({ title, children, onClose, className, size = 'default', h
       <div
         className={cn(
           'relative w-full rounded-[var(--radius-card)]',
-          size === 'lg' ? 'max-w-2xl' : 'max-w-sm',
+          size === 'lg' ? 'max-w-[772px]' : 'max-w-[484px]', // default 384+100, lg 672+100
           'border border-[var(--color-border)]',
           className
         )}
@@ -53,7 +53,7 @@ export function Modal({ title, children, onClose, className, size = 'default', h
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 20,
+            marginBottom: 'var(--space-modal)',
             gap: 12,
           }}
         >

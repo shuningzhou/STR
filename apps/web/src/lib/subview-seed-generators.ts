@@ -40,12 +40,11 @@ function seededRandom(seed: number): () => number {
 
 export interface ResolvedTransaction {
   id: number;
-  side: 'buy' | 'sell' | 'option_roll';
+  side: 'buy' | 'sell' | 'buy_to_cover' | 'sell_short';
   cashDelta: number;
   timestamp: string;
   instrumentSymbol: string;
   option: { expiration: string; strike: number; callPut: 'call' | 'put' } | null;
-  optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
   customData: Record<string, unknown>;
   quantity: number;
   price: number;
@@ -109,7 +108,7 @@ export function generateStockTransactions(count: number = 16): ResolvedTransacti
 
 /**
  * Generate option transactions over 5 stocks, spanning 1 year.
- * Mix of call/put, buy/sell, option_roll; expirations and strikes are realistic.
+ * Mix of call/put, buy/sell, buy_to_cover; expirations and strikes are realistic.
  */
 export function generateOptionTransactions(count: number = 16): ResolvedTransaction[] {
   const start = new Date();
@@ -123,8 +122,8 @@ export function generateOptionTransactions(count: number = 16): ResolvedTransact
   });
 
   const n = Math.max(4, Math.min(128, count));
-  const rollCount = Math.max(1, Math.floor(n * 0.25));
-  const regularCount = n - rollCount;
+  const rollPairCount = Math.max(1, Math.floor(n * 0.125)); // each "roll" = 2 txs (buy_to_cover + sell)
+  const regularCount = n - rollPairCount * 2;
 
   for (let i = 0; i < regularCount; i++) {
     const stock = randomChoice(STOCKS);
@@ -165,7 +164,7 @@ export function generateOptionTransactions(count: number = 16): ResolvedTransact
     });
   }
 
-  for (let i = 0; i < rollCount; i++) {
+  for (let i = 0; i < rollPairCount; i++) {
     const stock = randomChoice(STOCKS);
     const daysOffset = Math.floor(rand() * 320);
     const d = addDays(start, daysOffset);
@@ -187,24 +186,32 @@ export function generateOptionTransactions(count: number = 16): ResolvedTransact
 
     const callPut = rand() < 0.5 ? 'call' : 'put';
     const quantity = randomInt(1, 5);
-    const closeProceeds = (2 + rand() * 8) * (strike1 / 100) * quantity * 100;
-    const openCost = (2 + rand() * 10) * (strike2 / 100) * quantity * 100;
-    const cashDelta = Math.round((closeProceeds - openCost) * 100) / 100;
+    const closePrice = (2 + rand() * 8) * (strike1 / 100);
+    const openPrice = (2 + rand() * 10) * (strike2 / 100);
+    const closeProceeds = Math.round(closePrice * quantity * 100) / 100;
+    const openProceeds = Math.round(openPrice * quantity * 100) / 100;
 
     txs.push({
-      id: regularCount + i + 1,
-      side: 'option_roll',
-      cashDelta,
+      id: regularCount + i * 2 + 1,
+      side: 'buy_to_cover',
+      cashDelta: -closeProceeds,
       timestamp: toISO(d),
       instrumentSymbol: stock.symbol,
       option: { expiration: expiration1, strike: strike1, callPut },
-      optionRoll: {
-        option: { expiration: expiration1, strike: strike1, callPut },
-        optionRolledTo: { expiration: expiration2, strike: strike2, callPut },
-      },
       customData: {},
       quantity,
-      price: Math.abs(cashDelta) / (quantity * 100),
+      price: Math.round(closePrice * 100) / 100,
+    });
+    txs.push({
+      id: regularCount + i * 2 + 2,
+      side: 'sell',
+      cashDelta: openProceeds,
+      timestamp: toISO(d),
+      instrumentSymbol: stock.symbol,
+      option: { expiration: expiration2, strike: strike2, callPut },
+      customData: {},
+      quantity,
+      price: Math.round(openPrice * 100) / 100,
     });
   }
 

@@ -29,7 +29,6 @@ export interface SeedContext {
     timestamp: string;
     instrumentSymbol: string;
     option: { expiration: string; strike: number; callPut: string } | null;
-    optionRoll?: { option: { expiration: string; strike: number; callPut: string }; optionRolledTo: { expiration: string; strike: number; callPut: string } };
     customData: Record<string, unknown>;
     quantity: number;
     price: number;
@@ -65,20 +64,28 @@ export const SEED_CONTEXT: SeedContext = {
       quantity: 1,
       price: 4.2,
     },
+    // Roll represented as buy_to_cover + sell
     {
       id: 3,
-      side: 'option_roll',
-      cashDelta: 85,
+      side: 'buy_to_cover',
+      cashDelta: 320,
       timestamp: '2025-12-05T09:15:00Z',
       instrumentSymbol: 'MSFT',
       option: { expiration: '2026-02-20', strike: 400, callPut: 'put' },
-      optionRoll: {
-        option: { expiration: '2026-02-20', strike: 400, callPut: 'put' },
-        optionRolledTo: { expiration: '2026-03-20', strike: 405, callPut: 'put' },
-      },
       customData: {},
       quantity: 1,
-      price: 0.85,
+      price: 3.2,
+    },
+    {
+      id: 4,
+      side: 'sell',
+      cashDelta: 405,
+      timestamp: '2025-12-05T09:15:00Z',
+      instrumentSymbol: 'MSFT',
+      option: { expiration: '2026-03-20', strike: 405, callPut: 'put' },
+      customData: {},
+      quantity: 1,
+      price: 4.05,
     },
     // Stock/ETF transactions
     {

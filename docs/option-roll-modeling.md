@@ -4,44 +4,21 @@
 
 An **option roll** is closing one option contract and opening another—typically to extend duration, move strike, or both. Example: close March 150 call, open April 160 call.
 
-## Modeling options
+## Modeling options (current implementation)
 
-### Option A: Single `option_roll` transaction type (recommended)
+### Two transactions: buy_to_cover + sell
 
-**One transaction** representing both legs:
-- `type`: `option_roll`
-- `option`: the contract being **closed**
-- `optionRoll`: `{ option, optionRolledTo }` — closed and opened contracts
-- `cashDelta`: net P&L (close proceeds − open cost)
+Rolls are represented as **two transactions**:
+1. `buy_to_cover` — closes the original option (same symbol, expiration, strike, callPut)
+2. `sell` — opens the new option
 
 **Pros:**
-- Single record, clear intent
-- Easy to query rolls ("show all option_roll")
-- Net P&L is explicit
+- Reuses existing model (no special transaction type)
+- Matches broker statement format (two legs)
+- Position aggregation in Option Income subview works naturally (sell minus buy_to_cover)
+- Win-rate logic treats the close as one completed trade, the open starts a new position
 
-**Cons:**
-- Schema extension required
-- Some brokers report as two legs; you may need to combine on import
-
-### Option B: Two transactions (close + open)
-
-Roll = two separate `buy`/`sell` transactions with optional `rollGroupId` linking them.
-
-**Pros:**
-- Reuses existing model
-- Matches broker statement format
-
-**Cons:**
-- Harder to query "rolls" specifically
-- Win-rate logic treats them as separate: the close matches an earlier open (one completed trade), the open starts a new position
-
-## Recommendation
-
-Use **Option A** (`option_roll`) when you want explicit roll tracking. For win rate:
-- **Matched open+close** (buy then sell, or sell then buy, same contract): one trade, P&L = sum of both cashDeltas
-- **option_roll**: one trade, P&L = `cashDelta` (already net)
-
-## Contract identity
+**Contract identity**
 
 Option contracts are matched by:
 - `instrumentSymbol` (underlying, e.g. AAPL)
@@ -53,6 +30,5 @@ Option contracts are matched by:
 
 1. Filter transactions with `option != null`
 2. **Regular trades**: Match open (buy) + close (sell) by contract identity. Trade P&L = open.cashDelta + close.cashDelta
-3. **Short trades**: Match open (sell) + close (buy) same way
-4. **Rolls**: Each `option_roll` is one trade; P&L = cashDelta
-5. Win rate = (trades with P&L > 0) / (total completed trades) × 100
+3. **Short trades**: Match open (sell) + close (buy_to_cover) same way
+4. Win rate = (trades with P&L > 0) / (total completed trades) × 100

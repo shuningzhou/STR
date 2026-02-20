@@ -51,13 +51,6 @@ export function AddTransactionModal() {
   const [optExpiration, setOptExpiration] = useState('');
   const [optStrike, setOptStrike] = useState('');
   const [optCallPut, setOptCallPut] = useState('call');
-  const [hasOptionRoll, setHasOptionRoll] = useState(false);
-  const [rollFromExp, setRollFromExp] = useState('');
-  const [rollFromStrike, setRollFromStrike] = useState('');
-  const [rollFromCallPut, setRollFromCallPut] = useState('call');
-  const [rollToExp, setRollToExp] = useState('');
-  const [rollToStrike, setRollToStrike] = useState('');
-  const [rollToCallPut, setRollToCallPut] = useState('call');
   const [customDataJson, setCustomDataJson] = useState('{}');
   const [error, setError] = useState<string | null>(null);
 
@@ -79,13 +72,6 @@ export function AddTransactionModal() {
     setOptExpiration('');
     setOptStrike('');
     setOptCallPut('call');
-    setHasOptionRoll(false);
-    setRollFromExp('');
-    setRollFromStrike('');
-    setRollFromCallPut('call');
-    setRollToExp('');
-    setRollToStrike('');
-    setRollToCallPut('call');
     setCustomDataJson('{}');
     setError(null);
   }, []);
@@ -156,9 +142,8 @@ export function AddTransactionModal() {
         return;
       }
       const pr = parseFloat(price);
-      const allowNegativePrice = hasOptionRoll;
-      if (isNaN(pr) || (!allowNegativePrice && pr < 0)) {
-        setError(allowNegativePrice ? 'Price must be a number' : 'Price must be a non-negative number');
+      if (isNaN(pr) || pr < 0) {
+        setError('Price must be a non-negative number');
         return;
       }
       const cd = cashDelta.trim() ? parseFloat(cashDelta) : null;
@@ -184,6 +169,7 @@ export function AddTransactionModal() {
       setError(null);
       const timestamp = `${date}T12:00:00Z`;
 
+      const mult = hasOption ? 100 : 1; // options: premium per share × 100 shares/contract
       const computedCashDelta = (() => {
         if (side === 'deposit') {
           const amt = Math.abs((cd ?? qty * pr) || 0);
@@ -194,51 +180,27 @@ export function AddTransactionModal() {
           return -Math.round(amt * 100) / 100;
         }
         if (cd !== null) return Math.round(cd * 100) / 100;
-        if (hasOptionRoll) return Math.round(qty * pr * 100) / 100;
-        if (side === 'buy') return Math.round(-qty * pr * 100) / 100;
-        if (side === 'sell' || side === 'sell_short') return Math.round(qty * pr * 100) / 100;
-        if (side === 'buy_to_cover') return Math.round(-qty * pr * 100) / 100;
+        if (side === 'buy') return Math.round(-qty * pr * mult * 100) / 100;
+        if (side === 'sell' || side === 'sell_short') return Math.round(qty * pr * mult * 100) / 100;
+        if (side === 'buy_to_cover') return Math.round(-qty * pr * mult * 100) / 100;
         return 0;
       })();
 
       const option = hasOption
-        ? hasOptionRoll && rollFromExp
-          ? {
-              expiration: `${rollFromExp}T00:00:00Z`,
-              strike: parseFloat(rollFromStrike) || 0,
-              callPut: rollFromCallPut,
-            }
-          : {
-              expiration: optExpiration ? `${optExpiration}T00:00:00Z` : '',
-              strike: parseFloat(optStrike) || 0,
-              callPut: optCallPut,
-            }
+        ? {
+            expiration: optExpiration ? `${optExpiration}T00:00:00Z` : '',
+            strike: parseFloat(optStrike) || 0,
+            callPut: optCallPut,
+          }
         : null;
 
-      const optionRoll =
-        hasOptionRoll && rollFromExp && rollToExp
-          ? {
-              option: {
-                expiration: `${rollFromExp}T00:00:00Z`,
-                strike: parseFloat(rollFromStrike) || 0,
-                callPut: rollFromCallPut,
-              },
-              optionRolledTo: {
-                expiration: `${rollToExp}T00:00:00Z`,
-                strike: parseFloat(rollToStrike) || 0,
-                callPut: rollToCallPut,
-              },
-            }
-          : undefined;
-
-        try {
+      try {
         addTransaction(strategyId, {
-          side: hasOptionRoll ? 'option_roll' : side,
+          side,
           cashDelta: computedCashDelta,
           timestamp,
           instrumentSymbol: sym,
           option,
-          ...(optionRoll ? { optionRoll } : {}),
           customData: parsedCustomData,
           quantity: qty,
           price: pr,
@@ -264,13 +226,6 @@ export function AddTransactionModal() {
       optExpiration,
       optStrike,
       optCallPut,
-      hasOptionRoll,
-      rollFromExp,
-      rollFromStrike,
-      rollFromCallPut,
-      rollToExp,
-      rollToStrike,
-      rollToCallPut,
       customDataJson,
       addTransaction,
       setAddTransactionModalOpen,
@@ -309,7 +264,7 @@ export function AddTransactionModal() {
       }
 
       setError(null);
-      const premium = Math.round(qty * pr * 100) / 100; // sell = positive cash
+      const premium = Math.round(qty * pr * 10000) / 100; // premium per share × 100 shares × qty; round to cents
       const timestamp = `${date}T12:00:00Z`;
 
       try {
@@ -494,27 +449,17 @@ export function AddTransactionModal() {
                 />
               ))}
               {field(
-                hasOptionRoll
-                  ? 'Price (delta premium)'
-                  : hasOption
-                    ? 'Price (premium/contract)'
-                    : 'Price',
+                hasOption ? 'Price (premium/contract)' : 'Price',
                 <Input
                   type="number"
-                  min={hasOptionRoll ? undefined : '0'}
+                  min="0"
                   step="0.01"
                   value={price}
                   onChange={(e) => {
                     setPrice(e.target.value);
                     setError(null);
                   }}
-                  placeholder={
-                    hasOptionRoll
-                      ? 'e.g. 0.50 (positive when roll pays you)'
-                      : hasOption
-                        ? 'e.g. 3.50'
-                        : 'e.g. 180.50'
-                  }
+                  placeholder={hasOption ? 'e.g. 3.50' : 'e.g. 180.50'}
                   style={INPUT_WIDTH}
                 />
               )}
@@ -527,7 +472,7 @@ export function AddTransactionModal() {
                     setCashDelta(e.target.value);
                     setError(null);
                   }}
-                  placeholder={hasOptionRoll ? 'Auto: qty × delta premium' : 'Auto from qty×price'}
+                  placeholder="Auto from qty×price"
                   style={INPUT_WIDTH}
                 />
               ))}
@@ -541,17 +486,13 @@ export function AddTransactionModal() {
                 type="checkbox"
                 id="add-tx-has-option"
                 checked={hasOption}
-                onChange={(e) => {
-                  const v = e.target.checked;
-                  setHasOption(v);
-                  if (!v) setHasOptionRoll(false);
-                }}
+                onChange={(e) => setHasOption(e.target.checked)}
               />
               <Label htmlFor="add-tx-has-option" className="!mb-0 cursor-pointer">
                 This is an option trade
               </Label>
             </div>
-            {hasOption && !hasOptionRoll && (
+            {hasOption && (
               <div className="grid grid-cols-3 gap-4 mb-4">
                 {field('Expiration', (
                   <Input
@@ -581,83 +522,6 @@ export function AddTransactionModal() {
                   />
                 ))}
               </div>
-            )}
-
-            {hasOption && (
-              <>
-                <div className="text-xs font-medium mt-4 mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Option Roll
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    id="add-tx-has-roll"
-                    checked={hasOptionRoll}
-                    onChange={(e) => setHasOptionRoll(e.target.checked)}
-                  />
-                  <Label htmlFor="add-tx-has-roll" className="!mb-0 cursor-pointer">
-                    This is an option roll (close one, open another)
-                  </Label>
-                </div>
-                {hasOptionRoll && (
-                  <>
-                    <div className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                      From (closing)
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <Input
-                        type="date"
-                        value={rollFromExp}
-                        onChange={(e) => setRollFromExp(e.target.value)}
-                        placeholder="Exp"
-                        style={INPUT_WIDTH}
-                      />
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={rollFromStrike}
-                        onChange={(e) => setRollFromStrike(e.target.value)}
-                        placeholder="Strike"
-                        style={INPUT_WIDTH}
-                      />
-                      <Select
-                        options={CALL_PUT_OPTIONS}
-                        value={rollFromCallPut}
-                        onChange={(v) => setRollFromCallPut(v)}
-                        style={INPUT_WIDTH}
-                      />
-                    </div>
-                    <div className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                      To (opening)
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <Input
-                        type="date"
-                        value={rollToExp}
-                        onChange={(e) => setRollToExp(e.target.value)}
-                        placeholder="Exp"
-                        style={INPUT_WIDTH}
-                      />
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={rollToStrike}
-                        onChange={(e) => setRollToStrike(e.target.value)}
-                        placeholder="Strike"
-                        style={INPUT_WIDTH}
-                      />
-                      <Select
-                        options={CALL_PUT_OPTIONS}
-                        value={rollToCallPut}
-                        onChange={(v) => setRollToCallPut(v)}
-                        style={INPUT_WIDTH}
-                      />
-                    </div>
-                  </>
-                )}
-              </>
             )}
 
             <div style={{ paddingTop: 10 }}>
@@ -751,7 +615,7 @@ export function AddTransactionModal() {
           </div>
         )}
 
-        <div className="flex gap-3" style={{ marginTop: 20 }}>
+        <div className="flex gap-3" style={{ marginTop: 'var(--space-modal)' }}>
           <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
             Cancel
           </Button>

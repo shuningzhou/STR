@@ -87,8 +87,6 @@ export const HOLDINGS_TABLE: SubviewSpec = {
         cash = float(tx.get('cashDelta') or 0)
         if side in ('sell', 'short'):
             qty = -qty
-        elif side == 'option_roll':
-            pass
         if inst_id not in agg:
             agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0, 'cost_total': 0.0}
         agg[inst_id]['quantity'] += qty

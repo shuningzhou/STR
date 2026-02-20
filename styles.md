@@ -169,6 +169,12 @@ Use the `flex` object on layout cells with standard CSS flex property names (cam
 
 ---
 
+## Layout rules (modals and subviews)
+
+**Equal vertical gaps:** The gap between the action button row (Cancel, primary action) and the content above it must equal the gap between the title and the content. This rule applies to all modals and subview dialogs (e.g. Close Option, Roll Option, Add Transaction).
+
+---
+
 ## Spacing
 | Token | Value |
 |-------|-------|

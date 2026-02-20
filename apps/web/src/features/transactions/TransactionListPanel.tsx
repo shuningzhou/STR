@@ -58,13 +58,6 @@ export function TransactionListPanel() {
     tx.option
       ? `${tx.option.expiration?.slice(0, 10) ?? '—'} ${tx.option.strike} ${(tx.option.callPut ?? '').toUpperCase()}`
       : '—';
-  const formatOptionRoll = (tx: StrategyTransaction) => {
-    const r = tx.optionRoll;
-    if (!r?.option || !r?.optionRolledTo) return '—';
-    const from = `${r.option.expiration?.slice(0, 10) ?? ''} ${r.option.strike} ${(r.option.callPut ?? '').toUpperCase()}`.trim();
-    const to = `${r.optionRolledTo.expiration?.slice(0, 10) ?? ''} ${r.optionRolledTo.strike} ${(r.optionRolledTo.callPut ?? '').toUpperCase()}`.trim();
-    return `${from} → ${to}`;
-  };
   const formatCustomData = (tx: StrategyTransaction) => {
     const d = tx.customData;
     if (!d || Object.keys(d).length === 0) return '—';
@@ -195,7 +188,6 @@ export function TransactionListPanel() {
                     <col style={{ width: 58 }} />
                     <col style={{ width: 72 }} />
                     <col style={{ width: 140 }} />
-                    <col style={{ width: 200 }} />
                     <col style={{ width: 80 }} />
                     <col style={{ width: 56 }} />
                   </colgroup>
@@ -210,7 +202,6 @@ export function TransactionListPanel() {
                         ['Price', 'text-right'],
                         ['Amount', 'text-right'],
                         ['Option', 'text-left'],
-                        ['Option Roll', 'text-left'],
                         ['Custom', 'text-left'],
                       ].map(([label]) => (
                         <th
@@ -321,18 +312,6 @@ export function TransactionListPanel() {
                           title={formatOption(tx)}
                         >
                           {formatOption(tx)}
-                        </td>
-                        <td
-                          style={{
-                            color: 'var(--color-text-primary)',
-                            borderRight: '1px solid var(--color-table-border)',
-                            padding: CELL_PADDING,
-                            whiteSpace: 'nowrap',
-                            minWidth: 200,
-                          }}
-                          title={formatOptionRoll(tx)}
-                        >
-                          {formatOptionRoll(tx)}
                         </td>
                         <td
                           className="truncate max-w-[80px]"

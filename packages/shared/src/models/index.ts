@@ -76,18 +76,6 @@ export interface IOption {
   underlyingSymbol?: string;
 }
 
-/**
- * Option roll: close one contract and open another (e.g. March 150 call → April 160 call).
- * Present when type is OPTION_ROLL.
- * - option: the contract being closed
- * - optionRolledTo: the contract being opened
- * - cashDelta on the transaction = net P&L (close proceeds − open cost)
- */
-export interface IOptionRoll {
-  option: IOption;
-  optionRolledTo: IOption;
-}
-
 export interface ITransaction {
   _id: string;
   strategyId: string;
@@ -101,8 +89,6 @@ export interface ITransaction {
   fee: number;
   /** Option contract details; present when transaction involves an option */
   option: IOption | null;
-  /** Present when type is OPTION_ROLL: closed and opened contracts */
-  optionRoll?: IOptionRoll;
   createdAt: string;
 }
 

@@ -15,7 +15,7 @@ export interface SchemaAttribute {
 
 /** Transaction filterable attributes (Source node output) */
 export const TRANSACTION_ATTRIBUTES: SchemaAttribute[] = [
-  { key: 'type', label: 'Type', type: 'enum', enumValues: ['buy', 'sell', 'dividend', 'deposit', 'withdrawal', 'fee', 'interest', 'option_exercise', 'option_assign', 'option_expire', 'option_roll'] },
+  { key: 'type', label: 'Type', type: 'enum', enumValues: ['buy', 'sell', 'dividend', 'deposit', 'withdrawal', 'fee', 'interest', 'option_exercise', 'option_assign', 'option_expire'] },
   { key: 'quantity', label: 'Quantity', type: 'number' },
   { key: 'price', label: 'Price', type: 'number' },
   { key: 'cashDelta', label: 'Cash Delta', type: 'number' },

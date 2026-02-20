@@ -19,7 +19,6 @@ Complete JSON shapes for all data models. Enum properties list all possible valu
 | `option_exercise` |
 | `option_assign` |
 | `option_expire` |
-| `option_roll` |
 
 ### AssetType
 | Value |
@@ -249,7 +248,6 @@ Complete JSON shapes for all data models. Enum properties list all possible valu
 | `customData` | object | — |
 | `fee` | number | — |
 | `option` | Option \| null | — |
-| `optionRoll` | OptionRoll (optional) | Present when type is `option_roll` |
 | `createdAt` | string (ISO 8601) | — |
 
 ### Option (when transaction involves an option)
@@ -262,14 +260,7 @@ Complete JSON shapes for all data models. Enum properties list all possible valu
 | `multiplier` | number (optional) | — |
 | `underlyingSymbol` | string (optional) | — |
 
-### OptionRoll (when type is option_roll)
-
-| Property | Type |
-|----------|------|
-| `option` | Option (contract being closed) |
-| `optionRolledTo` | Option (contract being opened) |
-
-The transaction's `cashDelta` = net P&L (close proceeds − open cost).
+Rolls are represented as two transactions: `buy_to_cover` (close original) + `sell` (open new).
 
 ---
 

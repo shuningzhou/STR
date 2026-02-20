@@ -9,7 +9,10 @@ const CALL_PUT_OPTIONS = [
   { value: 'put', label: 'Put' },
 ];
 
-const INPUT_WIDTH = { width: 200 };
+const RECEIVE_PAY_OPTIONS = [
+  { value: 'receive', label: 'Receive' },
+  { value: 'pay', label: 'Pay' },
+];
 
 export function RollOptionModal() {
   const rollOptionModalOpen = useUIStore((s) => s.rollOptionModalOpen);
@@ -23,7 +26,8 @@ export function RollOptionModal() {
   const [rollToExp, setRollToExp] = useState('');
   const [rollToStrike, setRollToStrike] = useState('');
   const [rollToCallPut, setRollToCallPut] = useState<'call' | 'put'>('call');
-  const [price, setPrice] = useState('');
+  const [receivePay, setReceivePay] = useState<'receive' | 'pay'>('receive');
+  const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +36,8 @@ export function RollOptionModal() {
       setRollToExp('');
       setRollToStrike('');
       setRollToCallPut((opt?.callPut === 'put' ? 'put' : 'call') as 'call' | 'put');
-      setPrice('');
+      setReceivePay('receive');
+      setAmount('');
       setDate(new Date().toISOString().slice(0, 10));
       setError(null);
     }
@@ -48,34 +53,55 @@ export function RollOptionModal() {
         setError('Strike must be non-negative');
         return;
       }
-      const pr = parseFloat(price);
-      if (isNaN(pr)) {
-        setError('Price (delta premium) is required');
+      const amt = parseFloat(amount);
+      if (isNaN(amt) || amt < 0) {
+        setError('Amount is required and must be positive');
         return;
       }
 
       const qty = transaction.quantity ?? 1;
-      const cashDelta = Math.round(qty * pr * 100) / 100;
+      const originalPremium = Math.abs(transaction.cashDelta ?? 0);
+      // Amount = net cash from roll, added/deducted in wallet. Receive X => new = original + X (wallet +X). Pay X => new = original − X (wallet −X).
+      const newOptionPremium =
+        receivePay === 'receive'
+          ? Math.round((originalPremium + amt) * 100) / 100
+          : Math.round((originalPremium - amt) * 100) / 100;
+      const newOptionPricePerShare = qty > 0 ? Math.round((newOptionPremium / (qty * 100)) * 100) / 100 : 0;
       const timestamp = `${date}T12:00:00Z`;
+      const symbol = transaction.instrumentSymbol ?? '';
+
+      // Original option's premium (what we received when we sold it)
+      const closePremium = -Math.round(originalPremium * 100) / 100;
+      const closePricePerShare = qty > 0 ? Math.abs(originalPremium) / (qty * 100) : 0;
+
+      const optionRolledTo = {
+        expiration: rollToExp ? `${rollToExp}T00:00:00Z` : '',
+        strike,
+        callPut: rollToCallPut,
+      };
 
       try {
+        // 1. Buy to cover - close the original option (same premium as when we sold it)
         addTransaction(strategyId, {
-          side: 'option_roll',
-          cashDelta,
+          side: 'buy_to_cover',
+          cashDelta: closePremium,
           timestamp,
-          instrumentSymbol: transaction.instrumentSymbol ?? '',
+          instrumentSymbol: symbol,
           option: opt,
-          optionRoll: {
-            option: opt,
-            optionRolledTo: {
-              expiration: rollToExp ? `${rollToExp}T00:00:00Z` : '',
-              strike,
-              callPut: rollToCallPut,
-            },
-          },
           customData: {},
           quantity: qty,
-          price: pr,
+          price: closePricePerShare,
+        });
+        // 2. Sell - open the new option (premium = roll receive/pay amount)
+        addTransaction(strategyId, {
+          side: 'sell',
+          cashDelta: newOptionPremium,
+          timestamp,
+          instrumentSymbol: symbol,
+          option: optionRolledTo,
+          customData: {},
+          quantity: qty,
+          price: newOptionPricePerShare,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to roll option');
@@ -84,7 +110,7 @@ export function RollOptionModal() {
 
       setRollOptionModalOpen(null);
     },
-    [strategyId, transaction, opt, rollToExp, rollToStrike, rollToCallPut, price, date, addTransaction, setRollOptionModalOpen]
+    [strategyId, transaction, opt, rollToExp, rollToStrike, rollToCallPut, receivePay, amount, date, addTransaction, setRollOptionModalOpen]
   );
 
   const handleClose = useCallback(() => {
@@ -102,16 +128,14 @@ export function RollOptionModal() {
   );
 
   const fromExp = (opt.expiration ?? '').slice(0, 10);
+  const modalTitle = `Roll ${transaction.instrumentSymbol} ${opt.callPut?.toUpperCase()} ${fromExp} @ ${opt.strike}`;
 
   return (
-    <Modal title="Roll Option" onClose={handleClose} size="default">
+    <Modal title={modalTitle} onClose={handleClose} size="default">
       <form onSubmit={handleSubmit}>
-        <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
-          Roll <strong>{transaction.instrumentSymbol}</strong> {opt.callPut?.toUpperCase()} {fromExp} @ {opt.strike} → new option
-        </p>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4" style={{ marginBottom: 'var(--space-modal)' }}>
           {field('To: Expiration', (
-            <Input type="date" value={rollToExp} onChange={(e) => setRollToExp(e.target.value)} style={INPUT_WIDTH} />
+            <Input type="date" value={rollToExp} onChange={(e) => setRollToExp(e.target.value)} className="w-full" />
           ))}
           {field('To: Strike', (
             <Input
@@ -121,28 +145,32 @@ export function RollOptionModal() {
               value={rollToStrike}
               onChange={(e) => setRollToStrike(e.target.value)}
               placeholder="e.g. 185"
-              style={INPUT_WIDTH}
+              className="w-full"
             />
           ))}
           {field('To: Call/Put', (
-            <Select options={CALL_PUT_OPTIONS} value={rollToCallPut} onChange={(v) => setRollToCallPut(v as 'call' | 'put')} style={INPUT_WIDTH} />
+            <Select options={CALL_PUT_OPTIONS} value={rollToCallPut} onChange={(v) => setRollToCallPut(v as 'call' | 'put')} className="w-full" />
           ))}
           {field('Date', (
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={INPUT_WIDTH} />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
           ))}
-          {field('Price (delta premium, + if credit)', (
+          {field('Receive / Pay', (
+            <Select options={RECEIVE_PAY_OPTIONS} value={receivePay} onChange={(v) => setReceivePay(v as 'receive' | 'pay')} className="w-full" />
+          ))}
+          {field('Net amount ($)', (
             <Input
               type="number"
+              min="0"
               step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g. 0.50"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="e.g. 10 (net receive or pay)"
               error={error ?? undefined}
-              style={INPUT_WIDTH}
+              className="w-full"
             />
           ))}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3" style={{ marginTop: 'var(--space-modal)' }}>
           <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
             Cancel
           </Button>
