@@ -8,7 +8,7 @@ export const SECURED_PUTS_CAPITAL: SubviewSpec = {
   type: 'readonly',
   name: 'Secured Puts Capital',
   icon: 'Shield',
-  iconColor: 'cyan-2',
+  iconColor: 'white',
   description: 'Total money occupied by secured puts (strike × 100 × contracts)',
   maker: 'official',
   categories: ['essential', 'option'],

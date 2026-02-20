@@ -164,7 +164,7 @@ const tableContentSchema = z.object({
 
 const chartContentSchema = z.object({
   Chart: z.object({
-    type: z.enum(['line', 'bar', 'pie']),
+    type: z.enum(['line', 'bar', 'pie', 'timeline']),
     source: z.string(), // "py:fn"
     padding: paddingSchema,
     /** Line/bar color: built-in name or #hex. Overridden by colorInputRef when inputs has value. */

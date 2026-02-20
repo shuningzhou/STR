@@ -614,6 +614,178 @@ function ContentRenderer({
           No data
         </span>
       );
+    } else if (chart.type === 'timeline') {
+      const timelineData = data as { events?: { date: string; dateShort?: string; ticker?: string; tickers?: string[]; color?: string; tickerColor?: string; tickerColors?: Record<string, string> }[] } | undefined;
+      const events = timelineData?.events ?? [];
+      if (events.length === 0) {
+        inner = (
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            No option expirations
+          </span>
+        );
+      } else {
+        const parseDate = (d: string) => {
+          const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (m) return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)).getTime();
+          return Date.now();
+        };
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const minDate = new Date(Math.min(...events.map((e) => parseDate(e.date))));
+        const maxDate = new Date(Math.max(...events.map((e) => parseDate(e.date))));
+        const startYear = minDate.getFullYear();
+        const startMonth = minDate.getMonth();
+        let endYear = maxDate.getFullYear();
+        let endMonth = maxDate.getMonth();
+        endMonth += 1;
+        if (endMonth > 11) {
+          endMonth = 0;
+          endYear += 1;
+        }
+        const rangeStart = new Date(startYear, startMonth, 1).getTime();
+        const rangeEnd = new Date(endYear, endMonth + 1, 0).getTime();
+        const rangeMs = Math.max(rangeEnd - rangeStart, 1);
+
+        const crossesYear = startYear < endYear;
+        const axisMarksRaw: { label: string; key: string }[] = [];
+        let y = startYear;
+        let m = startMonth;
+        while (y < endYear || (y === endYear && m <= endMonth)) {
+          const label = crossesYear ? monthNames[m] : `${monthNames[m]} ${y}`;
+          axisMarksRaw.push({ label, key: `${y}-${m + 1}` });
+          if (m === 11) {
+            axisMarksRaw.push({ label: String(y + 1), key: `yr-${y + 1}` });
+            y += 1;
+            m = 0;
+          } else {
+            m += 1;
+          }
+        }
+        const markCount = axisMarksRaw.length;
+        const axisMarks = axisMarksRaw.map((mark, i) => ({
+          ...mark,
+          left: markCount > 1 ? (i / (markCount - 1)) * 100 : 50,
+        }));
+
+        inner = (
+          <div className="w-full h-full flex flex-col justify-center" style={{ minHeight: 56 }}>
+            <div className="w-full relative flex-shrink-0" style={{ minHeight: 56 }}>
+            {/* Timeline axis */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                height: 2,
+                backgroundColor: resolveColor('grey-1') ?? 'var(--color-text-primary)',
+              }}
+            />
+            {/* Month/year markers */}
+            {axisMarks.map(({ key, label, left }) => (
+              <div
+                key={key}
+                style={{
+                  position: 'absolute',
+                  left: `${left}%`,
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 1,
+                  height: 12,
+                  backgroundColor: resolveColor('grey-1') ?? 'var(--color-text-primary)',
+                }}
+              />
+            ))}
+            {axisMarks.map(({ key, label, left }) => (
+              <div
+                key={`label-${key}`}
+                style={{
+                  position: 'absolute',
+                  left: `${left}%`,
+                  top: 'calc(50% + 10px)',
+                  transform: 'translateX(-50%)',
+                  fontSize: 10,
+                  color: resolveColor('offwhite-2') ?? 'var(--color-text-muted)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {label}
+              </div>
+            ))}
+            {/* Event markers - position proportional to day within month */}
+            {events.map((e, i) => {
+              const match = e.date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+              const y = match ? parseInt(match[1], 10) : 0;
+              const mo = match ? parseInt(match[2], 10) : 1;
+              const day = match ? parseInt(match[3], 10) : 1;
+              const monthKey = `${y}-${mo}`;
+              const segIdx = axisMarks.findIndex((a) => a.key === monthKey);
+              const daysInMonth = new Date(y, mo, 0).getDate();
+              const segmentStart = segIdx >= 0 ? axisMarks[segIdx].left : 0;
+              const segmentEnd = segIdx >= 0 && segIdx + 1 < axisMarks.length ? axisMarks[segIdx + 1].left : 100;
+              const left =
+                segIdx >= 0 ? segmentStart + (day / daysInMonth) * (segmentEnd - segmentStart) : ((parseDate(e.date) - rangeStart) / rangeMs) * 100;
+              const fillColor = resolveColor(e.color) ?? 'var(--color-chart-2)';
+              const tickerColors = e.tickerColors as Record<string, string> | undefined;
+              const getTickerColor = (t: string) =>
+                resolveColor(tickerColors?.[t] ?? e.tickerColor) ?? fillColor;
+              const strokeColor = /^#[0-9a-fA-F]{6}$/.test(fillColor) ? blendHex(fillColor, '#ffffff', 0.4) : fillColor;
+              const tickers = e.tickers ?? (e.ticker ? [e.ticker] : []);
+              const circleSize = 14;
+              const tickerHeight = Math.max(tickers.length * 14, 1);
+              const gap = 4;
+              return (
+                <div
+                  key={`${e.date}-${tickers.join(',')}-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${left}%`,
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      marginBottom: gap,
+                    }}
+                  >
+                    {tickers.map((t) => (
+                      <span key={t} style={{ fontSize: 11, fontWeight: 500, color: getTickerColor(t), lineHeight: 1.2 }}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      width: circleSize,
+                      height: circleSize,
+                      borderRadius: '50%',
+                      backgroundColor: fillColor,
+                      border: `2px solid ${strokeColor}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 8,
+                      fontWeight: 600,
+                      color: 'rgba(255,255,255,0.95)',
+                    }}
+                  >
+                    {e.dateShort ?? e.date.slice(8, 10) ?? e.date}
+                  </div>
+                  <div style={{ height: tickerHeight + gap }} aria-hidden />
+                </div>
+              );
+            })}
+            </div>
+          </div>
+        );
+      }
     } else {
       inner = (
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
@@ -621,10 +793,16 @@ function ContentRenderer({
         </span>
       );
     }
+    const chartPadding =
+      chart.type === 'timeline'
+        ? { ...(typeof p === 'object' && p != null ? p : {}), left: 20, right: 20 }
+        : p;
     const chartWrapperStyle =
-      ((chart.type === 'line' && items.length > 0) || (chart.type === 'bar' && barLabels.length > 0))
-        ? { ...paddingToStyle(p), flex: 1, minHeight: 0, display: 'flex' as const, flexDirection: 'column' as const }
-        : paddingToStyle(p);
+      ((chart.type === 'line' && items.length > 0) ||
+        (chart.type === 'bar' && barLabels.length > 0) ||
+        (chart.type === 'timeline' && (data as { events?: unknown[] })?.events?.length > 0))
+        ? { ...paddingToStyle(chartPadding), flex: 1, minHeight: 0, display: 'flex' as const, flexDirection: 'column' as const }
+        : paddingToStyle(chartPadding);
     return p != null ? <div style={chartWrapperStyle}>{inner}</div> : inner;
   }
   if ('icon' in item) {
@@ -863,7 +1041,7 @@ export function SubviewSpecRenderer({
               c.content?.some((item) => {
                 if ('Chart' in item) {
                   const t = (item as { Chart: { type?: string } }).Chart?.type;
-                  return t === 'line' || t === 'bar';
+                  return t === 'line' || t === 'bar' || t === 'timeline';
                 }
                 return false;
               })
