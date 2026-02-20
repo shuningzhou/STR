@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import type { StrategyInputConfig } from '@/store/strategy-store';
 import { IconPicker } from '@/components/IconPicker';
 import { useStrategyStore } from '@/store/strategy-store';
@@ -54,6 +54,7 @@ export function StrategySettingsModal() {
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const updateStrategy = useStrategyStore((s) => s.updateStrategy);
   const deleteStrategy = useStrategyStore((s) => s.deleteStrategy);
+  const moveStrategy = useStrategyStore((s) => s.moveStrategy);
 
   const { strategySettingsModalOpen, setStrategySettingsModalOpen } = useUIStore();
 
@@ -277,6 +278,74 @@ export function StrategySettingsModal() {
           </div>
         </div>
 
+        {/* Strategy order */}
+        {strategies.length > 1 && (
+          <div style={{ marginBottom: 20 }}>
+            <Label>Order in sidebar</Label>
+            <div
+              className="flex flex-col gap-1 mt-1"
+              style={{
+                padding: 12,
+                borderRadius: 'var(--radius-medium)',
+                backgroundColor: 'var(--palette-grey-4)',
+                border: '1px solid var(--palette-grey-2)',
+              }}
+            >
+              {strategies.map((st, idx) => {
+                const canMoveUp = idx > 0;
+                const canMoveDown = idx < strategies.length - 1;
+                return (
+                  <React.Fragment key={st.id}>
+                    {idx > 0 && (
+                      <div style={{ height: 0, borderTop: '1px solid var(--palette-grey-2)' }} aria-hidden />
+                    )}
+                    <div
+                      className="flex items-center gap-2"
+                    style={{
+                      padding: '6px 8px',
+                      borderRadius: 'var(--radius-medium)',
+                      backgroundColor: st.id === strategy?.id ? 'var(--color-bg-input)' : undefined,
+                    }}
+                  >
+                    <span className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--color-text-primary)' }}>
+                      {st.name}
+                    </span>
+                    <div className="flex shrink-0">
+                      <button
+                        type="button"
+                        className="p-1 rounded transition-colors"
+                        style={{
+                          color: canMoveUp ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
+                          opacity: canMoveUp ? 1 : 0.4,
+                        }}
+                        onClick={() => canMoveUp && moveStrategy(st.id, 'up')}
+                        disabled={!canMoveUp}
+                        title="Move up"
+                      >
+                        <ChevronUp size={14} strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        className="p-1 rounded transition-colors"
+                        style={{
+                          color: canMoveDown ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
+                          opacity: canMoveDown ? 1 : 0.4,
+                        }}
+                        onClick={() => canMoveDown && moveStrategy(st.id, 'down')}
+                        disabled={!canMoveDown}
+                        title="Move down"
+                      >
+                        <ChevronDown size={14} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Inputs section */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ marginBottom: 10 }}>
@@ -287,8 +356,8 @@ export function StrategySettingsModal() {
             style={{
               padding: 12,
               borderRadius: 'var(--radius-medium)',
-              backgroundColor: 'var(--color-bg-hover)',
-              border: '1px solid var(--color-table-border)',
+              backgroundColor: 'var(--palette-grey-4)',
+              border: '1px solid var(--palette-grey-2)',
               gridTemplateColumns: '120px 120px 150px 32px',
               width: 'fit-content',
               minWidth: 442,
@@ -309,7 +378,7 @@ export function StrategySettingsModal() {
             {strategyInputs.map((inp, idx) => (
               <React.Fragment key={inp.id}>
                 {idx > 0 && (
-                  <div style={{ gridColumn: '1 / -1', height: 0, borderTop: '1px solid var(--color-table-border)' }} aria-hidden />
+                  <div style={{ gridColumn: '1 / -1', height: 0, borderTop: '1px solid var(--palette-grey-2)' }} aria-hidden />
                 )}
                 <div style={{ gridColumn: 1 }}>
                   <Input

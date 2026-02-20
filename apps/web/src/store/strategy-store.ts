@@ -115,6 +115,7 @@ interface StrategyState {
   updateStrategyInputValue: (strategyId: string, inputId: string, value: string | number) => void;
   deleteStrategy: (id: string) => void;
   setActiveStrategy: (id: string | null) => void;
+  moveStrategy: (id: string, direction: 'up' | 'down') => void;
 
   addSubview: (
     strategyId: string,
@@ -200,6 +201,17 @@ export const useStrategyStore = create<StrategyState>()(
       },
 
       setActiveStrategy: (id) => set({ activeStrategyId: id }),
+
+      moveStrategy: (id, direction) => {
+        const { strategies } = get();
+        const idx = strategies.findIndex((s) => s.id === id);
+        if (idx < 0) return;
+        const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (newIdx < 0 || newIdx >= strategies.length) return;
+        const next = [...strategies];
+        [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+        set({ strategies: next });
+      },
 
       addTransaction: (strategyId, tx) => {
         const st = get().strategies.find((s) => s.id === strategyId);
