@@ -7,6 +7,42 @@ import { useState, useEffect } from 'react';
 import { Pencil, Trash2, Repeat, X } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from 'recharts';
+
+/** Custom bar shape: rounds top corners only when this segment is the top of the stack for this datum. */
+function StackedBarShape({
+  x,
+  y,
+  width,
+  height,
+  fill,
+  payload,
+  barSeries,
+  seriesIndex,
+  radius = 4,
+}: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  payload?: Record<string, unknown>;
+  barSeries: { name: string }[];
+  seriesIndex: number;
+  radius?: number;
+}) {
+  if (x == null || y == null || width == null || height == null || height <= 0) return null;
+  const isTop =
+    payload &&
+    barSeries
+      .slice(seriesIndex + 1)
+      .every((s) => !(Number(payload[s.name]) || 0));
+  if (!isTop) {
+    return <rect x={x} y={y} width={width} height={height} fill={fill ?? 'var(--color-chart-1)'} />;
+  }
+  const r = Math.min(radius, width / 2, height / 2);
+  const path = `M ${x + r},${y} L ${x + width - r},${y} Q ${x + width},${y} ${x + width},${y + r} L ${x + width},${y + height} L ${x},${y + height} L ${x},${y + r} Q ${x},${y} ${x + r},${y} Z`;
+  return <path d={path} fill={fill ?? 'var(--color-chart-1)'} />;
+}
 import type { SubviewSpec, ContentItem, LayoutRow, LayoutCell } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { InputControl } from './InputControl';
@@ -540,7 +576,18 @@ function ContentRenderer({
                   const hoverFill = /^#[0-9a-fA-F]{6}$/.test(seriesColor) ? blendHex(seriesColor, '#ffffff', 0.2) : seriesColor;
                   const isTopBar = i === barSeries.length - 1;
                   return (
-                    <Bar key={s.name} dataKey={s.name} stackId="stack" fill={seriesColor} name={s.name} isAnimationActive={false} activeBar={{ fill: hoverFill }} radius={isTopBar ? [4, 4, 0, 0] : i === 0 ? [0, 0, 4, 4] : 0}>
+                    <Bar
+                      key={s.name}
+                      dataKey={s.name}
+                      stackId="stack"
+                      fill={seriesColor}
+                      name={s.name}
+                      isAnimationActive={false}
+                      activeBar={{ fill: hoverFill }}
+                      shape={(props) => (
+                        <StackedBarShape {...props} barSeries={barSeries} seriesIndex={i} payload={(props as { payload?: Record<string, unknown> }).payload} />
+                      )}
+                    >
                       {isTopBar && (
                         <LabelList
                           position="top"
