@@ -14,8 +14,8 @@
   --palette-grey-3: #545454;
   --palette-grey-4: #3f3f3f;
 
-  /* Table borders (grey-2, lighter than general border) */
-  --color-table-border: var(--palette-grey-2);
+  /* Table borders: grey-3; header: grey-4 */
+  --color-table-border: var(--palette-grey-3);
   --palette-green-2: #28c207;
   --palette-green-3: #209b06;
   --palette-blue-1: #4d86ff;
@@ -27,7 +27,7 @@
 
   /* Table header */
   --color-table-header-text: var(--palette-offwhite-3);
-  --color-table-header-bg: var(--palette-grey-3);
+  --color-table-header-bg: var(--palette-grey-4);
   --palette-violet-1: #b34dff;
   --palette-cyan-2: #00c8ff;
   --palette-yellow-2: #ffdb00;
@@ -35,8 +35,8 @@
 
   /* Backgrounds */
   --color-bg-page: var(--palette-black);
-  --color-bg-card: var(--palette-grey-4);
-  --color-bg-sidebar: var(--palette-black);
+  --color-bg-card: var(--palette-offblack);
+  --color-bg-sidebar: var(--palette-offblack);
   --color-bg-input: var(--palette-grey-4);
   --color-bg-hover: var(--palette-grey-4);
   --color-bg-tab: var(--palette-grey-4);
@@ -205,11 +205,15 @@ input[type="checkbox"] {
 .subview-table-body {
   padding: 0 !important;
 }
-/* Table header: offwhite-4 text, grey-4 background */
+/* Table header: grey-4 background; data cells transparent */
 .subview-table-body table thead tr,
 .subview-table-body table thead th {
   background: var(--color-table-header-bg) !important;
   color: var(--color-table-header-text) !important;
+}
+.subview-table-body table tbody tr,
+.subview-table-body table tbody td {
+  background: transparent !important;
 }
 .subview-spec-root {
   padding-top: var(--subview-top-bar-height) !important;

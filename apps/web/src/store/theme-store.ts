@@ -26,7 +26,7 @@ export interface ThemeColors {
 
 const DARK_DEFAULTS: ThemeColors = {
   '--color-bg-page': BUILT_IN_COLORS['black'],
-  '--color-bg-card': BUILT_IN_COLORS['grey-4'],
+  '--color-bg-card': BUILT_IN_COLORS['offblack'],
   '--color-bg-hover': BUILT_IN_COLORS['grey-4'],
   '--color-active': BRANDING_GREEN,
   '--color-bg-primary': BRANDING_GREEN,

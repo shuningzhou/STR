@@ -93,7 +93,7 @@ export function TransactionListPanel() {
         style={{
           width: PANEL_WIDTH,
           maxWidth: '95vw',
-          backgroundColor: 'var(--palette-offblack)',
+          backgroundColor: 'var(--color-bg-card)',
           borderColor: 'var(--color-border)',
           boxShadow: '-4px 0 24px var(--color-shadow)',
           transform: transactionListPanelOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -171,7 +171,7 @@ export function TransactionListPanel() {
               style={{
                 borderTop: '1px solid var(--color-table-border)',
                 borderBottom: '1px solid var(--color-table-border)',
-                backgroundColor: 'var(--color-bg-input)',
+                backgroundColor: 'transparent',
               }}
             >
               <div className="overflow-auto min-h-0 min-w-0 flex-1 subview-table-body w-full">

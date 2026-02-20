@@ -311,7 +311,7 @@ function ContentRenderer({
 
     const cellPadding = 5;
     const inner = (
-      <div className="subview-table-container flex flex-col min-w-full w-full" style={{ borderTop: '1px solid var(--color-table-border)', borderBottom: '1px solid var(--color-table-border)', backgroundColor: 'var(--color-bg-input)', width: '100%', minWidth: '100%' }}>
+      <div className="subview-table-container flex flex-col min-w-full w-full" style={{ borderTop: '1px solid var(--color-table-border)', borderBottom: '1px solid var(--color-table-border)', backgroundColor: 'transparent', width: '100%', minWidth: '100%' }}>
         <div className="subview-table-body w-full" style={{ width: '100%' }}>
           <table className="w-full border-collapse text-[12px]" style={{ tableLayout: 'fixed', width: '100%' }}>
             <colgroup>
