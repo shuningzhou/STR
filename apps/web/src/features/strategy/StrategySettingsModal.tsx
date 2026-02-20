@@ -288,7 +288,7 @@ export function StrategySettingsModal() {
                 padding: 12,
                 borderRadius: 'var(--radius-medium)',
                 backgroundColor: 'var(--palette-grey-4)',
-                border: '1px solid var(--palette-grey-2)',
+                border: '1px solid var(--palette-grey-3)',
               }}
             >
               {strategies.map((st, idx) => {
@@ -297,7 +297,7 @@ export function StrategySettingsModal() {
                 return (
                   <React.Fragment key={st.id}>
                     {idx > 0 && (
-                      <div style={{ height: 0, borderTop: '1px solid var(--palette-grey-2)' }} aria-hidden />
+                      <div style={{ height: 0, borderTop: '1px solid var(--palette-grey-3)' }} aria-hidden />
                     )}
                     <div
                       className="flex items-center gap-2"
@@ -357,7 +357,7 @@ export function StrategySettingsModal() {
               padding: 12,
               borderRadius: 'var(--radius-medium)',
               backgroundColor: 'var(--palette-grey-4)',
-              border: '1px solid var(--palette-grey-2)',
+              border: '1px solid var(--palette-grey-3)',
               gridTemplateColumns: '120px 120px 150px 32px',
               width: 'fit-content',
               minWidth: 442,
@@ -378,7 +378,7 @@ export function StrategySettingsModal() {
             {strategyInputs.map((inp, idx) => (
               <React.Fragment key={inp.id}>
                 {idx > 0 && (
-                  <div style={{ gridColumn: '1 / -1', height: 0, borderTop: '1px solid var(--palette-grey-2)' }} aria-hidden />
+                  <div style={{ gridColumn: '1 / -1', height: 0, borderTop: '1px solid var(--palette-grey-3)' }} aria-hidden />
                 )}
                 <div style={{ gridColumn: 1 }}>
                   <Input
