@@ -13,6 +13,7 @@ const INPUT_TYPES = [
   { value: 'ticker_selector', label: 'Ticker' },
   { value: 'number_input', label: 'Number' },
   { value: 'select', label: 'Select' },
+  { value: 'segment', label: 'Segment' },
   { value: 'checkbox', label: 'Checkbox' },
 ] as const;
 
@@ -29,6 +30,7 @@ function defaultForType(type: StrategyInputConfig['type']): unknown {
     case 'number_input':
       return 0;
     case 'select':
+    case 'segment':
       return '';
     case 'checkbox':
       return false;
@@ -120,7 +122,7 @@ export function StrategySettingsModal() {
       (cfg as StrategyInputConfig & { min?: number; max?: number }).min = 0;
       (cfg as StrategyInputConfig & { min?: number; max?: number }).max = 100;
     }
-    if (type === 'select') {
+    if (type === 'select' || type === 'segment') {
       (cfg as StrategyInputConfig & { options?: { value: string; label: string }[] }).options = [
         { value: 'a', label: 'Option A' },
         { value: 'b', label: 'Option B' },

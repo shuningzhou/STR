@@ -3,13 +3,14 @@
  * Shared by SubviewSpecRenderer and StrategyInputsBar.
  */
 import { useEffect } from 'react';
-import { Input } from '@/components/ui';
+import { Input, SegmentControl } from '@/components/ui';
 
 export const INPUT_WIDTHS: Record<string, number> = {
   time_range: 240,
   ticker_selector: 100,
   number_input: 100,
   select: 120,
+  segment: 280,
   checkbox: 75,
 };
 
@@ -21,7 +22,7 @@ const VALUE_BOX_STYLE: React.CSSProperties = {
 
 export interface InputControlProps {
   inputKey: string;
-  cfg: { type: string; title: string; default?: unknown; options?: { value: string; label: string }[] };
+  cfg: { type: string; title: string; default?: unknown; options?: { value: string; label: string }[]; topbar?: number; topbarShowTitle?: boolean };
   inputs: Record<string, unknown>;
   onInputChange?: (key: string, value: string | number) => void;
   context: unknown;
@@ -228,6 +229,35 @@ export function InputControl({
             {String(inputs[inputKey] ?? (cfg as { default?: number }).default ?? 0)}
           </div>
         )
+      ) : inputType === 'segment' ? (
+        (() => {
+          const opts = (cfg as { options?: { value: string; label: string }[] }).options ?? [];
+          const val = String(inputs[inputKey] ?? (cfg as { default?: string }).default ?? '');
+          return isEditable ? (
+            <SegmentControl
+              value={val}
+              optionsWithLabels={opts}
+              onChange={(v) => onInputChange!(inputKey, v)}
+              className="w-full"
+              compact={compact}
+            />
+          ) : (
+            <div
+              className="rounded-[var(--radius-medium)] border text-[13px]"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                ...VALUE_BOX_STYLE,
+              }}
+            >
+              {opts.find((o) => o.value === val)?.label ?? val}
+            </div>
+          );
+        })()
       ) : inputType === 'select' ? (
         isEditable ? (
           <select

@@ -45,6 +45,15 @@ const selectInputSchema = z.object({
   topbarShowTitle: topbarShowTitleSchema,
 });
 
+const segmentInputSchema = z.object({
+  type: z.literal('segment'),
+  title: z.string(),
+  options: z.array(selectOptionSchema),
+  default: z.string(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
+});
+
 const checkboxInputSchema = z.object({
   type: z.literal('checkbox'),
   title: z.string(),
@@ -58,6 +67,7 @@ const inputConfigSchema = z.discriminatedUnion('type', [
   tickerSelectorInputSchema,
   numberInputSchema,
   selectInputSchema,
+  segmentInputSchema,
   checkboxInputSchema,
 ]);
 

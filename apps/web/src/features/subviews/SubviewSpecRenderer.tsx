@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Pencil, Trash2, Repeat, X } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from 'recharts';
 import type { SubviewSpec, ContentItem, LayoutRow, LayoutCell } from '@str/shared';
 import { runPythonFunction } from '@/lib/pyodide-executor';
 import { InputControl } from './InputControl';
@@ -385,9 +385,18 @@ function ContentRenderer({
     const chart = item.Chart;
     const p = chart.padding;
     const source = chart.source;
-    const data = resolved[source] as { items?: { label: string; value: number }[]; colors?: { value?: string; depositWithdraw?: string } } | undefined;
+    const data = resolved[source] as
+      | {
+          items?: { label: string; value: number }[];
+          labels?: string[];
+          series?: { name: string; data: number[] }[];
+          colors?: { value?: string; depositWithdraw?: string } & Record<string, string>;
+        }
+      | undefined;
     const items = data?.items ?? [];
     const dataColors = data?.colors;
+    const barLabels = data?.labels ?? [];
+    const barSeries = data?.series ?? [];
 
     let inner: React.ReactNode;
     if (chart.type === 'pie' && items.length > 0) {
@@ -480,6 +489,78 @@ function ContentRenderer({
           No data
         </span>
       );
+    } else if (chart.type === 'bar' && barLabels.length > 0 && barSeries.length > 0) {
+      const barData = barLabels.map((label, i) => {
+        const row: Record<string, string | number> = { label };
+        for (const s of barSeries) {
+          row[s.name] = s.data[i] ?? 0;
+        }
+        return row;
+      });
+      const CHART_BAR_COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)'];
+      const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name?: string; value?: number; fill?: string }[]; label?: string }) => {
+        if (!active || !payload?.length) return null;
+        const total = payload.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+        return (
+          <div
+            style={{
+              padding: '6px 10px',
+              backgroundColor: 'rgba(19, 19, 19, 0.9)',
+              borderRadius: 4,
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            <div style={{ color: 'var(--color-text-muted)' }}>{label}</div>
+            {payload.map((p) => (Number(p.value) || 0) > 0 && (
+              <div key={p.name ?? ''} style={{ color: p.fill }}>{p.name}: ${Number(p.value).toLocaleString()}</div>
+            ))}
+            <div style={{ color: resolveColor('yellow-2') ?? 'var(--color-chart-1)' }}>Total: ${total.toLocaleString()}</div>
+          </div>
+        );
+      };
+      inner = (
+        <div className="w-full flex-1 min-h-0" style={{ position: 'relative', minHeight: 80 }}>
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} margin={{ top: 24, right: 5, left: 5, bottom: 5 }} isAnimationActive={false}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${Number(v).toLocaleString()}`} />
+                <Tooltip content={<BarTooltip />} cursor={false} />
+                <Legend />
+                {barSeries.map((s, i) => {
+                  const seriesColor = resolveColor((dataColors as Record<string, string>)?.[s.name]) ?? CHART_BAR_COLORS[i % CHART_BAR_COLORS.length];
+                  const hoverFill = /^#[0-9a-fA-F]{6}$/.test(seriesColor) ? blendHex(seriesColor, '#ffffff', 0.2) : seriesColor;
+                  const isTopBar = i === barSeries.length - 1;
+                  return (
+                    <Bar key={s.name} dataKey={s.name} stackId="stack" fill={seriesColor} name={s.name} isAnimationActive={false} activeBar={{ fill: hoverFill }}>
+                      {isTopBar && (
+                        <LabelList
+                          position="top"
+                          valueAccessor={(entry) => {
+                            const payload = (entry as { payload?: Record<string, unknown> }).payload;
+                            const total = barSeries.reduce((sum, ser) => sum + (Number(payload?.[ser.name]) || 0), 0);
+                            return total > 0 ? `$${total.toLocaleString()}` : '';
+                          }}
+                          fill={resolveColor('yellow-2') ?? 'var(--color-chart-1)'}
+                          style={{ fontSize: 12, fontWeight: 500 }}
+                        />
+                      )}
+                    </Bar>
+                  );
+                })}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      );
+    } else if (chart.type === 'bar') {
+      inner = (
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          No data
+        </span>
+      );
     } else {
       inner = (
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
@@ -488,7 +569,7 @@ function ContentRenderer({
       );
     }
     const chartWrapperStyle =
-      chart.type === 'line' && items.length > 0
+      ((chart.type === 'line' && items.length > 0) || (chart.type === 'bar' && barLabels.length > 0))
         ? { ...paddingToStyle(p), flex: 1, minHeight: 0, display: 'flex' as const, flexDirection: 'column' as const }
         : paddingToStyle(p);
     return p != null ? <div style={chartWrapperStyle}>{inner}</div> : inner;
@@ -726,7 +807,13 @@ export function SubviewSpecRenderer({
             const rowFlex = getRowFlex(row);
             const hasWeightedCell = cells.some((c) => c.weight != null || (c.flex && ('flex' in c.flex || 'flexGrow' in c.flex)));
             const hasScalingChart = cells.some((c) =>
-              c.content?.some((item) => 'Chart' in item && (item as { Chart: { type?: string } }).Chart?.type === 'line')
+              c.content?.some((item) => {
+                if ('Chart' in item) {
+                  const t = (item as { Chart: { type?: string } }).Chart?.type;
+                  return t === 'line' || t === 'bar';
+                }
+                return false;
+              })
             );
             const rowBaseStyle: React.CSSProperties = {
               width: '100%',
