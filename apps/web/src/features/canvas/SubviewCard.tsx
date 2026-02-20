@@ -7,7 +7,7 @@ import { useUIStore } from '@/store/ui-store';
 import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
 import { Input } from '@/components/ui';
-import { SubviewSpecRenderer, BUILT_IN_COLORS } from '@/features/subviews/SubviewSpecRenderer';
+import { SubviewSpecRenderer, BUILT_IN_COLORS, resolveColor } from '@/features/subviews/SubviewSpecRenderer';
 import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
@@ -130,10 +130,11 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   type SpecLike = { headerActions?: { title: string; icon: string; handler: string }[]; type?: string; python_code?: string; icon?: string; iconColor?: string; titleColor?: string };
   const specLike = effectiveSpec as SpecLike | undefined;
   const subviewIcon = subview.icon ?? specLike?.icon;
-  const subviewIconColor =
+  const iconColorRaw =
     (subview.templateId ? specLike?.iconColor ?? subview.iconColor : subview.iconColor ?? specLike?.iconColor) ??
     'var(--color-text-primary)';
-  const subviewTitleColor = subviewIcon ? subviewIconColor : (specLike?.titleColor ?? 'var(--color-text-primary)');
+  const subviewIconColor = resolveColor(iconColorRaw) ?? iconColorRaw;
+  const subviewTitleColor = subviewIcon ? subviewIconColor : (resolveColor(specLike?.titleColor) ?? specLike?.titleColor ?? 'var(--color-text-primary)');
   const SubviewIconComp = subviewIcon ? getIconComponent(subviewIcon) : null;
   const headerActions =
     specLike?.headerActions ??

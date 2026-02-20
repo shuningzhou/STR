@@ -65,7 +65,7 @@ export const BRANDING_GREEN = BUILT_IN_COLORS['green-2'];
 export const BRANDING_GREEN_HOVER = BUILT_IN_COLORS['green-3'];
 
 /** Resolve color: built-in name -> hex; rgb/rgba/hsl/hsla/#hex passed through */
-function resolveColor(color: string | undefined): string | undefined {
+export function resolveColor(color: string | undefined): string | undefined {
   if (!color) return undefined;
   const lower = color.trim().toLowerCase();
   if (BUILT_IN_COLORS[lower]) return BUILT_IN_COLORS[lower];

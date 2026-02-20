@@ -7,8 +7,8 @@ import type { SubviewSpec } from '@str/shared';
 export const OPTION_INCOME_TABLE: SubviewSpec = {
   type: 'readwrite',
   name: 'Option Income',
-  icon: 'TrendingUp',
-  iconColor: 'orange-2',
+  icon: 'Coins',
+  iconColor: 'yellow-2',
   description: 'Covered calls and secured puts. Add, edit, delete, roll, or close (partial close supported)',
   maker: 'official',
   categories: ['essential', 'option'],

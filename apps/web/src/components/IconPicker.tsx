@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { getIconComponent, AVAILABLE_ICONS, ICONS_BY_CATEGORY } from '@/lib/icons';
-import { BUILT_IN_COLORS } from '@/features/subviews/SubviewSpecRenderer';
+import { BUILT_IN_COLORS, resolveColor } from '@/features/subviews/SubviewSpecRenderer';
 
-const COLOR_OPTIONS: { label: string; value: string }[] = [
+const COLOR_OPTIONS: { label: string; value: string; token?: string }[] = [
   { label: 'Default', value: '' },
   ...Object.entries(BUILT_IN_COLORS).map(([name, hex]) => ({
     label: name.charAt(0).toUpperCase() + name.slice(1),
     value: hex,
+    token: name,
   })),
 ];
 
@@ -32,6 +33,7 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
   const [search, setSearch] = useState('');
   const effectiveValue = value && value.trim() && value !== placeholder ? value : undefined;
   const IconComp = effectiveValue ? getIconComponent(effectiveValue) : null;
+  const resolvedColor = color ? (resolveColor(color) ?? color) : undefined;
   const DefaultIconComp = defaultIcon && !IconComp ? getIconComponent(defaultIcon) : null;
 
   const hasSearch = !!search.trim().toLowerCase();
@@ -65,7 +67,7 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
           {IconComp || DefaultIconComp ? (
             (() => {
               const Ic = IconComp || DefaultIconComp!;
-              return <Ic size={18} strokeWidth={1.5} style={{ color: color || 'inherit', flexShrink: 0 }} />;
+              return <Ic size={18} strokeWidth={1.5} style={{ color: resolvedColor || color || 'inherit', flexShrink: 0 }} />;
             })()
           ) : (
             <span className="text-xs opacity-60">{placeholder}</span>
@@ -100,13 +102,13 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
                 <span
                   className="w-4 h-4 rounded border block"
                   style={{
-                    backgroundColor: color || 'var(--color-bg-hover)',
+                    backgroundColor: resolvedColor || color || 'var(--color-bg-hover)',
                     borderColor: 'var(--color-border)',
                   }}
                 />
               </span>
               <span className="flex-1 truncate text-xs">
-                {COLOR_OPTIONS.find((c) => (c.value || '') === (color || ''))?.label ?? 'Default'}
+                {COLOR_OPTIONS.find((c) => c.token === color || (c.value || '') === (resolvedColor || color || ''))?.label ?? 'Default'}
               </span>
               <ChevronDown size={14} className="shrink-0 opacity-60" />
             </button>
@@ -127,7 +129,7 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
                       type="button"
                       className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-hover)] transition-colors"
                       onClick={() => {
-                        onChange(effectiveValue, c.value || undefined);
+                        onChange(effectiveValue, c.token ?? (c.value || undefined));
                         setColorOpen(false);
                       }}
                     >

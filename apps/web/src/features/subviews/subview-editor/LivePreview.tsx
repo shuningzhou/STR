@@ -4,7 +4,7 @@ import { getIconComponent } from '@/lib/icons';
 import type { SubviewSpec } from '@str/shared';
 import type { Strategy } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
-import { SubviewSpecRenderer } from '../SubviewSpecRenderer';
+import { SubviewSpecRenderer, resolveColor } from '../SubviewSpecRenderer';
 import { InputControl } from '../InputControl';
 
 function normalizeInputValue(inp: { id: string; type: string }, val: unknown): unknown {
@@ -62,8 +62,9 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, 
   type SpecLike = { icon?: string; iconColor?: string; titleColor?: string; inputs?: Record<string, { topbar?: number; topbarShowTitle?: boolean; type?: string; title?: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }> };
   const specLike = spec as (SubviewSpec & SpecLike) | null;
   const specIcon = specLike?.icon;
-  const specIconColor = specLike?.iconColor ?? 'var(--color-text-primary)';
-  const specTitleColor = specIcon ? specIconColor : (specLike?.titleColor ?? 'var(--color-text-primary)');
+  const iconColorRaw = specLike?.iconColor ?? 'var(--color-text-primary)';
+  const specIconColor = resolveColor(iconColorRaw) ?? iconColorRaw;
+  const specTitleColor = specIcon ? specIconColor : (resolveColor(specLike?.titleColor) ?? specLike?.titleColor ?? 'var(--color-text-primary)');
   const IconComp = specIcon ? getIconComponent(specIcon) : null;
 
   const topbarInputs = useMemo(() => {
