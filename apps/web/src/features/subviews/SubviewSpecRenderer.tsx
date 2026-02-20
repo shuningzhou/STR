@@ -442,32 +442,61 @@ function ContentRenderer({
 
     let inner: React.ReactNode;
     if (chart.type === 'pie' && items.length > 0) {
-      const CHART_COLORS = [
-        'var(--color-chart-1)',
-        'var(--color-chart-2)',
-        'var(--color-chart-3)',
-        'var(--color-chart-4)',
-        'var(--color-chart-5)',
+      const PIE_PALETTE = [
+        resolveColor('blue-2') ?? '#0052FF',
+        resolveColor('green-2') ?? '#28c207',
+        resolveColor('yellow-2') ?? '#FFDB00',
+        resolveColor('red-2') ?? '#FF1200',
+        resolveColor('violet-1') ?? '#B84DFF',
+        resolveColor('magenta-2') ?? '#F600FF',
+        resolveColor('mint-2') ?? '#00FFA4',
       ];
       inner = (
-        <div className="w-full min-h-[180px]" style={{ height: 200 }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, width: '100%', height: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 8, right: 8, bottom: 36, left: 8 }}>
               <Pie
                 data={items}
                 dataKey="value"
                 nameKey="label"
                 cx="50%"
-                cy="50%"
-                outerRadius="75%"
-                label={({ label, value }) => `${label} ${value}%`}
+                cy="48%"
+                innerRadius="55%"
+                outerRadius="92%"
+                paddingAngle={1}
+                label={({ value, x, y }) => {
+                  if (value < 2) return null;
+                  return (
+                    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fill="var(--color-text-primary)" fontSize={12} fontWeight={500}>
+                      {value}%
+                    </text>
+                  );
+                }}
+                labelLine={false}
               >
                 {items.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} stroke="transparent" />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: number) => [`${v}%`, '% of portfolio']} />
-              <Legend />
+              <Tooltip
+                formatter={(v: number, _: unknown, props: { payload?: { label?: string } }) => [`${v}%`, props.payload?.label ?? '']}
+                contentStyle={{ backgroundColor: 'rgba(19, 19, 19, 0.85)', color: 'white', border: 'none', borderRadius: 4 }}
+                itemStyle={{ color: 'white' }}
+                labelStyle={{ color: 'white' }}
+              />
+              <Legend
+                layout="horizontal"
+                align="center"
+                verticalAlign="bottom"
+                wrapperStyle={{ paddingTop: 4 }}
+                formatter={(value, entry) => (
+                  <span style={{ color: 'var(--color-text-primary)', fontSize: 12 }}>
+                    {value} ({entry.payload?.value ?? 0}%)
+                  </span>
+                )}
+                iconType="square"
+                iconSize={10}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -497,22 +526,23 @@ function ContentRenderer({
           <div
             style={{
               padding: '6px 10px',
-              backgroundColor: 'rgba(19, 19, 19, 0.5)', // black from palette
+              backgroundColor: 'rgba(19, 19, 19, 0.85)',
+              color: 'white',
               borderRadius: 4,
               fontSize: 12,
               fontWeight: 500,
             }}
           >
-            <div style={{ color: 'var(--color-text-muted)' }}>Date: {label}</div>
-            <div style={{ color: lineColor }}>Portfolio: ${Number(portfolioPayload?.value ?? 0).toLocaleString()}</div>
+            <div style={{ color: 'white' }}>Date: {label}</div>
+            <div style={{ color: 'white' }}>Portfolio: ${Number(portfolioPayload?.value ?? 0).toLocaleString()}</div>
             {dwPayload != null && (
-              <div style={{ color: dwColor }}>Deposit: ${Number(dwPayload.value ?? 0).toLocaleString()}</div>
+              <div style={{ color: 'white' }}>Deposit: ${Number(dwPayload.value ?? 0).toLocaleString()}</div>
             )}
             {loanPayload != null && (
-              <div style={{ color: loanColor }}>Loan: ${Number(loanPayload.value ?? 0).toLocaleString()}</div>
+              <div style={{ color: 'white' }}>Loan: ${Number(loanPayload.value ?? 0).toLocaleString()}</div>
             )}
             {holdingsPayload != null && (
-              <div style={{ color: holdingsColor }}>Holdings: ${Number(holdingsPayload.value ?? 0).toLocaleString()}</div>
+              <div style={{ color: 'white' }}>Holdings: ${Number(holdingsPayload.value ?? 0).toLocaleString()}</div>
             )}
           </div>
         );
@@ -565,17 +595,18 @@ function ContentRenderer({
           <div
             style={{
               padding: '6px 10px',
-              backgroundColor: 'rgba(19, 19, 19, 0.9)',
+              backgroundColor: 'rgba(19, 19, 19, 0.85)',
+              color: 'white',
               borderRadius: 4,
               fontSize: 12,
               fontWeight: 500,
             }}
           >
-            <div style={{ color: 'var(--color-text-muted)' }}>{label}</div>
+            <div style={{ color: 'white' }}>{label}</div>
             {payload.map((p) => (Number(p.value) || 0) > 0 && (
-              <div key={p.name ?? ''} style={{ color: p.fill }}>{p.name}: ${Number(p.value).toLocaleString()}</div>
+              <div key={p.name ?? ''} style={{ color: 'white' }}>{p.name}: ${Number(p.value).toLocaleString()}</div>
             ))}
-            <div style={{ color: resolveColor('yellow-2') ?? 'var(--color-chart-1)' }}>Total: ${total.toLocaleString()}</div>
+            <div style={{ color: 'white' }}>Total: ${total.toLocaleString()}</div>
           </div>
         );
       };
@@ -815,12 +846,21 @@ function ContentRenderer({
       chart.type === 'timeline'
         ? { ...(typeof p === 'object' && p != null ? p : {}), left: 20, right: 20 }
         : p;
-    const chartWrapperStyle =
-      ((chart.type === 'line' && items.length > 0) ||
-        (chart.type === 'bar' && barLabels.length > 0) ||
-        (chart.type === 'timeline' && (data as { events?: unknown[] })?.events?.length > 0))
-        ? { ...paddingToStyle(chartPadding), flex: 1, minHeight: 0, display: 'flex' as const, flexDirection: 'column' as const }
-        : paddingToStyle(chartPadding);
+    const isScalingChart =
+      (chart.type === 'line' && items.length > 0) ||
+      (chart.type === 'bar' && barLabels.length > 0) ||
+      (chart.type === 'timeline' && (data as { events?: unknown[] })?.events?.length > 0) ||
+      (chart.type === 'pie' && items.length > 0);
+    const chartWrapperStyle = isScalingChart
+      ? {
+          ...paddingToStyle(chartPadding),
+          flex: 1,
+          minHeight: 0,
+          display: 'flex' as const,
+          flexDirection: 'column' as const,
+          ...(chart.type === 'pie' && { overflow: 'hidden' as const, minHeight: 120 }),
+        }
+      : paddingToStyle(chartPadding);
     return p != null ? <div style={chartWrapperStyle}>{inner}</div> : inner;
   }
   if ('icon' in item) {
@@ -1059,7 +1099,7 @@ export function SubviewSpecRenderer({
               c.content?.some((item) => {
                 if ('Chart' in item) {
                   const t = (item as { Chart: { type?: string } }).Chart?.type;
-                  return t === 'line' || t === 'bar' || t === 'timeline';
+                  return t === 'line' || t === 'bar' || t === 'timeline' || t === 'pie';
                 }
                 return false;
               })

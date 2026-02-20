@@ -5,9 +5,9 @@ import type { SubviewSpec } from '@str/shared';
 
 export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   type: 'readonly',
-  name: 'Portfolio %',
+  name: 'Allocation',
   icon: 'ChartPie',
-  description: 'Pie chart showing % of portfolio by holding',
+  description: 'Donut chart showing % of portfolio by holding',
   maker: 'official',
   categories: ['essential', 'stock-etf'],
   defaultSize: { w: 400, h: 220 },
@@ -15,7 +15,7 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   layout: [
     [
       {
-        flex: { flex: 1, justifyContent: 'center', alignItems: 'stretch' },
+        flex: { flex: 1, alignItems: 'stretch' },
         content: [
           {
             Chart: {
