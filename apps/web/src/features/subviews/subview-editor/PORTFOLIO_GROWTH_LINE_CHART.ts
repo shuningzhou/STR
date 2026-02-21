@@ -64,9 +64,15 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     wallet = context.get('wallet') or {}
     initial = float(wallet.get('initialBalance', 0) or 0)
     current_prices = context.get('currentPrices') or {}
-    show_dw = inputs.get('showDepositWithdraw')
-    show_loan = inputs.get('showLoan')
-    show_holdings = inputs.get('showHoldingsValue')
+    def _truthy(v):
+        if v is None: return False
+        if v == True or v == 1: return True
+        if v == False or v == 0: return False
+        try: return bool(int(v))
+        except (TypeError, ValueError): return str(v).lower() in ('true', '1', 'yes')
+    show_dw = _truthy(inputs.get('showDepositWithdraw'))
+    show_loan = _truthy(inputs.get('showLoan'))
+    show_holdings = _truthy(inputs.get('showHoldingsValue'))
     margin_enabled = bool(wallet.get('marginAccountEnabled'))
 
     def is_non_option(tx):
@@ -96,13 +102,14 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         all_dates = ['Start'] + sorted(date_set)
         for d in all_dates:
             total = 0.0
-            for t in txs:
-                side = (t.get('side') or t.get('type') or '').lower()
-                if side not in ('deposit', 'withdrawal'):
-                    continue
-                td = (t.get('timestamp') or '')[:10]
-                if td and td <= d:
-                    total += float(t.get('cashDelta') or 0)
+            if d != 'Start':
+                for t in txs:
+                    side = (t.get('side') or t.get('type') or '').lower()
+                    if side not in ('deposit', 'withdrawal'):
+                        continue
+                    td = (t.get('timestamp') or '')[:10]
+                    if td and td <= d:
+                        total += float(t.get('cashDelta') or 0)
             dw_cumulative[d] = round(total, 2)
 
     # Build portfolio value at each transaction date; start with initial balance
