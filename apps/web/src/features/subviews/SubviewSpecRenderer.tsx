@@ -308,6 +308,8 @@ function ContentRenderer({
     const data = (resolved[source] as Record<string, unknown>[]) ?? [];
     const columns = tbl.columns;
     const isReadWrite = spec.type === 'readwrite';
+    const visibleRowActions = isEditMode ? (tbl.rowActions ?? []) : (tbl.rowActions ?? []).filter((ra) => ra.handler !== 'editTransactionModal' && ra.handler !== 'deleteTransaction');
+    const hasVisibleActionColumn = isReadWrite && visibleRowActions.length > 0;
 
     const cellPadding = 5;
     const inner = (
@@ -318,20 +320,19 @@ function ContentRenderer({
               {columns.map((col) => (
                 <col key={col} />
               ))}
-              {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (() => {
-                const visibleCount = isEditMode ? tbl.rowActions.length : tbl.rowActions.filter((ra) => ra.handler !== 'editTransactionModal' && ra.handler !== 'deleteTransaction').length;
-                const actionsColWidth = visibleCount === 0 ? 1 : 10 + 10 + visibleCount * 12 + (visibleCount - 1) * 10;
+              {hasVisibleActionColumn && (() => {
+                const actionsColWidth = 10 + 10 + visibleRowActions.length * 12 + (visibleRowActions.length - 1) * 10;
                 return <col key="actions" style={{ width: actionsColWidth, minWidth: actionsColWidth }} />;
               })()}
             </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
                 {columns.map((col, i) => (
-                  <th key={col} className="font-medium" style={{ color: 'var(--color-table-header-text)', borderBottom: '1px solid var(--color-table-border)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                  <th key={col} className="font-medium" style={{ color: 'var(--color-table-header-text)', borderBottom: '1px solid var(--color-table-border)', borderRight: i < columns.length - 1 || hasVisibleActionColumn ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
                     {(tbl.columnLabels as Record<string, string> | undefined)?.[col] ?? humanizeColumnKey(col)}
                   </th>
                 ))}
-                {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (
+                {hasVisibleActionColumn && (
                   <th style={{ borderBottom: '1px solid var(--color-table-border)', padding: cellPadding, whiteSpace: 'nowrap' }} />
                 )}
               </tr>
@@ -339,7 +340,7 @@ function ContentRenderer({
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length + (tbl.rowActions?.length ? 1 : 0)} style={{ color: 'var(--color-text-muted)', padding: cellPadding, textAlign: 'right' }}>
+                  <td colSpan={columns.length + (hasVisibleActionColumn ? 1 : 0)} style={{ color: 'var(--color-text-muted)', padding: cellPadding, textAlign: 'right' }}>
                     {(tbl as { emptyMessage?: string }).emptyMessage ?? 'No data'}
                   </td>
                 </tr>
@@ -352,19 +353,12 @@ function ContentRenderer({
                       const colorMap = cellColors?.[col];
                       const resolvedColor = colorMap && typeof cellVal === 'string' ? resolveColor(colorMap[cellVal]) : undefined;
                       return (
-                        <td key={col} style={{ color: resolvedColor ?? 'var(--color-text-primary)', borderRight: i < columns.length - 1 || (isReadWrite && tbl.rowActions?.length) ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <td key={col} style={{ color: resolvedColor ?? 'var(--color-text-primary)', borderRight: i < columns.length - 1 || hasVisibleActionColumn ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
                           {formatCellValue(cellVal, col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
                         </td>
                       );
                     })}
-                    {isReadWrite && tbl.rowActions && tbl.rowActions.length > 0 && (() => {
-                      const visibleRowActions = isEditMode
-                        ? tbl.rowActions
-                        : tbl.rowActions.filter((ra) => ra.handler !== 'editTransactionModal' && ra.handler !== 'deleteTransaction');
-                      if (visibleRowActions.length === 0) {
-                        return <td style={{ padding: cellPadding }} />;
-                      }
-                      return (
+                    {hasVisibleActionColumn && (
                       <td style={{ paddingTop: cellPadding, paddingBottom: cellPadding, paddingLeft: 10, paddingRight: 10, whiteSpace: 'nowrap' }}>
                         <div className="flex" style={{ gap: 10 }}>
                           {visibleRowActions.map((ra, rai) => {
@@ -412,7 +406,7 @@ function ContentRenderer({
                           })}
                         </div>
                       </td>
-                    );})()}
+                    )}
                   </tr>
                 ))
               )}
