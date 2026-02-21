@@ -3,6 +3,7 @@ import { getIconComponent } from '@/lib/icons';
 import { useThemeStore } from '@/store/theme-store';
 import { useUIStore } from '@/store/ui-store';
 import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies } from '@/api/hooks';
 import { cn } from '@/lib/utils';
 
 const CURRENCIES = ['USD', 'CAD'] as const;
@@ -10,11 +11,9 @@ const CURRENCIES = ['USD', 'CAD'] as const;
 export function Sidebar() {
   const { viewingCurrency, setViewingCurrency } = useThemeStore();
   const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen } = useUIStore();
-  const {
-    strategies,
-    activeStrategyId,
-    setActiveStrategy,
-  } = useStrategyStore();
+  const { data: strategies = [] } = useStrategies();
+  const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
+  const setActiveStrategy = useStrategyStore((s) => s.setActiveStrategy);
 
   return (
     <aside

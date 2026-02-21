@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useBatchUpdatePositions } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH } from './canvas-grid-config';
 import { SubviewCard } from './SubviewCard';
@@ -12,10 +12,9 @@ interface CanvasGridProps {
 }
 
 export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
-  const strategy = useStrategyStore((s) =>
-    s.strategies.find((st) => st.id === strategyId)
-  );
-  const updateSubviewLayout = useStrategyStore((s) => s.updateSubviewLayout);
+  const { data: strategies = [] } = useStrategies();
+  const strategy = strategies.find((st) => st.id === strategyId);
+  const batchUpdatePositions = useBatchUpdatePositions();
   const setCanvasWidth = useUIStore((s) => s.setCanvasWidth);
   const { width, containerRef, mounted } = useContainerWidth();
 
@@ -34,9 +33,13 @@ export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
 
   const handleLayoutChange = useCallback(
     (newLayout: Layout) => {
-      updateSubviewLayout(strategyId, newLayout, REFERENCE_WIDTH);
+      const positions = newLayout.map((item) => ({
+        id: item.i,
+        position: { x: item.x, y: item.y, w: item.w, h: item.h },
+      }));
+      batchUpdatePositions.mutate({ strategyId, subviews: positions });
     },
-    [strategyId, updateSubviewLayout]
+    [strategyId, batchUpdatePositions]
   );
 
   if (!strategy || !mounted) return null;

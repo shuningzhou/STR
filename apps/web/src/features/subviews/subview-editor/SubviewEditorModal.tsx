@@ -17,7 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useRemoveSubview, useUpdateSubview, useUpdateStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Button } from '@/components/ui';
 import { safeParseSubviewSpec, type SubviewSpec } from '@str/shared';
@@ -34,10 +34,10 @@ const MIN_LEFT_WIDTH = 25;
 const MAX_LEFT_WIDTH = 75;
 
 export function SubviewEditorModal() {
-  const strategies = useStrategyStore((s) => s.strategies);
-  const removeSubview = useStrategyStore((s) => s.removeSubview);
-  const updateSubviewSpec = useStrategyStore((s) => s.updateSubviewSpec);
-  const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
+  const { data: strategies = [] } = useStrategies();
+  const removeSubviewMut = useRemoveSubview();
+  const updateSubviewMut = useUpdateSubview();
+  const updateStrategyMut = useUpdateStrategy();
   const { subviewSettingsOpen, setSubviewSettingsOpen } = useUIStore();
 
   const strategy = subviewSettingsOpen
@@ -339,12 +339,14 @@ export function SubviewEditorModal() {
   const handleSave = useCallback(() => {
     const result = safeParseSubviewSpec(jsonText);
     if (!result.success || !subviewSettingsOpen || !strategy) return;
-    updateSubviewSpec(subviewSettingsOpen.strategyId, subviewSettingsOpen.subviewId, {
-      ...result.data,
-      python_code: pythonText,
+    updateSubviewMut.mutate({
+      strategyId: subviewSettingsOpen.strategyId,
+      subviewId: subviewSettingsOpen.subviewId,
+      spec: { ...result.data, python_code: pythonText },
+      name: (result.data as { name?: string }).name,
     });
     setSubviewSettingsOpen(null);
-  }, [jsonText, pythonText, subviewSettingsOpen, strategy, updateSubviewSpec, setSubviewSettingsOpen]);
+  }, [jsonText, pythonText, subviewSettingsOpen, strategy, updateSubviewMut, setSubviewSettingsOpen]);
 
   const handleDelete = useCallback(() => {
     if (!subviewSettingsOpen || !strategy) return;
@@ -352,9 +354,9 @@ export function SubviewEditorModal() {
       setDeleteConfirm(true);
       return;
     }
-    removeSubview(subviewSettingsOpen.strategyId, subviewSettingsOpen.subviewId);
+    removeSubviewMut.mutate({ strategyId: subviewSettingsOpen.strategyId, subviewId: subviewSettingsOpen.subviewId });
     setSubviewSettingsOpen(null);
-  }, [subviewSettingsOpen, strategy, deleteConfirm, removeSubview, setSubviewSettingsOpen]);
+  }, [subviewSettingsOpen, strategy, deleteConfirm, removeSubviewMut, setSubviewSettingsOpen]);
 
   useEffect(() => {
     if (subview) {
@@ -879,7 +881,7 @@ export function SubviewEditorModal() {
                   }
                 }}
                 strategy={strategy}
-                onGlobalInputChange={strategy ? (key, value) => updateStrategyInputValue(strategy.id, key, value) : undefined}
+                onGlobalInputChange={strategy ? (key, value) => updateStrategyMut.mutate({ id: strategy.id, inputValues: { ...(strategy.inputValues ?? {}), [key]: value } }) : undefined}
               />
           </div>
         </div>

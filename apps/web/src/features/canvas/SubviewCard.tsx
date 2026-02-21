@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Pencil, Plus, Minus } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import type { Strategy, Subview } from '@/store/strategy-store';
-import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { cn } from '@/lib/utils';
 import { getPipelineInputs } from '@/features/pipeline/pipelineInputs';
@@ -12,6 +11,7 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
+import { useTransactions, useUpdateSubview, useUpdateStrategy } from '@/api/hooks';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -87,8 +87,25 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const setSubviewSettingsOpen = useUIStore((s) => s.setSubviewSettingsOpen);
   const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
   const setDepositWithdrawModalOpen = useUIStore((s) => s.setDepositWithdrawModalOpen);
-  const updateSubviewInputValue = useStrategyStore((s) => s.updateSubviewInputValue);
-  const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
+  const updateSubviewMut = useUpdateSubview();
+  const updateStrategyMut = useUpdateStrategy();
+  const { data: transactions = [] } = useTransactions(strategyId);
+
+  const handleSubviewInputChange = useCallback((key: string, value: string | number) => {
+    const currentValues = subview.inputValues ?? {};
+    updateSubviewMut.mutate({
+      strategyId,
+      subviewId: subview.id,
+      inputValues: { ...currentValues, [key]: value },
+    });
+  }, [strategyId, subview.id, subview.inputValues, updateSubviewMut]);
+
+  const handleStrategyInputChange = useCallback((key: string, value: string | number) => {
+    updateStrategyMut.mutate({
+      id: strategyId,
+      inputValues: { ...(strategy?.inputValues ?? {}), [key]: value },
+    });
+  }, [strategyId, strategy?.inputValues, updateStrategyMut]);
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,7 +137,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
-  const currentPrices = useStrategyPrices(strategy?.transactions);
+  const currentPrices = useStrategyPrices(transactions);
   const strategyContext = useMemo(
     () => ({ ...buildStrategyContext(strategy ?? null, currentPrices), currentPrices }),
     [strategy, currentPrices]
@@ -275,7 +292,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
                     max: cfg.max,
                   }}
                   inputs={specInputs}
-                  onInputChange={(k, v) => updateSubviewInputValue(strategyId, subview.id, k, v)}
+                  onInputChange={handleSubviewInputChange}
                   context={strategyContext}
                 />
               </span>
@@ -313,15 +330,11 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
           pythonCode={specLike!.python_code ?? ''}
           context={strategyContext}
           inputs={specInputs}
-          onInputChange={(key, value) =>
-            updateSubviewInputValue(strategyId, subview.id, key, value)
-          }
+          onInputChange={handleSubviewInputChange}
           globalInputsConfig={globalInputs.config}
           globalInputConfig={strategy?.inputs?.map((i) => ({ id: i.id, type: i.type }))}
           globalInputValues={globalInputs.values}
-          onGlobalInputChange={(key, value) =>
-            updateStrategyInputValue(strategyId, key, value)
-          }
+          onGlobalInputChange={handleStrategyInputChange}
           strategyId={strategyId}
           editTransactionMode={
             subview.templateId === 'option-income'
@@ -351,8 +364,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
                   <Input
                     value={String(inputValues[inp.inputKey] ?? inp.defaultValue)}
                     onChange={(e) => {
-                      const v = e.target.value;
-                      updateSubviewInputValue(strategyId, subview.id, inp.inputKey, v);
+                      handleSubviewInputChange(inp.inputKey, e.target.value);
                     }}
                     className="text-[11px]"
                     style={{ height: 26 }}

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useCreateTransaction } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
 
@@ -33,8 +33,8 @@ const INPUT_WIDTH = { width: 200 };
 export function AddTransactionModal() {
   const addTransactionModalOpen = useUIStore((s) => s.addTransactionModalOpen);
   const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
-  const addTransaction = useStrategyStore((s) => s.addTransaction);
-  const strategies = useStrategyStore((s) => s.strategies);
+  const createTx = useCreateTransaction();
+  const { data: strategies = [] } = useStrategies();
 
   const strategyId = addTransactionModalOpen?.strategyId ?? null;
   const mode = addTransactionModalOpen?.mode ?? 'stock-etf';
@@ -78,7 +78,7 @@ export function AddTransactionModal() {
   }, []);
 
   const handleSubmitSimple = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId) return;
 
@@ -103,7 +103,8 @@ export function AddTransactionModal() {
       const timestamp = `${date}T12:00:00Z`;
 
       try {
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: side as 'buy' | 'sell',
           cashDelta: cashDeltaVal,
           timestamp,
@@ -121,11 +122,11 @@ export function AddTransactionModal() {
       resetForm();
       setAddTransactionModalOpen(null);
     },
-    [strategyId, symbol, side, quantity, price, date, addTransaction, setAddTransactionModalOpen, resetForm]
+    [strategyId, symbol, side, quantity, price, date, createTx, setAddTransactionModalOpen, resetForm]
   );
 
   const handleSubmitFull = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId) return;
 
@@ -196,7 +197,8 @@ export function AddTransactionModal() {
         : null;
 
       try {
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side,
           cashDelta: computedCashDelta,
           timestamp,
@@ -228,14 +230,14 @@ export function AddTransactionModal() {
       optStrike,
       optCallPut,
       customDataJson,
-      addTransaction,
+      createTx,
       setAddTransactionModalOpen,
       resetForm,
     ]
   );
 
   const handleSubmitOption = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId) return;
 
@@ -269,7 +271,8 @@ export function AddTransactionModal() {
       const timestamp = `${date}T12:00:00Z`;
 
       try {
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: 'sell',
           cashDelta: premium,
           timestamp,
@@ -291,11 +294,11 @@ export function AddTransactionModal() {
       resetForm();
       setAddTransactionModalOpen(null);
     },
-    [strategyId, symbol, quantity, optExpiration, optStrike, optCallPut, price, date, addTransaction, setAddTransactionModalOpen, resetForm]
+    [strategyId, symbol, quantity, optExpiration, optStrike, optCallPut, price, date, createTx, setAddTransactionModalOpen, resetForm]
   );
 
   const handleSubmitDividend = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId) return;
 
@@ -314,7 +317,8 @@ export function AddTransactionModal() {
       const timestamp = `${date}T12:00:00Z`;
 
       try {
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: 'dividend',
           cashDelta: Math.round(amt * 100) / 100,
           timestamp,
@@ -332,7 +336,7 @@ export function AddTransactionModal() {
       resetForm();
       setAddTransactionModalOpen(null);
     },
-    [strategyId, symbol, cashDelta, date, addTransaction, setAddTransactionModalOpen, resetForm]
+    [strategyId, symbol, cashDelta, date, createTx, setAddTransactionModalOpen, resetForm]
   );
 
   const handleSubmit = isFull

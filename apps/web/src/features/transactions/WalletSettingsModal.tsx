@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useTransactions, useUpdateStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
 import { computeEquity } from '@/lib/compute-equity';
@@ -88,29 +88,30 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 export function WalletSettingsModal() {
   const walletSettingsModalOpen = useUIStore((s) => s.walletSettingsModalOpen);
   const setWalletSettingsModalOpen = useUIStore((s) => s.setWalletSettingsModalOpen);
-  const strategies = useStrategyStore((s) => s.strategies);
-  const updateStrategy = useStrategyStore((s) => s.updateStrategy);
+  const { data: strategies = [] } = useStrategies();
+  const updateStrategyMut = useUpdateStrategy();
 
   const strategyId = walletSettingsModalOpen;
   const strategy = strategies.find((s) => s.id === strategyId);
+  const { data: transactions = [] } = useTransactions(strategyId);
 
   const [loanInterest, setLoanInterest] = useState('');
   const [marginRequirement, setMarginRequirement] = useState('');
   const [collateralAmount, setCollateralAmount] = useState('');
   const [collateralRequirement, setCollateralRequirement] = useState('');
 
-  const currentPrices = useStrategyPrices(strategy?.transactions);
+  const currentPrices = useStrategyPrices(transactions);
 
   const { computedBalance, currency, equity } = useMemo(() => {
     if (!strategy) return { computedBalance: 0, currency: 'USD', equity: 0 };
-    const txs = strategy.transactions ?? [];
+    const txs = transactions;
     const initial = strategy.initialBalance ?? 0;
     const balance =
       initial +
       txs.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
     const equity = computeEquity(txs, currentPrices);
     return { computedBalance: balance, currency: strategy.baseCurrency ?? 'USD', equity };
-  }, [strategy, currentPrices]);
+  }, [strategy, currentPrices, transactions]);
 
   useEffect(() => {
     if (strategy) {
@@ -123,14 +124,15 @@ export function WalletSettingsModal() {
 
   const handleSave = useCallback(() => {
     if (!strategyId) return;
-    updateStrategy(strategyId, {
+    updateStrategyMut.mutate({
+      id: strategyId,
       loanInterest: loanInterest === '' ? undefined : parseFloat(loanInterest) || 0,
       marginRequirement: marginRequirement === '' ? undefined : parseFloat(marginRequirement) || 0,
       collateralAmount: collateralAmount === '' ? undefined : parseFloat(collateralAmount) || 0,
       collateralRequirement: collateralRequirement === '' ? undefined : parseFloat(collateralRequirement) || 0,
     });
     setWalletSettingsModalOpen(null);
-  }, [strategyId, loanInterest, marginRequirement, collateralAmount, collateralRequirement, updateStrategy, setWalletSettingsModalOpen]);
+  }, [strategyId, loanInterest, marginRequirement, collateralAmount, collateralRequirement, updateStrategyMut, setWalletSettingsModalOpen]);
 
   const handleClose = useCallback(() => {
     setWalletSettingsModalOpen(null);

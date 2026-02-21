@@ -3,7 +3,7 @@
  */
 import { useMemo } from 'react';
 import type { Strategy } from '@/store/strategy-store';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useUpdateStrategy } from '@/api/hooks';
 import { InputControl } from '@/features/subviews/InputControl';
 import { buildStrategyContext } from '@/lib/subview-seed-data';
 
@@ -31,7 +31,7 @@ function buildValues(strategy: Strategy): Record<string, unknown> {
 }
 
 export function StrategyInputsBar({ strategy }: { strategy: Strategy | null }) {
-  const updateStrategyInputValue = useStrategyStore((s) => s.updateStrategyInputValue);
+  const updateStrategyMut = useUpdateStrategy();
 
   const values = useMemo(() => (strategy ? buildValues(strategy) : {}), [strategy]);
   const context = useMemo(() => buildStrategyContext(strategy), [strategy]);
@@ -72,7 +72,7 @@ export function StrategyInputsBar({ strategy }: { strategy: Strategy | null }) {
             }}
             inputs={values}
             onInputChange={(key, value) =>
-              strategy && updateStrategyInputValue(strategy.id, key, value)
+              strategy && updateStrategyMut.mutate({ id: strategy.id, inputValues: { ...(strategy.inputValues ?? {}), [key]: value } })
             }
             context={context}
           />

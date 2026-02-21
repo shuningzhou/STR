@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
-import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label } from '@/components/ui';
 import type { StrategyTransaction } from '@/store/strategy-store';
+import { useCreateTransaction } from '@/api/hooks';
 
 export function CloseOptionModal() {
   const closeOptionModalOpen = useUIStore((s) => s.closeOptionModalOpen);
   const setCloseOptionModalOpen = useUIStore((s) => s.setCloseOptionModalOpen);
-  const addTransaction = useStrategyStore((s) => s.addTransaction);
+  const createTx = useCreateTransaction();
 
   const strategyId = closeOptionModalOpen?.strategyId ?? null;
   const transaction = closeOptionModalOpen?.transaction;
@@ -19,7 +19,7 @@ export function CloseOptionModal() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId || !transaction?.option) return;
 
@@ -42,7 +42,8 @@ export function CloseOptionModal() {
       const timestamp = `${date}T12:00:00Z`;
 
       try {
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: 'buy_to_cover',
           cashDelta: premium,
           timestamp,
@@ -59,7 +60,7 @@ export function CloseOptionModal() {
 
       setCloseOptionModalOpen(null);
     },
-    [strategyId, transaction, closeQty, totalQty, price, date, addTransaction, setCloseOptionModalOpen]
+    [strategyId, transaction, closeQty, totalQty, price, date, createTx, setCloseOptionModalOpen]
   );
 
   const handleClose = useCallback(() => {

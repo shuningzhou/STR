@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useUpdateTransaction } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
 
@@ -28,8 +28,8 @@ const INPUT_WIDTH = { width: 200 };
 export function EditTransactionModal() {
   const editTransactionModalOpen = useUIStore((s) => s.editTransactionModalOpen);
   const setEditTransactionModalOpen = useUIStore((s) => s.setEditTransactionModalOpen);
-  const updateTransaction = useStrategyStore((s) => s.updateTransaction);
-  const strategies = useStrategyStore((s) => s.strategies);
+  const updateTx = useUpdateTransaction();
+  const { data: strategies = [] } = useStrategies();
 
   const mode = editTransactionModalOpen?.mode ?? 'full';
   const isSimple = mode === 'stock-etf';
@@ -111,7 +111,7 @@ export function EditTransactionModal() {
       const sideVal = side as 'buy' | 'sell';
       const cashDeltaVal = Math.round(-qty * pr * (sideVal === 'buy' ? 1 : -1) * 100) / 100;
 
-      updateTransaction(strategyId, transaction.id, {
+      updateTx.mutate({ id: String(transaction.id), strategyId,
         side: sideVal,
         cashDelta: cashDeltaVal,
         timestamp,
@@ -121,7 +121,7 @@ export function EditTransactionModal() {
       });
       setEditTransactionModalOpen(null);
     },
-    [strategyId, transaction, symbol, side, quantity, price, date, updateTransaction, setEditTransactionModalOpen]
+    [strategyId, transaction, symbol, side, quantity, price, date, updateTx, setEditTransactionModalOpen]
   );
 
   const handleSubmitFull = useCallback(
@@ -192,7 +192,7 @@ export function EditTransactionModal() {
           }
         : null;
 
-      updateTransaction(strategyId, transaction.id, {
+      updateTx.mutate({ id: String(transaction.id), strategyId,
         side,
         cashDelta: computedCashDelta,
         timestamp,
@@ -219,7 +219,7 @@ export function EditTransactionModal() {
       optStrike,
       optCallPut,
       customDataJson,
-      updateTransaction,
+      updateTx,
       setEditTransactionModalOpen,
     ]
   );
@@ -243,7 +243,7 @@ export function EditTransactionModal() {
       setError(null);
       const timestamp = `${date}T12:00:00Z`;
 
-      updateTransaction(strategyId, transaction.id, {
+      updateTx.mutate({ id: String(transaction.id), strategyId,
         side: 'dividend',
         cashDelta: Math.round(amt * 100) / 100,
         timestamp,
@@ -255,7 +255,7 @@ export function EditTransactionModal() {
       });
       setEditTransactionModalOpen(null);
     },
-    [strategyId, transaction, symbol, cashDelta, date, updateTransaction, setEditTransactionModalOpen]
+    [strategyId, transaction, symbol, cashDelta, date, updateTx, setEditTransactionModalOpen]
   );
 
   const handleSubmit = isDividend ? handleSubmitDividend : isSimple ? handleSubmitSimple : handleSubmitFull;

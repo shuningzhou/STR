@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select } from '@/components/ui';
 import type { StrategyTransaction } from '@/store/strategy-store';
+import { useCreateTransaction } from '@/api/hooks';
 
 const CALL_PUT_OPTIONS = [
   { value: 'call', label: 'Call' },
@@ -17,7 +17,7 @@ const RECEIVE_PAY_OPTIONS = [
 export function RollOptionModal() {
   const rollOptionModalOpen = useUIStore((s) => s.rollOptionModalOpen);
   const setRollOptionModalOpen = useUIStore((s) => s.setRollOptionModalOpen);
-  const addTransaction = useStrategyStore((s) => s.addTransaction);
+  const createTx = useCreateTransaction();
 
   const strategyId = rollOptionModalOpen?.strategyId ?? null;
   const transaction = rollOptionModalOpen?.transaction;
@@ -44,7 +44,7 @@ export function RollOptionModal() {
   }, [transaction, opt]);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId || !transaction || !opt) return;
 
@@ -82,7 +82,8 @@ export function RollOptionModal() {
 
       try {
         // 1. Buy to cover - close the original option (same premium as when we sold it)
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: 'buy_to_cover',
           cashDelta: closePremium,
           timestamp,
@@ -93,7 +94,8 @@ export function RollOptionModal() {
           price: closePricePerShare,
         });
         // 2. Sell - open the new option (premium = roll receive/pay amount)
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: 'sell',
           cashDelta: newOptionPremium,
           timestamp,
@@ -110,7 +112,7 @@ export function RollOptionModal() {
 
       setRollOptionModalOpen(null);
     },
-    [strategyId, transaction, opt, rollToExp, rollToStrike, rollToCallPut, receivePay, amount, date, addTransaction, setRollOptionModalOpen]
+    [strategyId, transaction, opt, rollToExp, rollToStrike, rollToCallPut, receivePay, amount, date, createTx, setRollOptionModalOpen]
   );
 
   const handleClose = useCallback(() => {

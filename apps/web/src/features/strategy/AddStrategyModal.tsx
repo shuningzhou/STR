@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useStrategyStore } from '@/store/strategy-store';
+import { useCreateStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, SegmentControl } from '@/components/ui';
 import { IconPicker } from '@/components/IconPicker';
@@ -12,11 +13,12 @@ export function AddStrategyModal() {
   const [icon, setIcon] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
-  const addStrategy = useStrategyStore((s) => s.addStrategy);
+  const createStrategy = useCreateStrategy();
+  const setActiveStrategy = useStrategyStore((s) => s.setActiveStrategy);
   const { addStrategyModalOpen, setAddStrategyModalOpen } = useUIStore();
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = name.trim();
       if (!trimmed) {
@@ -24,13 +26,14 @@ export function AddStrategyModal() {
         return;
       }
       setError(null);
-      addStrategy(trimmed, baseCurrency, icon);
+      const newStrategy = await createStrategy.mutateAsync({ name: trimmed, baseCurrency, icon });
+      setActiveStrategy(newStrategy.id);
       setName('');
       setBaseCurrency('USD');
       setIcon(undefined);
       setAddStrategyModalOpen(false);
     },
-    [addStrategy, baseCurrency, icon, name, setAddStrategyModalOpen]
+    [createStrategy, setActiveStrategy, baseCurrency, icon, name, setAddStrategyModalOpen]
   );
 
   const handleClose = useCallback(() => {

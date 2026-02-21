@@ -1,5 +1,5 @@
 import { SquarePlus, Settings, Database, Wallet, Pencil, PencilOff } from 'lucide-react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useActiveStrategy, useStrategies } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { CanvasGrid } from '@/features/canvas/CanvasGrid';
 import { CANVAS_GRID_CONFIG, OPTIMIZED_CANVAS_WIDTH } from '@/features/canvas/canvas-grid-config';
@@ -9,11 +9,8 @@ const floatingButton =
   'w-9 h-9 flex items-center justify-center rounded-[var(--radius-button)] cursor-pointer transition-colors';
 
 export function CanvasArea() {
-  const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
-  const strategies = useStrategyStore((s) => s.strategies);
-  const activeStrategy = useStrategyStore((s) =>
-    s.strategies.find((st) => st.id === s.activeStrategyId)
-  );
+  const { strategy: activeStrategy, strategyId: activeStrategyId } = useActiveStrategy();
+  const { data: strategies = [] } = useStrategies();
   const {
     canvasEditMode,
     toggleCanvasEditMode,

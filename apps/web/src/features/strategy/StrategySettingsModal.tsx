@@ -3,6 +3,7 @@ import { Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import type { StrategyInputConfig } from '@/store/strategy-store';
 import { IconPicker } from '@/components/IconPicker';
 import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useUpdateStrategy, useDeleteStrategy, useMoveStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
 
@@ -50,11 +51,11 @@ export function StrategySettingsModal() {
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  const strategies = useStrategyStore((s) => s.strategies);
+  const { data: strategies = [] } = useStrategies();
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
-  const updateStrategy = useStrategyStore((s) => s.updateStrategy);
-  const deleteStrategy = useStrategyStore((s) => s.deleteStrategy);
-  const moveStrategy = useStrategyStore((s) => s.moveStrategy);
+  const updateStrategyMut = useUpdateStrategy();
+  const deleteStrategyMut = useDeleteStrategy();
+  const moveStrategyMut = useMoveStrategy();
 
   const { strategySettingsModalOpen, setStrategySettingsModalOpen } = useUIStore();
 
@@ -84,7 +85,8 @@ export function StrategySettingsModal() {
         return;
       }
       setError(null);
-      updateStrategy(strategy.id, {
+      updateStrategyMut.mutate({
+        id: strategy.id,
         name: trimmed,
         baseCurrency,
         icon: icon || undefined,
@@ -93,7 +95,7 @@ export function StrategySettingsModal() {
       });
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, updateStrategy, setStrategySettingsModalOpen]
+    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, updateStrategyMut, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -102,9 +104,9 @@ export function StrategySettingsModal() {
       setDeleteConfirm(true);
       return;
     }
-    deleteStrategy(strategy.id);
+    deleteStrategyMut.mutate(strategy.id);
     setStrategySettingsModalOpen(false);
-  }, [strategy, deleteConfirm, deleteStrategy, setStrategySettingsModalOpen]);
+  }, [strategy, deleteConfirm, deleteStrategyMut, setStrategySettingsModalOpen]);
 
   const handleClose = useCallback(() => {
     setStrategySettingsModalOpen(false);
@@ -142,9 +144,9 @@ export function StrategySettingsModal() {
       ...(strategy.inputValues ?? {}),
       [id]: val,
     };
-    updateStrategy(strategy.id, { inputs: nextInputs, inputValues: nextValues });
+    updateStrategyMut.mutate({ id: strategy.id, inputs: nextInputs, inputValues: nextValues });
     setError(null);
-  }, [strategy, updateStrategy]);
+  }, [strategy, updateStrategyMut]);
 
   const handleRemoveInput = useCallback(
     (inputId: string) => {
@@ -152,9 +154,9 @@ export function StrategySettingsModal() {
       const next = (strategy.inputs ?? []).filter((i) => i.id !== inputId);
       const nextValues = { ...(strategy.inputValues ?? {}) };
       delete nextValues[inputId];
-      updateStrategy(strategy.id, { inputs: next, inputValues: nextValues });
+      updateStrategyMut.mutate({ id: strategy.id, inputs: next, inputValues: nextValues });
     },
-    [strategy, updateStrategy]
+    [strategy, updateStrategyMut]
   );
 
   const handleUpdateInput = useCallback(
@@ -182,7 +184,7 @@ export function StrategySettingsModal() {
               ? JSON.stringify(merged.default)
               : (merged.default as string | number);
         }
-        updateStrategy(strategy.id, { inputs: nextInputs, inputValues: nextValues });
+        updateStrategyMut.mutate({ id: strategy.id, inputs: nextInputs, inputValues: nextValues });
       } else if (updates.type != null && updates.type !== current.type) {
         merged.default = defaultForType(updates.type);
         const nextValues = { ...(strategy.inputValues ?? {}) };
@@ -190,18 +192,20 @@ export function StrategySettingsModal() {
           typeof merged.default === 'object' && merged.default != null
             ? JSON.stringify(merged.default)
             : (merged.default as string | number);
-        updateStrategy(strategy.id, {
+        updateStrategyMut.mutate({
+          id: strategy.id,
           inputs: inputs.map((i) => (i.id === inputId ? merged : i)),
           inputValues: nextValues,
         });
       } else if (updates.title != null) {
-        updateStrategy(strategy.id, {
+        updateStrategyMut.mutate({
+          id: strategy.id,
           inputs: inputs.map((i) => (i.id === inputId ? merged : i)),
         });
       }
       setError(null);
     },
-    [strategy, updateStrategy]
+    [strategy, updateStrategyMut]
   );
 
   if (!strategySettingsModalOpen || !strategy) return null;
@@ -318,7 +322,7 @@ export function StrategySettingsModal() {
                           color: canMoveUp ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
                           opacity: canMoveUp ? 1 : 0.4,
                         }}
-                        onClick={() => canMoveUp && moveStrategy(st.id, 'up')}
+                        onClick={() => canMoveUp && moveStrategyMut.mutate({ id: st.id, direction: 'up' })}
                         disabled={!canMoveUp}
                         title="Move up"
                       >
@@ -331,7 +335,7 @@ export function StrategySettingsModal() {
                           color: canMoveDown ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
                           opacity: canMoveDown ? 1 : 0.4,
                         }}
-                        onClick={() => canMoveDown && moveStrategy(st.id, 'down')}
+                        onClick={() => canMoveDown && moveStrategyMut.mutate({ id: st.id, direction: 'down' })}
                         disabled={!canMoveDown}
                         title="Move down"
                       >

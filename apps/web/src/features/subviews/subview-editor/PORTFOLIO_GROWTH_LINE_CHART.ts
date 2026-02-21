@@ -14,7 +14,6 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   maker: 'official',
   categories: ['essential', 'stock-etf'],
   defaultSize: { w: 600, h: 100 },
-  icon: 'TrendingUp',
   iconColor: 'green-2',
   titleColor: 'green-2',
   inputs: {

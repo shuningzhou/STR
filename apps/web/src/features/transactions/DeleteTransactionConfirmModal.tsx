@@ -1,18 +1,18 @@
-import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button } from '@/components/ui';
+import { useDeleteTransaction } from '@/api/hooks';
 
 export function DeleteTransactionConfirmModal() {
   const deleteTransactionConfirmOpen = useUIStore((s) => s.deleteTransactionConfirmOpen);
   const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
-  const removeTransaction = useStrategyStore((s) => s.removeTransaction);
+  const deleteTx = useDeleteTransaction();
 
   const strategyId = deleteTransactionConfirmOpen?.strategyId ?? null;
   const transactionId = deleteTransactionConfirmOpen?.transactionId ?? null;
 
   const handleConfirm = () => {
     if (strategyId != null && transactionId != null) {
-      removeTransaction(strategyId, transactionId);
+      deleteTx.mutate({ id: String(transactionId), strategyId });
     }
     setDeleteTransactionConfirmOpen(null);
   };

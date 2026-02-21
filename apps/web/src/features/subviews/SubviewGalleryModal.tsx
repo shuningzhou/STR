@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useActiveStrategy, useAddSubview } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal } from '@/components/ui';
 import { SUBVIEW_TEMPLATES, type SubviewTemplate } from './templates';
 import { SUBVIEW_CATEGORIES, type SubviewCategory } from '@str/shared';
 import { cn } from '@/lib/utils';
+import { pixelsToGrid } from '@/features/canvas/canvas-grid-config';
 
 const CATEGORY_LABELS: Record<SubviewCategory, string> = {
   example: 'Example',
@@ -21,8 +22,8 @@ function getTemplateCategories(t: SubviewTemplate): SubviewCategory[] {
 
 export function SubviewGalleryModal() {
   const [selectedCategory, setSelectedCategory] = useState<SubviewCategory | 'all'>('all');
-  const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
-  const addSubview = useStrategyStore((s) => s.addSubview);
+  const { strategy: activeStrategy, strategyId: activeStrategyId } = useActiveStrategy();
+  const addSubviewMut = useAddSubview();
 
   const { subviewGalleryModalOpen, setSubviewGalleryModalOpen, setSubviewSettingsOpen } = useUIStore();
 
@@ -31,22 +32,49 @@ export function SubviewGalleryModal() {
       ? SUBVIEW_TEMPLATES
       : SUBVIEW_TEMPLATES.filter((t) => getTemplateCategories(t).includes(selectedCategory));
 
-  const handleSelect = (templateId: string) => {
+  const handleSelect = async (templateId: string) => {
     if (!activeStrategyId) return;
     const template = SUBVIEW_TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
-    const newSubview = addSubview(activeStrategyId, {
+
+    const spec = template.spec as { defaultSize?: { w: number; h: number } | string; preferredSize?: { w: number; h: number }; size?: string; icon?: string; iconColor?: string } | undefined;
+
+    let pixelSize: { w: number; h: number } | undefined;
+    if (spec?.defaultSize != null) {
+      const ds = spec.defaultSize;
+      pixelSize = typeof ds === 'object' ? ds : (() => {
+        const m = String(ds).match(/^(\d+)x(\d+)$/);
+        return m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
+      })();
+    } else if (spec?.preferredSize) {
+      pixelSize = spec.preferredSize;
+    } else if (spec?.size) {
+      const m = String(spec.size).match(/^(\d+)x(\d+)$/);
+      pixelSize = m ? { w: parseInt(m[1], 10) * 25, h: parseInt(m[2], 10) * 20 } : { w: 400, h: 100 };
+    }
+    if (!pixelSize) pixelSize = template.defaultSize;
+    if (!pixelSize) pixelSize = { w: 400, h: 100 };
+
+    const gridSize = pixelsToGrid(pixelSize.w, pixelSize.h);
+    const subviews = activeStrategy?.subviews ?? [];
+    const maxBottom = subviews.length > 0 ? Math.max(...subviews.map((sv) => sv.position.y + sv.position.h)) : 0;
+
+    const subviewId = crypto.randomUUID?.() ?? `v-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    const newSubview = await addSubviewMut.mutateAsync({
+      strategyId: activeStrategyId,
+      id: subviewId,
       name: template.name,
-      defaultSize: template.defaultSize,
-      spec: template.spec,
+      position: { x: 0, y: maxBottom, w: gridSize.w, h: gridSize.h },
       templateId: templateId !== 'custom' ? templateId : undefined,
+      spec: template.spec as Record<string, unknown> | undefined,
+      icon: spec?.icon,
+      iconColor: spec?.iconColor,
     });
+
     setSubviewGalleryModalOpen(false);
     if (templateId === 'custom') {
-      setSubviewSettingsOpen({
-        strategyId: activeStrategyId,
-        subviewId: newSubview.id,
-      });
+      setSubviewSettingsOpen({ strategyId: activeStrategyId, subviewId: newSubview.id ?? subviewId });
     }
   };
 

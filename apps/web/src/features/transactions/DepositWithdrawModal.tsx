@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
-import { useStrategyStore } from '@/store/strategy-store';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label } from '@/components/ui';
+import { useCreateTransaction, useStrategies } from '@/api/hooks';
 
 export function DepositWithdrawModal() {
   const depositWithdrawModalOpen = useUIStore((s) => s.depositWithdrawModalOpen);
   const setDepositWithdrawModalOpen = useUIStore((s) => s.setDepositWithdrawModalOpen);
-  const addTransaction = useStrategyStore((s) => s.addTransaction);
-  const strategies = useStrategyStore((s) => s.strategies);
+  const createTx = useCreateTransaction();
+  const { data: strategies = [] } = useStrategies();
 
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -21,7 +21,7 @@ export function DepositWithdrawModal() {
   const title = mode === 'deposit' ? 'Deposit' : 'Withdraw';
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!strategyId) return;
 
@@ -36,7 +36,8 @@ export function DepositWithdrawModal() {
       const timestamp = `${date}T12:00:00Z`;
 
       try {
-        addTransaction(strategyId, {
+        await createTx.mutateAsync({
+          strategyId,
           side: mode,
           cashDelta,
           timestamp,
@@ -55,7 +56,7 @@ export function DepositWithdrawModal() {
       setDate(new Date().toISOString().slice(0, 10));
       setDepositWithdrawModalOpen(null);
     },
-    [strategyId, mode, amount, date, addTransaction, setDepositWithdrawModalOpen]
+    [strategyId, mode, amount, date, createTx, setDepositWithdrawModalOpen]
   );
 
   const handleClose = useCallback(() => {

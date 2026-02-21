@@ -1,30 +1,28 @@
-/**
- * Fetches current prices for symbols.
- * When backend is ready, it will provide an API that pulls from FMP (US/CAD stocks, ETFs)
- * and Massive (option chains). Backend caches for 30 seconds.
- *
- * For now, returns mock prices. Replace fetchPrices implementation when backend exists.
- */
+import { getQuotes } from '@/api/market-data-api';
 
 export type PriceMap = Record<string, number>;
 
 /**
- * Fetch current prices for the given symbols.
- * Backend API (when ready): GET /api/prices?symbols=AAPL,VOO,...
+ * Fetch current prices for the given stock/ETF symbols via backend API.
+ * Backend handles EODHD provider and caching.
  */
 export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
   const unique = [...new Set(symbols)].filter(Boolean);
   if (unique.length === 0) return {};
 
-  // TODO: when backend is ready, call it:
-  // const res = await fetch(`/api/prices?symbols=${unique.join(',')}`);
-  // if (res.ok) return res.json();
-  // fallback to mock on error
-
-  return getMockPrices(unique);
+  try {
+    const quotes = await getQuotes(unique);
+    const result: PriceMap = {};
+    for (const q of quotes) {
+      result[q.symbol] = q.price;
+    }
+    return result;
+  } catch {
+    return getMockPrices(unique);
+  }
 }
 
-/** Mock prices for development until backend provides real data */
+/** Fallback mock prices when backend is unavailable */
 function getMockPrices(symbols: string[]): PriceMap {
   const MOCK_PRICES: Record<string, number> = {
     AAPL: 185.5,

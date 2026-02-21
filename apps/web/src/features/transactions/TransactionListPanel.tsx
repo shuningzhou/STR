@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { X, Pencil, Trash2, Plus } from 'lucide-react';
-import { useStrategyStore } from '@/store/strategy-store';
+import { useStrategies, useTransactions } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Button } from '@/components/ui';
 import type { StrategyTransaction } from '@/store/strategy-store';
@@ -13,14 +13,14 @@ export function TransactionListPanel() {
   const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
   const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
   const setEditTransactionModalOpen = useUIStore((s) => s.setEditTransactionModalOpen);
-  const strategies = useStrategyStore((s) => s.strategies);
+  const { data: strategies = [] } = useStrategies();
 
   const strategyId = transactionListPanelOpen;
+  const { data: transactions = [] } = useTransactions(strategyId);
   const strategy = useMemo(
     () => strategies.find((s) => s.id === strategyId),
     [strategies, strategyId]
   );
-  const transactions = strategy?.transactions ?? [];
 
   const sortedTransactions = useMemo(
     () => [...transactions].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')),
