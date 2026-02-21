@@ -1,6 +1,8 @@
 /**
  * Official read-only subview: Line chart of portfolio growth over time.
- * Plots cumulative portfolio value (cash + holdings at current prices) at each transaction date.
+ * Portfolio = holdings value - loan + wallet (net equity).
+ * Deposit line: cumulative deposit/withdraw/dividend to wallet.
+ * Holdings: market value of positions. Loan: borrowed amount (margin).
  */
 import type { SubviewSpec } from '@str/shared';
 
@@ -56,10 +58,10 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   ],
   python_code: `def get_portfolio_growth(context, inputs):
     """Return line chart data: { items: [{ label, value, depositWithdraw?, loan?, holdingsValue? }, ...] }.
-    Portfolio value at each date = cash balance + market value of holdings.
-    When showDepositWithdraw is true, also include cumulative deposit/withdraw sum (orange line).
-    When showLoan is true and margin account enabled, include loan amount at each date (red line).
-    When showHoldingsValue is true, include market value of holdings at each date (blue line)."""
+    Portfolio = holdings - loan + wallet (net equity at each date).
+    depositWithdraw: cumulative deposit, withdrawal, and dividend (money in/out of wallet).
+    holdingsValue: market value of positions. loan: borrowed amount (margin).
+    """
     txs = context.get('transactions') or []
     wallet = context.get('wallet') or {}
     initial = float(wallet.get('initialBalance', 0) or 0)
@@ -89,8 +91,8 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     if not stock_txs:
         return {'items': []}
 
-    # Precompute cumulative deposit/withdraw at each date (for showDepositWithdraw)
-    # dw_cumulative[date] = sum of deposit/withdraw cashDelta for txs with date <= date
+    # Precompute cumulative deposit/withdraw/dividend at each date (for showDepositWithdraw)
+    # Includes deposit, withdrawal/withdraw, dividend (dividend counts as deposit)
     dw_cumulative = {}
     if show_dw:
         date_set = set()
@@ -105,7 +107,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
             if d != 'Start':
                 for t in txs:
                     side = (t.get('side') or t.get('type') or '').lower()
-                    if side not in ('deposit', 'withdrawal'):
+                    if side not in ('deposit', 'withdrawal', 'withdraw', 'dividend'):
                         continue
                     td = (t.get('timestamp') or '')[:10]
                     if td and td <= d:
@@ -119,7 +121,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         ts = tx.get('timestamp') or ''
         return ts[:10] if len(ts) >= 10 else ts
     stock_txs_sorted = sorted(stock_txs, key=date_of)
-    cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee'}
+    cash_only_sides = {'deposit', 'withdrawal', 'withdraw', 'interest', 'fee'}
 
     items = [{'label': 'Start', 'value': round(initial, 2)}]
     if show_dw:

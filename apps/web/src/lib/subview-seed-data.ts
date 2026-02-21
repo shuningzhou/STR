@@ -201,7 +201,10 @@ export function buildStrategyContext(
 
   const marginAccountEnabled =
     strategy && 'marginAccountEnabled' in strategy ? !!strategy.marginAccountEnabled : false;
-  const loanAmount = strategy?.loanAmount ?? 0;
+  // For margin: wallet never goes below 0; negative cash becomes loan
+  const loanAmount = marginAccountEnabled ? Math.max(0, -computedBalance) : (strategy?.loanAmount ?? 0);
+  const balance = marginAccountEnabled ? Math.max(0, computedBalance) : computedBalance;
+
   const marginReq = strategy?.marginRequirement ?? 0;
   const collateralAmount = strategy?.collateralAmount ?? 0;
   const collateralReq = strategy?.collateralRequirement ?? 0;
@@ -209,8 +212,6 @@ export function buildStrategyContext(
   const collateralAvailable = collateralAmount - collateralLimit;
 
   const equity = computeEquity(txs, currentPrices ?? {});
-  const balance =
-    marginAccountEnabled && loanAmount > 0 ? 0 : computedBalance;
   const marginLimit = equity * (marginReq / 100);
   const marginAvailable =
     collateralAvailable + equity + balance - loanAmount - marginLimit;
@@ -225,7 +226,7 @@ export function buildStrategyContext(
       balance,
       marginAccountEnabled,
       collateralEnabled: strategy && 'collateralEnabled' in strategy ? !!strategy.collateralEnabled : false,
-      loanAmount: strategy?.loanAmount,
+      loanAmount,
       loanInterest: strategy?.loanInterest,
       marginRequirement: strategy?.marginRequirement,
       buyingPower,

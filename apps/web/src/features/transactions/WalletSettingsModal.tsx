@@ -138,7 +138,12 @@ export function WalletSettingsModal() {
 
   if (!walletSettingsModalOpen || !strategyId || !strategy) return null;
 
-  const loanAmountNum = strategy?.loanAmount ?? 0;
+  const marginAccountEnabled = strategy.marginAccountEnabled ?? false;
+  // For margin: wallet never goes below 0; negative cash becomes loan (matches Portfolio Growth chart)
+  const displayLoan = marginAccountEnabled ? Math.max(0, -computedBalance) : (strategy?.loanAmount ?? 0);
+  const currentBalance = marginAccountEnabled ? Math.max(0, computedBalance) : computedBalance;
+
+  const loanAmountNum = displayLoan;
   const marginReqNum = parseFloat(marginRequirement) || 0;
   const collateralAmountNum = parseFloat(collateralAmount) || 0;
   const collateralReqNum = parseFloat(collateralRequirement) || 0;
@@ -146,11 +151,6 @@ export function WalletSettingsModal() {
   const collateralEnabled = strategy.collateralEnabled ?? false;
   const collateralAvailable =
     collateralEnabled ? collateralAmountNum - collateralLimit : 0;
-
-  // For margin account with loan, current balance is 0 (buys add to loan instead of reducing balance)
-  const marginAccountEnabled = strategy.marginAccountEnabled ?? false;
-  const currentBalance =
-    marginAccountEnabled && loanAmountNum > 0 ? 0 : computedBalance;
 
   const marginLimit = equity * (marginReqNum / 100);
   const marginAvailable =
