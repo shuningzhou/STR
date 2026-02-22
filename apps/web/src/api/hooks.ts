@@ -1,3 +1,4 @@
+import { useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as strategiesApi from './strategies-api';
 import * as transactionsApi from './transactions-api';
@@ -95,6 +96,47 @@ export function useMoveStrategy() {
 }
 
 /* ────────────────────────────────────────────────────
+   Debounced Strategy Mutation (optimistic + debounced API call)
+   ──────────────────────────────────────────────────── */
+
+export function useDebouncedUpdateStrategy(delay = 300) {
+  const qc = useQueryClient();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const pendingRef = useRef<{ id: string } & Record<string, unknown>>();
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const mutate = useCallback(
+    (args: { id: string } & Record<string, unknown>) => {
+      const { id, ...dto } = args;
+      const prev = qc.getQueryData<Strategy[]>(queryKeys.strategies);
+      if (prev) {
+        qc.setQueryData(
+          queryKeys.strategies,
+          prev.map((s) => (s.id === id ? { ...s, ...dto } : s)),
+        );
+      }
+      pendingRef.current = args;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        const latest = pendingRef.current;
+        if (!latest) return;
+        pendingRef.current = undefined;
+        const { id: latestId, ...latestDto } = latest;
+        try {
+          await strategiesApi.updateStrategy(latestId, latestDto);
+        } finally {
+          qc.invalidateQueries({ queryKey: queryKeys.strategies });
+        }
+      }, delay);
+    },
+    [qc, delay],
+  );
+
+  return { mutate };
+}
+
+/* ────────────────────────────────────────────────────
    Subview Mutations
    ──────────────────────────────────────────────────── */
 
@@ -145,6 +187,104 @@ export function useBatchUpdatePositions() {
     }) => strategiesApi.batchUpdatePositions(strategyId, subviews),
     onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.strategies }); },
   });
+}
+
+/* ────────────────────────────────────────────────────
+   Debounced Subview Mutation (optimistic + debounced API call)
+   ──────────────────────────────────────────────────── */
+
+export function useDebouncedUpdateSubview(delay = 300) {
+  const qc = useQueryClient();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const pendingRef = useRef<{ strategyId: string; subviewId: string } & Record<string, unknown>>();
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const mutate = useCallback(
+    (args: { strategyId: string; subviewId: string } & Record<string, unknown>) => {
+      const { strategyId, subviewId, ...dto } = args;
+      const prev = qc.getQueryData<Strategy[]>(queryKeys.strategies);
+      if (prev) {
+        qc.setQueryData(
+          queryKeys.strategies,
+          prev.map((s) => {
+            if (s.id !== strategyId) return s;
+            return {
+              ...s,
+              subviews: s.subviews.map((sv) =>
+                sv.id === subviewId ? { ...sv, ...dto } : sv,
+              ),
+            };
+          }),
+        );
+      }
+      pendingRef.current = args;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        const latest = pendingRef.current;
+        if (!latest) return;
+        pendingRef.current = undefined;
+        const { strategyId: sid, subviewId: svid, ...latestDto } = latest;
+        try {
+          await strategiesApi.updateSubview(sid, svid, latestDto);
+        } finally {
+          qc.invalidateQueries({ queryKey: queryKeys.strategies });
+        }
+      }, delay);
+    },
+    [qc, delay],
+  );
+
+  return { mutate };
+}
+
+/* ────────────────────────────────────────────────────
+   Debounced Batch Position Update (optimistic + debounced API call)
+   ──────────────────────────────────────────────────── */
+
+export function useDebouncedBatchUpdatePositions(delay = 300) {
+  const qc = useQueryClient();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const pendingRef = useRef<{ strategyId: string; subviews: { id: string; position: SubviewPosition }[] }>();
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const mutate = useCallback(
+    (args: { strategyId: string; subviews: { id: string; position: SubviewPosition }[] }) => {
+      const { strategyId, subviews } = args;
+      const prev = qc.getQueryData<Strategy[]>(queryKeys.strategies);
+      if (prev) {
+        qc.setQueryData(
+          queryKeys.strategies,
+          prev.map((s) => {
+            if (s.id !== strategyId) return s;
+            return {
+              ...s,
+              subviews: s.subviews.map((sv) => {
+                const upd = subviews.find((u) => u.id === sv.id);
+                return upd ? { ...sv, position: upd.position } : sv;
+              }),
+            };
+          }),
+        );
+      }
+      pendingRef.current = args;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        const latest = pendingRef.current;
+        if (!latest) return;
+        pendingRef.current = undefined;
+        try {
+          await strategiesApi.batchUpdatePositions(latest.strategyId, latest.subviews);
+        } finally {
+          qc.invalidateQueries({ queryKey: queryKeys.strategies });
+        }
+      }, delay);
+    },
+    [qc, delay],
+  );
+
+  return { mutate };
 }
 
 export function useSaveSubviewCache() {

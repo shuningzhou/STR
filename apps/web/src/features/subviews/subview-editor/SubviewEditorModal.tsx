@@ -17,7 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
-import { useStrategies, useRemoveSubview, useUpdateSubview, useUpdateStrategy } from '@/api/hooks';
+import { useStrategies, useRemoveSubview, useUpdateSubview, useDebouncedUpdateStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Button } from '@/components/ui';
 import { safeParseSubviewSpec, type SubviewSpec } from '@str/shared';
@@ -37,7 +37,7 @@ export function SubviewEditorModal() {
   const { data: strategies = [] } = useStrategies();
   const removeSubviewMut = useRemoveSubview();
   const updateSubviewMut = useUpdateSubview();
-  const updateStrategyMut = useUpdateStrategy();
+  const updateStrategyMut = useDebouncedUpdateStrategy();
   const { subviewSettingsOpen, setSubviewSettingsOpen } = useUIStore();
 
   const strategy = subviewSettingsOpen

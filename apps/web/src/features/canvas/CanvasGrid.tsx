@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from 'react-grid-layout';
 import type { Layout } from 'react-grid-layout';
-import { useStrategies, useBatchUpdatePositions } from '@/api/hooks';
+import { useStrategies, useDebouncedBatchUpdatePositions } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { CANVAS_GRID_CONFIG, CANVAS_LAYOUT_CONSTRAINTS, REFERENCE_WIDTH } from './canvas-grid-config';
 import { SubviewCard } from './SubviewCard';
@@ -14,7 +14,7 @@ interface CanvasGridProps {
 export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
   const { data: strategies = [] } = useStrategies();
   const strategy = strategies.find((st) => st.id === strategyId);
-  const batchUpdatePositions = useBatchUpdatePositions();
+  const batchUpdatePositions = useDebouncedBatchUpdatePositions();
   const setCanvasWidth = useUIStore((s) => s.setCanvasWidth);
   const { width, containerRef, mounted } = useContainerWidth();
 

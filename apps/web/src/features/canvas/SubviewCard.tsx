@@ -11,7 +11,7 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { useTransactions, useUpdateSubview, useUpdateStrategy, useInstrumentMarginRequirements } from '@/api/hooks';
+import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements } from '@/api/hooks';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -87,8 +87,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const setSubviewSettingsOpen = useUIStore((s) => s.setSubviewSettingsOpen);
   const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
   const setDepositWithdrawModalOpen = useUIStore((s) => s.setDepositWithdrawModalOpen);
-  const updateSubviewMut = useUpdateSubview();
-  const updateStrategyMut = useUpdateStrategy();
+  const updateSubviewMut = useDebouncedUpdateSubview();
+  const updateStrategyMut = useDebouncedUpdateStrategy();
   const { data: transactions = [] } = useTransactions(strategyId);
 
   const uniqueSymbols = useMemo(() => {

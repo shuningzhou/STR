@@ -2,7 +2,7 @@
  * Renders a single input control by type (time_range, ticker_selector, etc.).
  * Shared by SubviewSpecRenderer and StrategyInputsBar.
  */
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input, SegmentControl } from '@/components/ui';
 
@@ -22,6 +22,90 @@ const VALUE_BOX_STYLE: React.CSSProperties = {
   paddingLeft: 5,
   paddingRight: 5,
 };
+
+const VALUE_BOX_STYLE_SLIDER = { paddingLeft: 12, paddingRight: 12 };
+
+function SliderInput({
+  inputKey,
+  cfg,
+  inputs,
+  onInputChange,
+  isEditable,
+}: {
+  inputKey: string;
+  cfg: Record<string, unknown>;
+  inputs: Record<string, unknown>;
+  onInputChange?: (key: string, value: string | number) => void;
+  isEditable: boolean;
+}) {
+  const cfgSlider = cfg as { default?: number; min?: number; max?: number; step?: number; suffix?: string; hideValue?: boolean };
+  const min = cfgSlider.min ?? 0;
+  const max = cfgSlider.max ?? 100;
+  const step = cfgSlider.step ?? 1;
+  const suffix = cfgSlider.suffix ?? '';
+  const hideValue = cfgSlider.hideValue ?? false;
+  const committedVal = Number(inputs[inputKey] ?? cfgSlider.default ?? min);
+
+  const [localVal, setLocalVal] = useState(committedVal);
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    if (!draggingRef.current) setLocalVal(committedVal);
+  }, [committedVal]);
+
+  if (!isEditable) {
+    return (
+      <div
+        className="rounded-[var(--radius-medium)] border text-[13px]"
+        style={{
+          height: 'var(--control-height)',
+          backgroundColor: 'var(--color-bg-input)',
+          borderColor: 'var(--color-border)',
+          color: 'var(--color-text-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          ...VALUE_BOX_STYLE_SLIDER,
+        }}
+      >
+        {committedVal}{suffix}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={localVal}
+        onChange={(e) => {
+          draggingRef.current = true;
+          setLocalVal(parseFloat(e.target.value));
+        }}
+        onMouseUp={() => {
+          draggingRef.current = false;
+          onInputChange?.(inputKey, localVal);
+        }}
+        onTouchEnd={() => {
+          draggingRef.current = false;
+          onInputChange?.(inputKey, localVal);
+        }}
+        className="flex-1 accent-[var(--color-active)]"
+        style={{ height: 4 }}
+      />
+      {!hideValue && (
+        <span
+          className="text-[13px] font-medium shrink-0 tabular-nums"
+          style={{ color: 'var(--color-text-primary)', minWidth: 36, textAlign: 'right' }}
+        >
+          {localVal}{suffix}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export interface InputControlProps {
   inputKey: string;
@@ -401,52 +485,7 @@ export function InputControl({
           </div>
         )
       ) : inputType === 'slider' ? (
-        (() => {
-          const cfgSlider = cfg as { default?: number; min?: number; max?: number; step?: number; suffix?: string; hideValue?: boolean };
-          const min = cfgSlider.min ?? 0;
-          const max = cfgSlider.max ?? 100;
-          const step = cfgSlider.step ?? 1;
-          const suffix = cfgSlider.suffix ?? '';
-          const hideValue = cfgSlider.hideValue ?? false;
-          const val = Number(inputs[inputKey] ?? cfgSlider.default ?? min);
-          return isEditable ? (
-            <div className="flex items-center gap-2 w-full">
-              <input
-                type="range"
-                min={min}
-                max={max}
-                step={step}
-                value={val}
-                onChange={(e) => onInputChange!(inputKey, parseFloat(e.target.value))}
-                className="flex-1 accent-[var(--color-active)]"
-                style={{ height: 4 }}
-              />
-              {!hideValue && (
-                <span
-                  className="text-[13px] font-medium shrink-0 tabular-nums"
-                  style={{ color: 'var(--color-text-primary)', minWidth: 36, textAlign: 'right' }}
-                >
-                  {val}{suffix}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div
-              className="rounded-[var(--radius-medium)] border text-[13px]"
-              style={{
-                height: 'var(--control-height)',
-                backgroundColor: 'var(--color-bg-input)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                ...VALUE_BOX_STYLE,
-              }}
-            >
-              {val}{suffix}
-            </div>
-          );
-        })()
+        <SliderInput inputKey={inputKey} cfg={cfg} inputs={inputs} onInputChange={onInputChange} isEditable={isEditable} />
       ) : (
         <div
           className="rounded-[var(--radius-medium)] border text-[13px]"
