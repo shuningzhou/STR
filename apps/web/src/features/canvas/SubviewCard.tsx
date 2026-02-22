@@ -11,7 +11,7 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements } from '@/api/hooks';
+import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory } from '@/api/hooks';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -98,7 +98,20 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     }
     return Array.from(syms).sort();
   }, [transactions]);
+
+  const dateRange = useMemo(() => {
+    const dates = transactions
+      .filter((t) => !t.option && t.timestamp)
+      .map((t) => (t.timestamp ?? '').slice(0, 10))
+      .filter(Boolean);
+    if (dates.length === 0) return { from: undefined, to: undefined };
+    const from = dates.reduce((a, b) => (a < b ? a : b));
+    const to = new Date().toISOString().slice(0, 10);
+    return { from, to };
+  }, [transactions]);
+
   const { data: instrumentMarginReqs } = useInstrumentMarginRequirements(uniqueSymbols);
+  const priceHistory = usePriceHistory(uniqueSymbols, dateRange.from, dateRange.to);
 
   const handleSubviewInputChange = useCallback((key: string, value: string | number) => {
     const currentValues = subview.inputValues ?? {};
@@ -155,8 +168,9 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       ),
       currentPrices,
       instrumentMarginRequirements: instrumentMarginReqs ?? {},
+      priceHistory,
     }),
-    [strategy, transactions, currentPrices, instrumentMarginReqs]
+    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory]
   );
 
   const hasSpec = !!effectiveSpec;

@@ -10,7 +10,7 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   description: 'Donut chart showing % of portfolio by holding',
   maker: 'official',
   categories: ['stock-etf'],
-  defaultSize: { w: 400, h: 220 },
+  defaultSize: { w: 375, h: 125 },
   inputs: {},
   layout: [
     [

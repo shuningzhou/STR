@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as strategiesApi from './strategies-api';
 import * as transactionsApi from './transactions-api';
 import * as walletsApi from './wallets-api';
@@ -405,6 +405,32 @@ export function useHistory(symbol: string, from?: string, to?: string) {
     enabled: !!symbol,
     staleTime: 60 * 60 * 1000,
   });
+}
+
+/** EOD price history: { [symbol]: { [date]: close } } for portfolio growth chart */
+export function usePriceHistory(
+  symbols: string[],
+  fromDate?: string,
+  toDate?: string,
+): Record<string, Record<string, number>> {
+  const results = useQueries({
+    queries: symbols.map((symbol) => ({
+      queryKey: queryKeys.history(symbol, fromDate, toDate),
+      queryFn: () => marketDataApi.getHistory(symbol, fromDate, toDate),
+      enabled: !!symbol && !!fromDate && !!toDate,
+      staleTime: 60 * 60 * 1000,
+    })),
+  });
+
+  const out: Record<string, Record<string, number>> = {};
+  for (let i = 0; i < symbols.length; i++) {
+    const bars = results[i]?.data ?? [];
+    out[symbols[i]] = {};
+    for (const b of bars) {
+      if (b?.date) out[symbols[i]][b.date] = b.close;
+    }
+  }
+  return out;
 }
 
 export function useSymbolSearch(query: string) {
