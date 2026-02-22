@@ -12,7 +12,7 @@ export const SECURED_PUTS_CAPITAL: SubviewSpec = {
   description: 'Total money occupied by secured puts (strike × 100 × contracts)',
   maker: 'official',
   categories: ['option'],
-  defaultSize: { w: 220, h: 50 },
+  defaultSize: { w: 175, h: 40 },
   inputs: {},
   layout: [
     [

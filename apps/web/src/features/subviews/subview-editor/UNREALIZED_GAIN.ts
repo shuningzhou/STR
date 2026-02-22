@@ -13,7 +13,7 @@ export const UNREALIZED_GAIN: SubviewSpec = {
   description: 'Unrealized gain: current holdings value minus book value',
   maker: 'official',
   categories: ['stock-etf'],
-  defaultSize: { w: 200, h: 70 },
+  defaultSize: { w: 175, h: 40 },
   inputs: {},
   layout: [
     [

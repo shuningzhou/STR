@@ -12,7 +12,7 @@ export const PORTFOLIO_VALUE: SubviewSpec = {
   description: 'Total market value of current stock and ETF holdings',
   maker: 'official',
   categories: ['stock-etf'],
-  defaultSize: { w: 200, h: 50 },
+  defaultSize: { w: 175, h: 40 },
   inputs: {},
   layout: [
     [

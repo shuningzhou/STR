@@ -8,7 +8,7 @@ export const WIN_RATE_EXAMPLE = {
   description: 'Percentage of profitable closed option trades',
   maker: 'official',
   categories: ['option'],
-  defaultSize: { w: 125, h: 40 },
+  defaultSize: { w: 175, h: 40 },
   inputs: {},
   layout: [
     [

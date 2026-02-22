@@ -12,7 +12,7 @@ export const LOAN_SUBVIEW: SubviewSpec = {
   description: 'Current loan amount and loan as % of holdings value',
   maker: 'official',
   categories: ['margin'],
-  defaultSize: { w: 200, h: 70 },
+  defaultSize: { w: 175, h: 40 },
   inputs: {},
   layout: [
     [
