@@ -11,7 +11,7 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
   iconColor: 'yellow-2',
   description: 'Stacked bar chart of option premium income by Covered Call and Secured Put',
   maker: 'official',
-  categories: ['essential', 'option', 'income'],
+  categories: ['option', 'income'],
   defaultSize: { w: 700, h: 220 },
   inputs: {
     period: {

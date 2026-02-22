@@ -1,45 +1,58 @@
 /**
- * Official read-only subview: Pie chart of portfolio allocation by holding.
+ * Official read-only subview: Current holdings sum value.
+ * Sum of market value of all stock and ETF positions.
  */
 import type { SubviewSpec } from '@str/shared';
 
-export const PORTFOLIO_PIE_CHART: SubviewSpec = {
+export const PORTFOLIO_VALUE: SubviewSpec = {
   type: 'readonly',
-  name: 'Allocation',
-  icon: 'ChartPie',
-  description: 'Donut chart showing % of portfolio by holding',
+  name: 'Holdings Value',
+  icon: 'Wallet',
+  iconColor: 'green-2',
+  description: 'Total market value of current stock and ETF holdings',
   maker: 'official',
   categories: ['stock-etf'],
-  defaultSize: { w: 400, h: 220 },
+  defaultSize: { w: 200, h: 50 },
   inputs: {},
   layout: [
     [
       {
-        flex: { flex: 1, alignItems: 'stretch' },
+        weight: 1,
+        alignment: 'center middle',
+        contentDirection: 'column',
         content: [
           {
-            Chart: {
-              type: 'pie',
-              source: 'py:get_portfolio_pie',
+            number: {
+              value: 'py:get_portfolio_value',
+              alignment: 'center',
+              size: 'xl',
+              bold: true,
+              padding: { top: 8, bottom: 8 },
+              format: '$',
+              decimals: 2,
             },
           },
         ],
       },
     ],
   ],
-  python_code: `def get_portfolio_pie(context, inputs):
-    """Return pie chart data: { items: [{ label: str, value: float }] } for % of portfolio."""
+  python_code: `def get_portfolio_value(context, inputs):
+    """Return total market value of current stock and ETF holdings."""
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
-    
+
     def is_non_option(tx):
         opt = tx.get('option')
         try:
-            return not (opt is not None and hasattr(opt, 'get') and opt.get('expiration'))
+            return not (
+                opt is not None
+                and hasattr(opt, 'get')
+                and opt.get('expiration')
+            )
         except Exception:
             return True
-    
-    cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee'}
+
+    cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee', 'dividend'}
     agg = {}
     for tx in txs:
         if not is_non_option(tx):
@@ -52,6 +65,7 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
         if not inst_id:
             continue
         qty = int(tx.get('quantity') or 0)
+        price = float(tx.get('price') or 0)
         cash = float(tx.get('cashDelta') or 0)
         if side in ('sell', 'short'):
             qty = -qty
@@ -59,31 +73,25 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
             agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0, 'cost_total': 0.0}
         agg[inst_id]['quantity'] += qty
         agg[inst_id]['cost_total'] -= cash
-    
-    holdings = []
-    for inst_id, row in agg.items():
+
+    total = 0.0
+    for row in agg.values():
         qty = row['quantity']
         if qty <= 0:
             continue
-        cost_total = row['cost_total']
-        cost_basis = cost_total / qty if qty else 0
         sym = row['symbol']
+        cost_total = row['cost_total']
         price = current_prices.get(sym) if isinstance(current_prices, dict) else None
         if price is None:
             try:
                 price = float(current_prices.get(sym, 0)) if hasattr(current_prices, 'get') else 0
             except Exception:
-                price = cost_basis
-        market_value = qty * float(price)
-        holdings.append({'symbol': sym, 'marketValue': market_value})
-    
-    holdings.sort(key=lambda h: h['marketValue'], reverse=True)
-    total_mv = sum(h['marketValue'] for h in holdings)
-    items = []
-    for h in holdings:
-        pct = round(h['marketValue'] / total_mv * 100, 1) if total_mv else 0
-        items.append({'label': h['symbol'], 'value': pct})
-    return {'items': items}
+                price = 0
+        if price <= 0 and cost_total:
+            price = cost_total / qty
+        total += qty * float(price)
+
+    return round(total, 2)
 `,
-  functions: ['get_portfolio_pie'],
+  functions: ['get_portfolio_value'],
 };

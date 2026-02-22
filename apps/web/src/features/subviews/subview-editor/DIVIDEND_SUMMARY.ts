@@ -10,7 +10,7 @@ export const DIVIDEND_SUMMARY: SubviewSpec = {
   icon: 'CircleDollarSign',
   description: 'Dividend summary per symbol: cumulative, monthly avg, yield, yearly estimate',
   maker: 'official',
-  categories: ['essential', 'stock-etf', 'income'],
+  categories: ['stock-etf', 'income'],
   defaultSize: { w: 650, h: 120 },
   inputs: {},
   layout: [

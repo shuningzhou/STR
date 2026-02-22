@@ -11,7 +11,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
   icon: 'Landmark',
   description: 'Current stock and ETF holdings with cost basis, market value, gain, and dividends',
   maker: 'official',
-  categories: ['essential', 'stock-etf'],
+  categories: ['stock-etf'],
   defaultSize: { w: 750, h: 100 },
   inputs: {},
   layout: [

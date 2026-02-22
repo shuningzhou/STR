@@ -269,7 +269,7 @@ const headerActionSchema = z.object({
 });
 
 /** Category IDs for gallery grouping. A subview can be in multiple categories. */
-export const SUBVIEW_CATEGORIES = ['example', 'essential', 'stock-etf', 'margin', 'option', 'income'] as const;
+export const SUBVIEW_CATEGORIES = ['essential', 'stock-etf', 'margin', 'option', 'income', 'example'] as const;
 export type SubviewCategory = (typeof SUBVIEW_CATEGORIES)[number];
 
 // --- Top-level spec ---

@@ -11,7 +11,7 @@ export const LOAN_INTEREST_SUBVIEW: SubviewSpec = {
   iconColor: 'red-2',
   description: 'Loan interest rate (APR) and daily interest cost',
   maker: 'official',
-  categories: ['essential'],
+  categories: ['margin'],
   defaultSize: { w: 200, h: 40 },
   inputs: {},
   layout: [

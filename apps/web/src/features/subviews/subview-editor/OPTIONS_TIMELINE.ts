@@ -11,7 +11,7 @@ export const OPTIONS_TIMELINE: SubviewSpec = {
   iconColor: 'white',
   description: 'Timeline of option expirations from open positions',
   maker: 'official',
-  categories: ['essential', 'option'],
+  categories: ['option'],
   defaultSize: { w: 700, h: 80 },
   inputs: {},
   layout: [

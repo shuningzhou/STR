@@ -84,7 +84,7 @@ export function SubviewGalleryModal() {
 
   return (
     <Modal title="Add view" onClose={handleClose} className="w-[1024px] max-w-[95vw]">
-      <div className="flex gap-4 h-[420px] p-2">
+      <div className="flex gap-4 h-[720px] max-h-[85vh] p-2">
         {/* Sidebar */}
         <nav
           className="shrink-0 w-40 flex flex-col gap-0.5 p-2 border rounded-[var(--radius-medium)]"

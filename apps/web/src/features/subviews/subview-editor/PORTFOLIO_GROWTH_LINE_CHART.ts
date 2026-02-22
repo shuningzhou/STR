@@ -12,7 +12,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   icon: 'TrendingUp',
   description: 'Line chart of portfolio value over time',
   maker: 'official',
-  categories: ['essential', 'stock-etf'],
+  categories: ['stock-etf'],
   defaultSize: { w: 600, h: 100 },
   iconColor: 'green-2',
   titleColor: 'green-2',
