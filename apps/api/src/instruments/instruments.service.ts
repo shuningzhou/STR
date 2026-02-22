@@ -10,6 +10,19 @@ export class InstrumentsService {
     @InjectModel(Instrument.name) private instrumentModel: Model<InstrumentDocument>,
   ) {}
 
+  async findBySymbols(symbols: string[]): Promise<Record<string, number>> {
+    if (!symbols.length) return {};
+    const docs = await this.instrumentModel
+      .find({ symbol: { $in: symbols } })
+      .lean()
+      .exec();
+    const result: Record<string, number> = {};
+    for (const doc of docs) {
+      if (doc.marginRequirement) result[doc.symbol] = doc.marginRequirement;
+    }
+    return result;
+  }
+
   async search(query: string) {
     if (!query) return [];
     const regex = new RegExp(`^${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');

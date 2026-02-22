@@ -16,7 +16,8 @@ export class UpdateStrategyDto {
   @IsOptional() @IsBoolean() collateralEnabled?: boolean;
   @IsOptional() @IsNumber() loanInterest?: number;
   @IsOptional() @IsNumber() marginRequirement?: number;
-  @IsOptional() @IsNumber() collateralAmount?: number;
+  @IsOptional() @IsNumber() collateralSecurities?: number;
+  @IsOptional() @IsNumber() collateralCash?: number;
   @IsOptional() @IsNumber() collateralRequirement?: number;
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => StrategyInputConfigDto) inputs?: StrategyInputConfigDto[];
   @IsOptional() inputValues?: Record<string, unknown>;

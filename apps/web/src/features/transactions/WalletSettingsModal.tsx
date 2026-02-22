@@ -97,7 +97,8 @@ export function WalletSettingsModal() {
 
   const [loanInterest, setLoanInterest] = useState('');
   const [marginRequirement, setMarginRequirement] = useState('');
-  const [collateralAmount, setCollateralAmount] = useState('');
+  const [collateralSecurities, setCollateralSecurities] = useState('');
+  const [collateralCash, setCollateralCash] = useState('');
   const [collateralRequirement, setCollateralRequirement] = useState('');
 
   const currentPrices = useStrategyPrices(transactions);
@@ -117,7 +118,8 @@ export function WalletSettingsModal() {
     if (strategy) {
       setLoanInterest(String(strategy.loanInterest ?? ''));
       setMarginRequirement(String(strategy.marginRequirement ?? ''));
-      setCollateralAmount(String(strategy.collateralAmount ?? ''));
+      setCollateralSecurities(String(strategy.collateralSecurities ?? ''));
+      setCollateralCash(String(strategy.collateralCash ?? ''));
       setCollateralRequirement(String(strategy.collateralRequirement ?? ''));
     }
   }, [strategy]);
@@ -128,11 +130,12 @@ export function WalletSettingsModal() {
       id: strategyId,
       loanInterest: loanInterest === '' ? undefined : parseFloat(loanInterest) || 0,
       marginRequirement: marginRequirement === '' ? undefined : parseFloat(marginRequirement) || 0,
-      collateralAmount: collateralAmount === '' ? undefined : parseFloat(collateralAmount) || 0,
+      collateralSecurities: collateralSecurities === '' ? undefined : parseFloat(collateralSecurities) || 0,
+      collateralCash: collateralCash === '' ? undefined : parseFloat(collateralCash) || 0,
       collateralRequirement: collateralRequirement === '' ? undefined : parseFloat(collateralRequirement) || 0,
     });
     setWalletSettingsModalOpen(null);
-  }, [strategyId, loanInterest, marginRequirement, collateralAmount, collateralRequirement, updateStrategyMut, setWalletSettingsModalOpen]);
+  }, [strategyId, loanInterest, marginRequirement, collateralSecurities, collateralCash, collateralRequirement, updateStrategyMut, setWalletSettingsModalOpen]);
 
   const handleClose = useCallback(() => {
     setWalletSettingsModalOpen(null);
@@ -147,12 +150,13 @@ export function WalletSettingsModal() {
 
   const loanAmountNum = displayLoan;
   const marginReqNum = parseFloat(marginRequirement) || 0;
-  const collateralAmountNum = parseFloat(collateralAmount) || 0;
+  const collateralSecuritiesNum = parseFloat(collateralSecurities) || 0;
+  const collateralCashNum = parseFloat(collateralCash) || 0;
   const collateralReqNum = parseFloat(collateralRequirement) || 0;
-  const collateralLimit = collateralAmountNum * (collateralReqNum / 100);
+  const collateralLimit = collateralSecuritiesNum * (collateralReqNum / 100);
   const collateralEnabled = strategy.collateralEnabled ?? false;
   const collateralAvailable =
-    collateralEnabled ? collateralAmountNum - collateralLimit : 0;
+    collateralEnabled ? (collateralSecuritiesNum - collateralLimit) + collateralCashNum : 0;
 
   const marginLimit = equity * (marginReqNum / 100);
   const marginAvailable =
@@ -240,15 +244,30 @@ export function WalletSettingsModal() {
 
         {marginAccountEnabled && collateralEnabled && (
         <Group title="Collateral">
-          <FieldWithInput label="Collateral" id="wallet-collateral-amount">
+          <FieldWithInput label="Securities" id="wallet-collateral-securities">
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Input
-                id="wallet-collateral-amount"
+                id="wallet-collateral-securities"
                 type="number"
                 step="0.01"
                 min={0}
-                value={collateralAmount}
-                onChange={(e) => setCollateralAmount(e.target.value)}
+                value={collateralSecurities}
+                onChange={(e) => setCollateralSecurities(e.target.value)}
+                placeholder="0.00"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{currency}</span>
+            </div>
+          </FieldWithInput>
+          <FieldWithInput label="Cash" id="wallet-collateral-cash">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Input
+                id="wallet-collateral-cash"
+                type="number"
+                step="0.01"
+                min={0}
+                value={collateralCash}
+                onChange={(e) => setCollateralCash(e.target.value)}
                 placeholder="0.00"
                 style={inputStyle}
               />
@@ -270,12 +289,12 @@ export function WalletSettingsModal() {
           </FieldWithInput>
           <Row
             label="Collateral limit"
-            equation="collateral × (collateral requirement / 100)"
+            equation="securities × (collateral requirement / 100)"
             value={formatCurrency(collateralLimit, currency)}
           />
           <Row
             label="Collateral available"
-            equation="collateral − collateral limit"
+            equation="(securities − collateral limit) + cash"
             value={formatCurrency(collateralAvailable, currency)}
           />
         </Group>

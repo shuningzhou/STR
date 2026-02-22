@@ -15,6 +15,7 @@ import { ICONS_EXAMPLE } from './subview-editor/ICONS_EXAMPLE';
 import { COLORS_EXAMPLE } from './subview-editor/COLORS_EXAMPLE';
 import { LOAN_INTEREST_SUBVIEW } from './subview-editor/LOAN_INTEREST_SUBVIEW';
 import { LOAN_SUBVIEW } from './subview-editor/LOAN_SUBVIEW';
+import { OPTIMIZED_LOAN } from './subview-editor/OPTIMIZED_LOAN';
 import { SECURED_PUTS_CAPITAL } from './subview-editor/SECURED_PUTS_CAPITAL';
 import { PREMIUM_INCOME_CHART } from './subview-editor/PREMIUM_INCOME_CHART';
 import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
@@ -50,6 +51,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 175, h: 40 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },
   { id: 'loan-interest', name: 'Loan Interest', description: 'APR and daily interest cost for margin loans', defaultSize: { w: 280, h: 100 }, categories: ['margin'], spec: LOAN_INTEREST_SUBVIEW as unknown as SubviewSpec },
   { id: 'loan', name: 'Loan', description: 'Current loan amount and loan as % of holdings value', defaultSize: { w: 200, h: 70 }, categories: ['margin'], spec: LOAN_SUBVIEW as unknown as SubviewSpec },
+  { id: 'optimized-loan', name: 'Optimized Loan', description: 'Optimal loan based on target amplification with margin health gauge', defaultSize: { w: 380, h: 420 }, categories: ['margin'], spec: OPTIMIZED_LOAN as unknown as SubviewSpec },
   { id: 'chart-table', name: 'Chart & Table', description: 'Table and Chart (pie, line, bar) examples', defaultSize: { w: 800, h: 420 }, categories: ['example'], spec: CHART_TABLE_EXAMPLE as unknown as SubviewSpec },
   { id: 'text-input-color', name: 'Text, Input & Color', description: 'Text sizes/styles, inputs, number formats, and colors', defaultSize: { w: 700, h: 480 }, categories: ['example'], spec: TEXT_INPUT_COLOR_EXAMPLE as unknown as SubviewSpec },
   { id: 'flex-padding', name: 'Flex & Padding', description: 'Every flex property and padding examples', defaultSize: { w: 900, h: 680 }, categories: ['example'], spec: FLEX_PADDING_EXAMPLE as unknown as SubviewSpec },

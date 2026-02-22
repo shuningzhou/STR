@@ -10,7 +10,8 @@ export class Wallet {
   @Prop({ default: false }) collateralEnabled!: boolean;
   @Prop() loanInterest?: number;
   @Prop() marginRequirement?: number;
-  @Prop() collateralAmount?: number;
+  @Prop() collateralSecurities?: number;
+  @Prop() collateralCash?: number;
   @Prop() collateralRequirement?: number;
 }
 

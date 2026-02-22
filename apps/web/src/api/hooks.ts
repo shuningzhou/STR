@@ -3,6 +3,7 @@ import * as strategiesApi from './strategies-api';
 import * as transactionsApi from './transactions-api';
 import * as walletsApi from './wallets-api';
 import * as marketDataApi from './market-data-api';
+import * as instrumentsApi from './instruments-api';
 import type { Strategy, Subview, SubviewPosition, StrategyTransaction } from '@/store/strategy-store';
 import type { WalletData } from './wallets-api';
 import type { QuoteResult, HistoryBar, SymbolMatch } from './market-data-api';
@@ -20,6 +21,7 @@ export const queryKeys = {
   optionQuotes: (contracts: string[]) => ['optionQuotes', contracts.join(',')] as const,
   history: (symbol: string, from?: string, to?: string) => ['history', symbol, from, to] as const,
   symbolSearch: (q: string) => ['symbolSearch', q] as const,
+  instrumentMarginReqs: (symbols: string[]) => ['instrumentMarginReqs', symbols.join(',')] as const,
 };
 
 /* ────────────────────────────────────────────────────
@@ -271,6 +273,19 @@ export function useSymbolSearch(query: string) {
     queryFn: () => marketDataApi.searchSymbols(query),
     enabled: query.length >= 1,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+/* ────────────────────────────────────────────────────
+   Instrument Queries
+   ──────────────────────────────────────────────────── */
+
+export function useInstrumentMarginRequirements(symbols: string[]) {
+  return useQuery<Record<string, number>>({
+    queryKey: queryKeys.instrumentMarginReqs(symbols),
+    queryFn: () => instrumentsApi.getMarginRequirements(symbols),
+    enabled: symbols.length > 0,
+    staleTime: 10 * 60 * 1000,
   });
 }
 

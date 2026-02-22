@@ -500,6 +500,7 @@ All subview cards — on canvas and in the Subview Editor Live Preview — use t
 - **Subtle box-shadows** for depth instead of hard borders
 - **Monochromatic palette**: black primary actions, gray text hierarchy, minimal color usage
 - **Green/red** only for positive/negative financial indicators
+- **Built-in color system only:** Throughout the app, use only the built-in color system (e.g. `green-2`, `red-2`, `yellow-2`, `orange-2`). Subview content, gauges, and dynamic text colors resolve these via `resolveColor()`. Do not hardcode hex values; Python helpers should return built-in names, not hex.
 - **Generous whitespace and padding** -- cards have 20-24px padding, clear visual breathing room
 - **Light mode as default** (dark mode available via toggle)
 - **Clean sans-serif typography** (Inter) with strong size/weight hierarchy

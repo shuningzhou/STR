@@ -7,6 +7,7 @@ export class UpdateWalletDto {
   @IsOptional() @IsBoolean() collateralEnabled?: boolean;
   @IsOptional() @IsNumber() loanInterest?: number;
   @IsOptional() @IsNumber() marginRequirement?: number;
-  @IsOptional() @IsNumber() collateralAmount?: number;
+  @IsOptional() @IsNumber() collateralSecurities?: number;
+  @IsOptional() @IsNumber() collateralCash?: number;
   @IsOptional() @IsNumber() collateralRequirement?: number;
 }

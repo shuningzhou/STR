@@ -11,6 +11,12 @@ export class InstrumentsController {
     return this.service.search(q ?? '');
   }
 
+  @Get('margin-requirements')
+  marginRequirements(@Query('symbols') symbols: string) {
+    const list = symbols ? symbols.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    return this.service.findBySymbols(list);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);

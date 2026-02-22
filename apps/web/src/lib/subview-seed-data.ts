@@ -3,6 +3,8 @@ import { computeEquity } from './compute-equity';
 export interface SeedContext {
   /** Current price per symbol; backend provides when ready */
   currentPrices?: Record<string, number>;
+  /** Per-instrument margin requirement %; falls back to wallet.marginRequirement */
+  instrumentMarginRequirements?: Record<string, number>;
   /** Wallet metrics for Python context */
   wallet: {
     baseCurrency: string;
@@ -17,7 +19,8 @@ export interface SeedContext {
     buyingPower?: number;
     marginLimit?: number;
     marginAvailable?: number;
-    collateralAmount?: number;
+    collateralSecurities?: number;
+    collateralCash?: number;
     collateralRequirement?: number;
     collateralLimit?: number;
     collateralAvailable?: number;
@@ -148,7 +151,8 @@ export const SEED_CONTEXT: SeedContext = {
     buyingPower: 25000.0,
     marginLimit: 0,
     marginAvailable: 0,
-    collateralAmount: 0,
+    collateralSecurities: 0,
+    collateralCash: 0,
     collateralRequirement: 0,
     collateralLimit: 0,
     collateralAvailable: 0,
@@ -188,7 +192,8 @@ export function buildStrategyContext(
     loanAmount?: number;
     loanInterest?: number;
     marginRequirement?: number;
-    collateralAmount?: number;
+    collateralSecurities?: number;
+    collateralCash?: number;
     collateralRequirement?: number;
   } | null,
   currentPrices?: Record<string, number>
@@ -201,15 +206,15 @@ export function buildStrategyContext(
 
   const marginAccountEnabled =
     strategy && 'marginAccountEnabled' in strategy ? !!strategy.marginAccountEnabled : false;
-  // For margin: wallet never goes below 0; negative cash becomes loan
   const loanAmount = marginAccountEnabled ? Math.max(0, -computedBalance) : (strategy?.loanAmount ?? 0);
   const balance = marginAccountEnabled ? Math.max(0, computedBalance) : computedBalance;
 
   const marginReq = strategy?.marginRequirement ?? 0;
-  const collateralAmount = strategy?.collateralAmount ?? 0;
+  const collateralSecurities = strategy?.collateralSecurities ?? 0;
+  const collateralCash = strategy?.collateralCash ?? 0;
   const collateralReq = strategy?.collateralRequirement ?? 0;
-  const collateralLimit = collateralAmount * (collateralReq / 100);
-  const collateralAvailable = collateralAmount - collateralLimit;
+  const collateralLimit = collateralSecurities * (collateralReq / 100);
+  const collateralAvailable = (collateralSecurities - collateralLimit) + collateralCash;
 
   const equity = computeEquity(txs, currentPrices ?? {});
   const marginLimit = equity * (marginReq / 100);
@@ -232,7 +237,8 @@ export function buildStrategyContext(
       buyingPower,
       marginLimit,
       marginAvailable,
-      collateralAmount: strategy?.collateralAmount,
+      collateralSecurities: strategy?.collateralSecurities,
+      collateralCash: strategy?.collateralCash,
       collateralRequirement: strategy?.collateralRequirement,
       collateralLimit,
       collateralAvailable,

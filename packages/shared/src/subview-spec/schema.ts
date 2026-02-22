@@ -71,6 +71,22 @@ const checkboxInputSchema = z.object({
   topbarShowTitle: topbarShowTitleSchema,
 });
 
+const sliderInputSchema = z.object({
+  type: z.literal('slider'),
+  title: z.string(),
+  default: z.number(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
+  suffix: z.string().optional(),
+  /** When true, hide the inline value label next to the slider */
+  hideValue: z.boolean().optional(),
+  /** When true, hide the title label (e.g. when title is shown elsewhere in layout) */
+  hideLabel: z.boolean().optional(),
+  topbar: topbarSchema,
+  topbarShowTitle: topbarShowTitleSchema,
+});
+
 const inputConfigSchema = z.discriminatedUnion('type', [
   timeRangeInputSchema,
   tickerSelectorInputSchema,
@@ -79,6 +95,7 @@ const inputConfigSchema = z.discriminatedUnion('type', [
   segmentInputSchema,
   chartNavInputSchema,
   checkboxInputSchema,
+  sliderInputSchema,
 ]);
 
 // --- Content items (text, number, Table, Chart) ---
@@ -105,6 +122,8 @@ const textContentSchema = z.object({
     bold: z.boolean().optional(),
     italic: z.boolean().optional(),
     padding: paddingSchema,
+    /** Static color or "py:fn" for dynamic color */
+    color: z.string().optional(),
   }),
 });
 
@@ -118,6 +137,8 @@ const numberContentSchema = z.object({
     padding: paddingSchema,
     format: z.enum(['$', '%']).optional(), // prefix $ or suffix %
     decimals: z.number().int().min(0).optional(), // default 2
+    /** Static color or "py:fn" for dynamic color */
+    color: z.string().optional(),
   }),
 });
 
@@ -164,7 +185,7 @@ const tableContentSchema = z.object({
 
 const chartContentSchema = z.object({
   Chart: z.object({
-    type: z.enum(['line', 'bar', 'pie', 'timeline']),
+    type: z.enum(['line', 'bar', 'pie', 'timeline', 'gauge']),
     source: z.string(), // "py:fn"
     padding: paddingSchema,
     /** Line/bar color: built-in name or #hex. Overridden by colorInputRef when inputs has value. */

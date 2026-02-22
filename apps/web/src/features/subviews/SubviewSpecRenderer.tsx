@@ -236,6 +236,12 @@ function ContentRenderer({
     );
     return inp.padding != null ? <div style={paddingToStyle(inp.padding)}>{inner}</div> : inner;
   }
+  const resolveContentColor = (colorRef?: string): string | undefined => {
+    if (!colorRef) return undefined;
+    const raw = colorRef.startsWith('py:') ? (resolved[colorRef] as string) : colorRef;
+    return raw ? (resolveColor(raw) ?? raw) : undefined;
+  };
+
   if ('text' in item) {
     const val = item.text.value;
     const display =
@@ -243,11 +249,12 @@ function ContentRenderer({
     const t = item.text;
     const size = t.size ? (FONT_SIZES[t.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
     const textAlign = (t.alignment as React.CSSProperties['textAlign']) ?? 'left';
+    const contentColor = resolveContentColor((t as { color?: string }).color);
     const inner = (
       <div style={{ minWidth: 0, flex: '0 0 auto', textAlign }}>
         <span
           style={{
-            color: textColor ?? 'var(--color-text-primary)',
+            color: contentColor ?? textColor ?? 'var(--color-text-primary)',
             fontSize: size,
             fontWeight: t.bold ? 600 : undefined,
             fontStyle: t.italic ? 'italic' : undefined,
@@ -281,11 +288,12 @@ function ContentRenderer({
     }
     const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
     const textAlign = (n.alignment as React.CSSProperties['textAlign']) ?? 'center';
+    const contentColor = resolveContentColor((n as { color?: string }).color);
     const inner = (
       <div style={{ minWidth: 0, flex: '0 0 auto', textAlign }}>
         <span
           style={{
-            color: textColor ?? 'var(--color-text-primary)',
+            color: contentColor ?? textColor ?? 'var(--color-text-primary)',
             fontSize: size,
             fontWeight: n.bold ? 600 : 400,
             fontStyle: n.italic ? 'italic' : undefined,
@@ -829,6 +837,45 @@ function ContentRenderer({
           </div>
         );
       }
+    } else if (chart.type === 'gauge') {
+      const gd = data as { value?: number; label?: string; verdict?: string; verdictColor?: string } | undefined;
+      const gaugeVal = Math.max(0, Math.min(100, gd?.value ?? 0));
+      const gaugeLabel = gd?.label ?? `${gaugeVal}%`;
+      const verdictColor = gd?.verdictColor ?? 'grey';
+      const builtinMap: Record<string, string> = { green: 'green-2', yellow: 'yellow-2', orange: 'orange-2', red: 'red-2' };
+      const resolvedVerdictColor = resolveColor(builtinMap[verdictColor] ?? verdictColor) ?? 'var(--color-text-primary)';
+
+      const cx = 100, cy = 90, r = 75;
+      const needleAngle = Math.PI - (gaugeVal / 100) * Math.PI;
+      const needleX = cx + r * 0.72 * Math.cos(needleAngle);
+      const needleY = cy - r * 0.72 * Math.sin(needleAngle);
+
+      const arcPath = (startDeg: number, endDeg: number) => {
+        const s = (Math.PI / 180) * startDeg;
+        const e = (Math.PI / 180) * endDeg;
+        const x1 = cx + r * Math.cos(s), y1 = cy - r * Math.sin(s);
+        const x2 = cx + r * Math.cos(e), y2 = cy - r * Math.sin(e);
+        return `M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`;
+      };
+      const segments = [
+        { from: 0, to: 36, color: resolveColor('green-2') ?? '#28c207' },
+        { from: 36, to: 88, color: resolveColor('yellow-2') ?? '#FFDB00' },
+        { from: 88, to: 135, color: resolveColor('orange-2') ?? '#FF8900' },
+        { from: 135, to: 180, color: resolveColor('red-2') ?? '#FF1200' },
+      ];
+
+      inner = (
+        <div className="flex flex-col items-center justify-center w-full" style={{ minHeight: 130 }}>
+          <svg viewBox="0 0 200 120" width="180" height="110">
+            {segments.map((seg, i) => (
+              <path key={i} d={arcPath(seg.from, seg.to)} fill="none" stroke={seg.color} strokeWidth={12} strokeLinecap="round" opacity={0.3} />
+            ))}
+            <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="white" strokeWidth={2.5} strokeLinecap="round" />
+            <circle cx={cx} cy={cy} r={4} fill="white" />
+            <text x={cx} y={cy + 18} textAnchor="middle" fontSize={14} fontWeight={700} fill="var(--color-text-primary)">{gaugeLabel}</text>
+          </svg>
+        </div>
+      );
     } else {
       inner = (
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
@@ -1006,10 +1053,14 @@ export function SubviewSpecRenderer({
           if ('number' in c) {
             const v = c.number.value;
             if (typeof v === 'string' && v.startsWith('py:')) pyRefs.add(v);
+            const color = (c.number as { color?: string }).color;
+            if (typeof color === 'string' && color.startsWith('py:')) pyRefs.add(color);
           }
           if ('text' in c) {
             const v = c.text.value;
             if (typeof v === 'string' && v.startsWith('py:')) pyRefs.add(v);
+            const color = (c.text as { color?: string }).color;
+            if (typeof color === 'string' && color.startsWith('py:')) pyRefs.add(color);
           }
           if ('Table' in c) {
             const src = (c as { Table: { source: string } }).Table.source;

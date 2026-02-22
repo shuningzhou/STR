@@ -11,7 +11,7 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { useTransactions, useUpdateSubview, useUpdateStrategy } from '@/api/hooks';
+import { useTransactions, useUpdateSubview, useUpdateStrategy, useInstrumentMarginRequirements } from '@/api/hooks';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -91,6 +91,15 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const updateStrategyMut = useUpdateStrategy();
   const { data: transactions = [] } = useTransactions(strategyId);
 
+  const uniqueSymbols = useMemo(() => {
+    const syms = new Set<string>();
+    for (const tx of transactions) {
+      if (!tx.option && tx.instrumentSymbol) syms.add(tx.instrumentSymbol);
+    }
+    return Array.from(syms).sort();
+  }, [transactions]);
+  const { data: instrumentMarginReqs } = useInstrumentMarginRequirements(uniqueSymbols);
+
   const handleSubviewInputChange = useCallback((key: string, value: string | number) => {
     const currentValues = subview.inputValues ?? {};
     updateSubviewMut.mutate({
@@ -139,8 +148,12 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
 
   const currentPrices = useStrategyPrices(transactions);
   const strategyContext = useMemo(
-    () => ({ ...buildStrategyContext(strategy ?? null, currentPrices), currentPrices }),
-    [strategy, currentPrices]
+    () => ({
+      ...buildStrategyContext(strategy ?? null, currentPrices),
+      currentPrices,
+      instrumentMarginRequirements: instrumentMarginReqs ?? {},
+    }),
+    [strategy, currentPrices, instrumentMarginReqs]
   );
 
   const hasSpec = !!effectiveSpec;

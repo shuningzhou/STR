@@ -73,7 +73,8 @@ export interface Strategy {
   buyingPower?: number;
   marginLimit?: number;
   marginAvailable?: number;
-  collateralAmount?: number;
+  collateralSecurities?: number;
+  collateralCash?: number;
   collateralRequirement?: number;
   collateralLimit?: number;
   collateralAvailable?: number;

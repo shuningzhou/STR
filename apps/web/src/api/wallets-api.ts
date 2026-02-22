@@ -9,7 +9,8 @@ export interface WalletData {
   collateralEnabled: boolean;
   loanInterest?: number;
   marginRequirement?: number;
-  collateralAmount?: number;
+  collateralSecurities?: number;
+  collateralCash?: number;
   collateralRequirement?: number;
 }
 
@@ -42,7 +43,8 @@ function mapWallet(raw: Record<string, unknown>): WalletData {
     collateralEnabled: (doc.collateralEnabled as boolean) ?? false,
     loanInterest: doc.loanInterest as number | undefined,
     marginRequirement: doc.marginRequirement as number | undefined,
-    collateralAmount: doc.collateralAmount as number | undefined,
+    collateralSecurities: doc.collateralSecurities as number | undefined,
+    collateralCash: doc.collateralCash as number | undefined,
     collateralRequirement: doc.collateralRequirement as number | undefined,
   };
 }

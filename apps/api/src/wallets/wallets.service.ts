@@ -33,7 +33,8 @@ export class WalletsService {
     if (dto.collateralEnabled !== undefined) strategySync.collateralEnabled = dto.collateralEnabled;
     if (dto.loanInterest !== undefined) strategySync.loanInterest = dto.loanInterest;
     if (dto.marginRequirement !== undefined) strategySync.marginRequirement = dto.marginRequirement;
-    if (dto.collateralAmount !== undefined) strategySync.collateralAmount = dto.collateralAmount;
+    if (dto.collateralSecurities !== undefined) strategySync.collateralSecurities = dto.collateralSecurities;
+    if (dto.collateralCash !== undefined) strategySync.collateralCash = dto.collateralCash;
     if (dto.collateralRequirement !== undefined) strategySync.collateralRequirement = dto.collateralRequirement;
     if (Object.keys(strategySync).length > 0) {
       await this.strategyModel.updateOne({ _id: strategyId }, { $set: strategySync });

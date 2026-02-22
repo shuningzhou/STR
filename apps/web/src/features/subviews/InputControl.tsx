@@ -14,6 +14,7 @@ export const INPUT_WIDTHS: Record<string, number> = {
   segment: 280,
   chart_nav: 82,
   checkbox: 75,
+  slider: 280,
 };
 
 const VALUE_BOX_STYLE: React.CSSProperties = {
@@ -399,6 +400,53 @@ export function InputControl({
             {String(inputs[inputKey] ?? (cfg as { default?: boolean }).default ?? false)}
           </div>
         )
+      ) : inputType === 'slider' ? (
+        (() => {
+          const cfgSlider = cfg as { default?: number; min?: number; max?: number; step?: number; suffix?: string; hideValue?: boolean };
+          const min = cfgSlider.min ?? 0;
+          const max = cfgSlider.max ?? 100;
+          const step = cfgSlider.step ?? 1;
+          const suffix = cfgSlider.suffix ?? '';
+          const hideValue = cfgSlider.hideValue ?? false;
+          const val = Number(inputs[inputKey] ?? cfgSlider.default ?? min);
+          return isEditable ? (
+            <div className="flex items-center gap-2 w-full">
+              <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={val}
+                onChange={(e) => onInputChange!(inputKey, parseFloat(e.target.value))}
+                className="flex-1 accent-[var(--color-active)]"
+                style={{ height: 4 }}
+              />
+              {!hideValue && (
+                <span
+                  className="text-[13px] font-medium shrink-0 tabular-nums"
+                  style={{ color: 'var(--color-text-primary)', minWidth: 36, textAlign: 'right' }}
+                >
+                  {val}{suffix}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div
+              className="rounded-[var(--radius-medium)] border text-[13px]"
+              style={{
+                height: 'var(--control-height)',
+                backgroundColor: 'var(--color-bg-input)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                ...VALUE_BOX_STYLE,
+              }}
+            >
+              {val}{suffix}
+            </div>
+          );
+        })()
       ) : (
         <div
           className="rounded-[var(--radius-medium)] border text-[13px]"
@@ -416,22 +464,26 @@ export function InputControl({
         </div>
       );
 
-  const showLabel = !compact || showTitleInCompact;
+  const hideLabel = (cfg as { hideLabel?: boolean }).hideLabel ?? false;
+  const showLabel = (!compact || showTitleInCompact) && !hideLabel;
+  const fullWidth = hideLabel && inputType === 'slider';
 
   return (
     <div
-      className={`flex shrink-0 ${showLabel ? 'flex-row items-center' : 'flex-col'} ${compact && !showTitleInCompact ? 'gap-0' : ''}`}
-      style={{ minWidth: showLabel ? undefined : width, ...(showLabel ? { gap: 5 } : { width, gap: 2 }) }}
+      className={`flex ${fullWidth ? 'min-w-0 flex-1 w-full' : 'shrink-0'} ${showLabel ? 'flex-row items-center' : 'flex-col'} ${compact && !showTitleInCompact ? 'gap-0' : ''}`}
+      style={{ minWidth: showLabel ? undefined : fullWidth ? 0 : width, ...(showLabel ? { gap: 5 } : fullWidth ? {} : { width, gap: 2 }) }}
     >
       <div
         {...(compact && !showTitleInCompact ? { title: cfg.title } : {})}
         className={compact ? 'flex flex-col gap-1' : ''}
         style={
-          showLabel
-            ? inputType === 'checkbox'
-              ? { width: 'auto', minWidth: 0 }
-              : { width, minWidth: width }
-            : { width }
+          fullWidth
+            ? { width: '100%', minWidth: 0 }
+            : showLabel
+              ? inputType === 'checkbox'
+                ? { width: 'auto', minWidth: 0 }
+                : { width, minWidth: width }
+              : { width }
         }
       >
         {content}
