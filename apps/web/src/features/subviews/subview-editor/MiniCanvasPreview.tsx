@@ -15,6 +15,8 @@ interface MiniCanvasPreviewProps {
   onInputChange?: (key: string, value: unknown) => void;
   /** When user resizes the preview card, called with new size in pixels (stored as preferredSize in spec) */
   onPreviewResize?: (preferredSize: { w: number; h: number }) => void;
+  /** Subview's current position on the canvas (grid units) — used as the authoritative size source */
+  subviewPosition?: { w: number; h: number };
   strategy?: Strategy | null;
   onGlobalInputChange?: (key: string, value: string | number) => void;
 }
@@ -38,7 +40,7 @@ function getEffectivePixelSize(spec: {
   return { w: 400, h: 100 };
 }
 
-export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange, onPreviewResize, strategy, onGlobalInputChange }: MiniCanvasPreviewProps) {
+export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputChange, onPreviewResize, subviewPosition, strategy, onGlobalInputChange }: MiniCanvasPreviewProps) {
   const storedCanvasWidth = useUIStore((s) => s.canvasWidth);
   const effectiveContainerWidth = storedCanvasWidth > 0 ? storedCanvasWidth : REFERENCE_WIDTH;
   const { width, containerRef } = useContainerWidth();
@@ -46,13 +48,20 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
 
   useEffect(() => {
     if (spec) {
-      const pixelSize = getEffectivePixelSize(spec);
-      const { w, h } = pixelsToGrid(pixelSize.w, pixelSize.h, REFERENCE_WIDTH);
+      let w: number, h: number;
+      if (subviewPosition) {
+        w = subviewPosition.w;
+        h = subviewPosition.h;
+      } else {
+        const pixelSize = getEffectivePixelSize(spec);
+        ({ w, h } = pixelsToGrid(pixelSize.w, pixelSize.h, REFERENCE_WIDTH));
+      }
       setLayout([{ i: 'preview-card', x: 0, y: 0, w, h, ...CANVAS_LAYOUT_CONSTRAINTS }]);
     } else {
       setLayout([]);
     }
-  }, [spec?.preferredSize, spec?.defaultSize, spec?.size]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subviewPosition?.w, subviewPosition?.h, spec?.defaultSize, spec?.size]);
 
   const handleLayoutChange = useCallback(
     (newLayout: Layout) => {
@@ -80,10 +89,11 @@ export function MiniCanvasPreview({ spec, pythonCode, context, inputs, onInputCh
     );
   }
 
-  const pixelSize = getEffectivePixelSize(spec);
-  const { w, h } = pixelsToGrid(pixelSize.w, pixelSize.h, REFERENCE_WIDTH);
+  const fallbackGrid = subviewPosition
+    ? { w: subviewPosition.w, h: subviewPosition.h }
+    : pixelsToGrid(getEffectivePixelSize(spec).w, getEffectivePixelSize(spec).h, REFERENCE_WIDTH);
   const gridLayout =
-    layout.length > 0 ? layout : [{ i: 'preview-card', x: 0, y: 0, w, h, ...CANVAS_LAYOUT_CONSTRAINTS }];
+    layout.length > 0 ? layout : [{ i: 'preview-card', x: 0, y: 0, w: fallbackGrid.w, h: fallbackGrid.h, ...CANVAS_LAYOUT_CONSTRAINTS }];
 
   return (
     <div

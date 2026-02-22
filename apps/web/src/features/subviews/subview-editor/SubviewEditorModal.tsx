@@ -25,6 +25,7 @@ import { runPythonFunction } from '@/lib/pyodide-executor';
 import { SEED_CONTEXT, SEED_INPUTS, type SeedContext } from '@/lib/subview-seed-data';
 import { generateStockTransactions, generateOptionTransactions } from '@/lib/subview-seed-generators';
 import { IconPicker } from '@/components/IconPicker';
+import { pixelsToGrid } from '@/features/canvas/canvas-grid-config';
 import { BLANK_SPEC } from './BLANK_SPEC';
 import { MiniCanvasPreview } from './MiniCanvasPreview';
 import { cn } from '@/lib/utils';
@@ -879,7 +880,16 @@ export function SubviewEditorModal() {
                     setJsonText(JSON.stringify(updatedSpec, null, 2));
                     setParseResult({ success: true, data: updatedSpec });
                   }
+                  if (subview && subviewSettingsOpen) {
+                    const { w, h } = pixelsToGrid(preferredSize.w, preferredSize.h);
+                    updateSubviewMut.mutate({
+                      strategyId: subviewSettingsOpen.strategyId,
+                      subviewId: subview.id,
+                      position: { ...subview.position, w, h },
+                    });
+                  }
                 }}
+                subviewPosition={subview?.position}
                 strategy={strategy}
                 onGlobalInputChange={strategy ? (key, value) => updateStrategyMut.mutate({ id: strategy.id, inputValues: { ...(strategy.inputValues ?? {}), [key]: value } }) : undefined}
               />

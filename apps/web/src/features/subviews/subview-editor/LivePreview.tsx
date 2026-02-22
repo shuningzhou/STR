@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus, Minus } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import type { SubviewSpec } from '@str/shared';
 import type { Strategy } from '@/store/strategy-store';
 import { cn } from '@/lib/utils';
-import { SubviewSpecRenderer, resolveColor } from '../SubviewSpecRenderer';
+import { SubviewSpecRenderer, resolveColor, BUILT_IN_COLORS } from '../SubviewSpecRenderer';
 import { InputControl } from '../InputControl';
 
 function normalizeInputValue(inp: { id: string; type: string }, val: unknown): unknown {
@@ -59,13 +59,19 @@ interface LivePreviewProps {
 export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, strategy, onGlobalInputChange }: LivePreviewProps) {
   const globalInputs = useMemo(() => buildGlobalInputs(strategy), [strategy]);
 
-  type SpecLike = { icon?: string; iconColor?: string; titleColor?: string; inputs?: Record<string, { topbar?: number; topbarShowTitle?: boolean; type?: string; title?: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }> };
+  type SpecLike = { icon?: string; iconColor?: string; titleColor?: string; type?: string; headerActions?: { title: string; icon?: string; label?: string; color?: string; handler: string }[]; inputs?: Record<string, { topbar?: number; topbarShowTitle?: boolean; type?: string; title?: string; default?: unknown; options?: { value: string; label: string }[]; min?: number; max?: number }> };
   const specLike = spec as (SubviewSpec & SpecLike) | null;
   const specIcon = specLike?.icon;
   const iconColorRaw = specLike?.iconColor ?? 'var(--color-text-primary)';
   const specIconColor = resolveColor(iconColorRaw) ?? iconColorRaw;
   const specTitleColor = specIcon ? specIconColor : (resolveColor(specLike?.titleColor) ?? specLike?.titleColor ?? 'var(--color-text-primary)');
   const IconComp = specIcon ? getIconComponent(specIcon) : null;
+
+  const headerActions =
+    specLike?.headerActions ??
+    (specLike?.type === 'readwrite'
+      ? [{ title: 'Add', icon: 'plus', handler: 'addTransactionModal' as const }]
+      : []);
 
   const topbarInputs = useMemo(() => {
     const inputs = specLike?.inputs ?? {};
@@ -121,6 +127,32 @@ export function LivePreview({ spec, pythonCode, context, inputs, onInputChange, 
             {spec.name}
           </span>
         </div>
+        {headerActions.map((action: { title: string; icon?: string; label?: string; color?: string; handler: string }, i: number) => {
+          const iconName = action.icon?.toLowerCase();
+          const isSecondary = action.handler === 'withdrawWallet' || iconName === 'minus';
+          const ActionIcon = action.label ? null : getIconComponent(action.icon);
+          const isTextButton = !!action.label;
+          const actionColor = action.color ? BUILT_IN_COLORS[action.color] : undefined;
+          const bgColor = actionColor ?? (isSecondary ? 'transparent' : 'var(--color-active)');
+          const textColor = actionColor ? 'white' : (isSecondary ? 'var(--color-text-secondary)' : 'var(--color-text-on-primary)');
+          return (
+            <button
+              key={i}
+              type="button"
+              className={isTextButton ? 'h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors text-[12px] font-medium' : 'w-6 h-6 shrink-0 flex items-center justify-center self-center rounded-[var(--radius-medium)] transition-colors'}
+              style={{
+                marginRight: 5,
+                ...(isTextButton && { width: 65 }),
+                backgroundColor: bgColor,
+                color: textColor,
+                border: !actionColor && isSecondary ? '1px solid var(--color-border)' : undefined,
+              }}
+              title={action.title}
+            >
+              {isTextButton ? action.label : ActionIcon ? <ActionIcon size={12} strokeWidth={1.5} /> : iconName === 'minus' ? <Minus size={12} strokeWidth={1.5} /> : <Plus size={12} strokeWidth={1.5} />}
+            </button>
+          );
+        })}
         {topbarInputs.length > 0 && (
           <div
             className="flex flex-wrap items-center justify-end shrink-0"
