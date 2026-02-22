@@ -11,7 +11,7 @@ export const WALLET_TABLE: SubviewSpec = {
   description: 'Strategy wallet balance; deposit and withdraw',
   maker: 'official',
   categories: ['essential'],
-  defaultSize: { w: 175, h: 40 },
+  defaultSize: { w: 250, h: 40 },
   inputs: {},
   headerActions: [
     { title: 'Deposit', label: 'Deposit', handler: 'depositWallet' },
