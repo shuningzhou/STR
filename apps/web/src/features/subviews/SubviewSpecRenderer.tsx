@@ -4,6 +4,40 @@
  * Inputs are NOT auto-rendered; they appear only when referenced in layout via { "input": { "ref": "key" } }.
  */
 import { useState, useEffect } from 'react';
+
+/** Ramer-Douglas-Peucker: reduce line points while preserving shape. Preserves turning points and overall curve. */
+function simplifyLinePoints<T extends { value?: number }>(items: T[], maxPoints = 64): T[] {
+  if (items.length <= maxPoints) return items;
+  const vals = items.map((i) => i.value ?? 0);
+  const range = Math.max(1, Math.max(...vals) - Math.min(...vals));
+  const epsilon = range * 0.003; // adaptive tolerance
+  const indices = rdpIndices(vals, epsilon, 0, vals.length - 1);
+  if (indices.length <= maxPoints) return indices.map((i) => items[i]);
+  const sampled = new Set<number>();
+  sampled.add(indices[0]);
+  sampled.add(indices[indices.length - 1]);
+  const step = (indices.length - 1) / (maxPoints - 1);
+  for (let k = 1; k < maxPoints - 1; k++) sampled.add(indices[Math.min(Math.round(k * step), indices.length - 1)]);
+  return items.filter((_, i) => sampled.has(i));
+}
+function rdpIndices(vals: number[], epsilon: number, start: number, end: number): number[] {
+  if (start >= end) return [start];
+  if (start + 1 === end) return [start, end];
+  let maxD = 0;
+  let maxI = start + 1;
+  for (let i = start + 1; i < end; i++) {
+    const yInterp = vals[start] + ((vals[end] - vals[start]) * (i - start)) / (end - start);
+    const d = Math.abs(vals[i] - yInterp);
+    if (d > maxD) {
+      maxD = d;
+      maxI = i;
+    }
+  }
+  if (maxD < epsilon) return [start, end];
+  const left = rdpIndices(vals, epsilon, start, maxI);
+  const right = rdpIndices(vals, epsilon, maxI, end);
+  return [...left.slice(0, -1), ...right];
+}
 import { Pencil, Trash2, Repeat, X } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from 'recharts';
@@ -437,7 +471,11 @@ function ContentRenderer({
           colors?: { value?: string; depositWithdraw?: string; loan?: string; holdingsValue?: string } & Record<string, string>;
         }
       | undefined;
-    const items = data?.items ?? [];
+    const rawItems = data?.items ?? [];
+    const items =
+      chart.type === 'line' && rawItems.length > 60
+        ? simplifyLinePoints(rawItems as { value?: number }[], 64)
+        : rawItems;
     const dataColors = data?.colors;
     const barLabels = data?.labels ?? [];
     const barSeries = data?.series ?? [];
@@ -466,15 +504,6 @@ function ContentRenderer({
                 innerRadius="55%"
                 outerRadius="92%"
                 paddingAngle={1}
-                label={({ value, x, y }) => {
-                  if (value < 2) return null;
-                  return (
-                    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fill="var(--color-text-primary)" fontSize={12} fontWeight={500}>
-                      {value}%
-                    </text>
-                  );
-                }}
-                labelLine={false}
               >
                 {items.map((_, i) => (
                   <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} stroke="transparent" />
@@ -560,15 +589,15 @@ function ContentRenderer({
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${v}`} />
                 <Tooltip content={<LineTooltip />} />
                 <Legend />
-                <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={{ r: 2, fill: lineColor }} isAnimationActive={false} name="Portfolio" />
+                <Line type="basis" dataKey="value" stroke={lineColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Portfolio" />
                 {hasDepositWithdraw && (
-                  <Line type="monotone" dataKey="depositWithdraw" stroke={dwColor} strokeWidth={2} dot={{ r: 2, fill: dwColor }} isAnimationActive={false} name="Deposit" />
+                  <Line type="basis" dataKey="depositWithdraw" stroke={dwColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Deposit" />
                 )}
                 {hasLoan && (
-                  <Line type="monotone" dataKey="loan" stroke={loanColor} strokeWidth={2} dot={{ r: 2, fill: loanColor }} isAnimationActive={false} name="Loan" />
+                  <Line type="basis" dataKey="loan" stroke={loanColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Loan" />
                 )}
                 {hasHoldingsValue && (
-                  <Line type="monotone" dataKey="holdingsValue" stroke={holdingsColor} strokeWidth={2} dot={{ r: 2, fill: holdingsColor }} isAnimationActive={false} name="Holdings" />
+                  <Line type="basis" dataKey="holdingsValue" stroke={holdingsColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Holdings" />
                 )}
               </LineChart>
             </ResponsiveContainer>
