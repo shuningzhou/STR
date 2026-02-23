@@ -29,7 +29,7 @@ export const DIVIDEND_SUMMARY: SubviewSpec = {
                 instrumentSymbol: 'Symbol',
                 cumulativeDividend: 'Cumulative',
                 monthlyAvg: 'Monthly Avg',
-                dividendPct: 'Div %',
+                dividendPct: 'Annual Div %',
               },
               columnFormats: {
                 cumulativeDividend: 'currency',
