@@ -1,0 +1,20 @@
+---
+description: Cache-Control and React Query TTL levels for API endpoints
+globs: apps/api/**/*.ts,apps/web/src/api/**/*.ts
+alwaysApply: false
+---
+
+# Cache-Control TTL Levels
+
+Use these standard TTLs when adding `Cache-Control` headers to API responses or configuring React Query `staleTime`/`refetchInterval`:
+
+| Level | TTL | max-age | Use for |
+|-------|-----|---------|---------|
+| **short** | 1 min | 60 | Live/near real-time (quotes) |
+| **medium** | 15 min | 900 | Semi-frequent updates |
+| **long** | 1 hour | 3600 | Stable data (history, margin-requirements) |
+| **extra-long** | 12 hours | 43200 | Rarely changing data |
+
+**API (NestJS):** `@Header('Cache-Control', 'public, max-age=3600')` for the appropriate max-age.
+
+**React Query:** Set `staleTime` and `refetchInterval` to match (in ms). E.g. short: `60 * 1000`, long: `60 * 60 * 1000`.

@@ -11,13 +11,26 @@ interface CanvasGridProps {
   isEditMode?: boolean;
 }
 
+function layoutsEqual(a: Layout, b: Layout): boolean {
+  if (a.length !== b.length) return false;
+  const byId = (acc: Record<string, Layout[0]>, it: Layout[0]) => {
+    acc[it.i] = it;
+    return acc;
+  };
+  const mapB = b.reduce(byId, {} as Record<string, Layout[0]>);
+  for (const item of a) {
+    const o = mapB[item.i];
+    if (!o || item.x !== o.x || item.y !== o.y || item.w !== o.w || item.h !== o.h) return false;
+  }
+  return true;
+}
+
 export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
   const { data: strategies = [] } = useStrategies();
   const strategy = strategies.find((st) => st.id === strategyId);
   const batchUpdatePositions = useDebouncedBatchUpdatePositions();
   const setCanvasWidth = useUIStore((s) => s.setCanvasWidth);
   const { width, containerRef, mounted } = useContainerWidth();
-
   useEffect(() => {
     if (width && width > 0) setCanvasWidth(width);
   }, [width, setCanvasWidth]);
@@ -33,13 +46,14 @@ export function CanvasGrid({ strategyId, isEditMode = true }: CanvasGridProps) {
 
   const handleLayoutChange = useCallback(
     (newLayout: Layout) => {
+      if (layoutsEqual(newLayout, layout)) return;
       const positions = newLayout.map((item) => ({
         id: item.i,
         position: { x: item.x, y: item.y, w: item.w, h: item.h },
       }));
       batchUpdatePositions.mutate({ strategyId, subviews: positions });
     },
-    [strategyId, batchUpdatePositions]
+    [strategyId, batchUpdatePositions, layout]
   );
 
   if (!strategy || !mounted) return null;

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Header, Post, Param, Query, Body } from '@nestjs/common';
 import { InstrumentsService } from './instruments.service';
 import { CreateInstrumentDto } from './dto/create-instrument.dto';
 
@@ -12,6 +12,7 @@ export class InstrumentsController {
   }
 
   @Get('margin-requirements')
+  @Header('Cache-Control', 'public, max-age=3600')
   marginRequirements(@Query('symbols') symbols: string) {
     const list = symbols ? symbols.split(',').map((s) => s.trim()).filter(Boolean) : [];
     return this.service.findBySymbols(list);

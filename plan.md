@@ -501,6 +501,11 @@ All subview cards — on canvas and in the Subview Editor Live Preview — use t
 - **Monochromatic palette**: black primary actions, gray text hierarchy, minimal color usage
 - **Green/red** only for positive/negative financial indicators
 - **Built-in color system only:** Throughout the app, use only the built-in color system (e.g. `green-2`, `red-2`, `yellow-2`, `orange-2`). Subview content, gauges, and dynamic text colors resolve these via `resolveColor()`. Do not hardcode hex values; Python helpers should return built-in names, not hex.
+- **Cache-Control TTL levels:** Use these standard TTLs for HTTP Cache-Control headers and React Query `staleTime`/`refetchInterval`. Apply per endpoint based on data change frequency:
+  - **short** = 1 min (`max-age=60`) — live/near real-time data (e.g. quotes)
+  - **medium** = 15 min (`max-age=900`) — semi-frequent updates
+  - **long** = 1 hour (`max-age=3600`) — stable data (e.g. history, margin-requirements)
+  - **extra-long** = 12 hours (`max-age=43200`) — rarely changing data
 - **Generous whitespace and padding** -- cards have 20-24px padding, clear visual breathing room
 - **Light mode as default** (dark mode available via toggle)
 - **Clean sans-serif typography** (Inter) with strong size/weight hierarchy
