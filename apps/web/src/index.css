@@ -218,6 +218,13 @@ input[type="checkbox"] {
 .subview-table-body table tbody td {
   background: transparent !important;
 }
+.subview-table-body table tbody tr.subview-table-row-itm,
+.subview-table-body table tbody tr.subview-table-row-itm td {
+  background: var(--itm-row-bg) !important;
+}
+.subview-table-body table tbody td.subview-table-cell-has-bg {
+  background: var(--cell-bg) !important;
+}
 .subview-spec-root {
   padding-top: var(--subview-top-bar-height) !important;
 }

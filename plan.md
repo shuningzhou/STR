@@ -69,7 +69,7 @@ isProject: false
 
 1. **Monorepo** -- npm workspaces: `apps/web` (Vite+React), `apps/api` (NestJS), `packages/shared` (shared types). Single `run.sh` starts both.
 2. **API prefix** -- All backend routes use global prefix `/api` (set in `main.ts`). Endpoint examples in this doc omit the prefix for brevity (e.g. `GET /strategies` = `GET /api/strategies`).
-3. **Market data provider** -- **EODHD** (End-of-Day Historical Data). Env var: `EODHD_API_TOKEN`. Provider: `apps/api/src/market-data/providers/eodhd-provider.ts`.
+3. **Market data provider** -- **EODHD** (stocks/ETFs) — env var: `EODHD_API_TOKEN`. Provider: `apps/api/src/market-data/providers/eodhd-provider.ts`. **Massive** (options, via Polygon.io) — env var: `MASSIVE_API_KEY`. Provider: `apps/api/src/market-data/providers/massive-provider.ts`.
 4. **Auth (current)** -- No real auth. `UserIdMiddleware` reads `x-user-id` header, falls back to `'default-user'`. JWT/OTP planned (Phase 13).
 
 ### Subview System Rules
@@ -171,7 +171,7 @@ STR/
 │       │   ├── transactions/    # TransactionModule: CRUD, version bumping
 │       │   ├── instruments/     # InstrumentModule: CRUD, margin-requirements
 │       │   ├── wallets/         # WalletModule: CRUD per strategy
-│       │   ├── market-data/     # MarketDataModule: EODHD provider, MongoDB cache
+│       │   ├── market-data/     # MarketDataModule: EODHD (stocks), Massive (options), MongoDB cache
 │       │   ├── common/          # UserIdMiddleware, RequestLoggerMiddleware
 │       │   └── main.ts
 │       ├── package.json
@@ -187,7 +187,8 @@ STR/
 **Environment variables** (`apps/api/.env`):
 - `MONGODB_URI` -- MongoDB Atlas connection string
 - `PORT` -- API port (default 3001)
-- `EODHD_API_TOKEN` -- EODHD market data API token
+- `EODHD_API_TOKEN` -- EODHD market data API token (stocks/ETFs)
+- `MASSIVE_API_KEY` -- Massive/Polygon.io API key (option quotes)
 
 ---
 
@@ -412,12 +413,13 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 ---
 
-## 9. Market Data Integration (EODHD)
+## 9. Market Data Integration
 
 **Backend (`MarketDataModule`):**
 
-- EODHD API client (`eodhd-provider.ts`) with `EODHD_API_TOKEN` from env
-- Provider registry routes symbols to EODHD (US stocks/ETFs, Canadian, fallback)
+- **EODHD** (`eodhd-provider.ts`) with `EODHD_API_TOKEN` — stocks/ETFs, history, symbol search
+- **Massive** (`massive-provider.ts`) with `MASSIVE_API_KEY` — option quotes (via Polygon.io)
+- Provider registry: EODHD for stocks/ETFs, Massive for options
 - MongoDB-backed cache (`quote-cache`, `price-history` collections)
 - Batch endpoints: quotes, history, option quotes, search
 

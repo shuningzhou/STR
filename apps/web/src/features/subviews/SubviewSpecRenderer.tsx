@@ -387,15 +387,51 @@ function ContentRenderer({
                   </td>
                 </tr>
               ) : (
-                data.map((row, ri) => (
-                  <tr key={ri} style={{ borderBottom: '1px solid var(--color-table-border)' }}>
+                data.map((row, ri) => {
+                  const rowBg = (row as Record<string, unknown>)._rowBackground as string | undefined;
+                  const resolvedRowBg = rowBg ? resolveColor(rowBg) ?? rowBg : undefined;
+                  return (
+                  <tr
+                    key={ri}
+                    className={resolvedRowBg ? 'subview-table-row-itm' : undefined}
+                    style={{
+                      borderBottom: '1px solid var(--color-table-border)',
+                      ...(resolvedRowBg ? { ['--itm-row-bg' as string]: resolvedRowBg } : {}),
+                    } as React.CSSProperties}
+                  >
                     {columns.map((col, i) => {
                       const cellVal = getNested(row as Record<string, unknown>, col);
                       const cellColors = (tbl as { columnCellColors?: Record<string, Record<string, string>> }).columnCellColors;
+                      const cellBgColors = (tbl as { columnCellBackgroundColors?: Record<string, Record<string, string>> }).columnCellBackgroundColors;
                       const colorMap = cellColors?.[col];
-                      const resolvedColor = colorMap && typeof cellVal === 'string' ? resolveColor(colorMap[cellVal]) : undefined;
+                      const bgColorMap = cellBgColors?.[col];
+                      let resolvedColor: string | undefined;
+                      let resolvedBgColor: string | undefined;
+                      if (colorMap) {
+                        if (typeof cellVal === 'string') {
+                          resolvedColor = resolveColor(colorMap[cellVal]);
+                        } else if (typeof cellVal === 'number') {
+                          if (cellVal > 0 && colorMap._positive) resolvedColor = resolveColor(colorMap._positive);
+                          else if (cellVal < 0 && colorMap._negative) resolvedColor = resolveColor(colorMap._negative);
+                        }
+                      }
+                      if (bgColorMap && typeof cellVal === 'string') {
+                        resolvedBgColor = resolveColor(bgColorMap[cellVal]);
+                      }
+                      const textColor = resolvedBgColor ? 'var(--color-text-primary)' : (resolvedColor ?? 'var(--color-text-primary)');
                       return (
-                        <td key={col} style={{ color: resolvedColor ?? 'var(--color-text-primary)', borderRight: i < columns.length - 1 || hasVisibleActionColumn ? '1px solid var(--color-table-border)' : undefined, padding: cellPadding, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <td
+                          key={col}
+                          className={resolvedBgColor ? 'subview-table-cell-has-bg' : undefined}
+                          style={{
+                            color: textColor,
+                            ...(resolvedBgColor ? { ['--cell-bg' as string]: resolvedBgColor } : {}),
+                            borderRight: i < columns.length - 1 || hasVisibleActionColumn ? '1px solid var(--color-table-border)' : undefined,
+                            padding: cellPadding,
+                            whiteSpace: 'nowrap',
+                            textAlign: 'right',
+                          } as React.CSSProperties}
+                        >
                           {formatCellValue(cellVal, col, (tbl.columnFormats as Record<string, 'currency' | 'percent' | 'number'> | undefined)?.[col], (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency)}
                         </td>
                       );
@@ -450,7 +486,8 @@ function ContentRenderer({
                       </td>
                     )}
                   </tr>
-                ))
+                );
+                })
               )}
             </tbody>
           </table>

@@ -17,6 +17,9 @@ import { LOAN_INTEREST_SUBVIEW } from './subview-editor/LOAN_INTEREST_SUBVIEW';
 import { LOAN_SUBVIEW } from './subview-editor/LOAN_SUBVIEW';
 import { OPTIMIZED_LOAN } from './subview-editor/OPTIMIZED_LOAN';
 import { SECURED_PUTS_CAPITAL } from './subview-editor/SECURED_PUTS_CAPITAL';
+import { COVERED_CALL_COUNT } from './subview-editor/COVERED_CALL_COUNT';
+import { SECURED_PUTS_COUNT } from './subview-editor/SECURED_PUTS_COUNT';
+import { ASSIGNED_RATE } from './subview-editor/ASSIGNED_RATE';
 import { PREMIUM_INCOME_CHART } from './subview-editor/PREMIUM_INCOME_CHART';
 import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
 import { DIVIDEND_TABLE } from './subview-editor/DIVIDEND_TABLE';
@@ -40,6 +43,9 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'stock-etf-transactions', name: 'Stock & ETF Transactions', description: 'Table of stock and ETF transactions (no options)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec },
   { id: 'option-income', name: 'Open Options', description: 'Covered calls and secured puts. Add, edit, delete, roll, or close (partial close supported)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'option'], spec: OPTION_INCOME_TABLE as unknown as SubviewSpec },
   { id: 'secured-puts-capital', name: 'Secured Puts Capital', description: 'Total money occupied by secured puts (strike × 100 × contracts)', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SECURED_PUTS_CAPITAL as unknown as SubviewSpec },
+  { id: 'covered-call-count', name: 'Covered Call', description: 'Number of open covered call contracts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: COVERED_CALL_COUNT as unknown as SubviewSpec },
+  { id: 'secured-puts-count', name: 'Secured Puts', description: 'Number of open secured put contracts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SECURED_PUTS_COUNT as unknown as SubviewSpec },
+  { id: 'assigned-rate', name: 'Assigned Rate', description: '% of closed CC and SP that were assigned', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: ASSIGNED_RATE as unknown as SubviewSpec },
   { id: 'premium-income', name: 'Premium Income', description: 'Stacked bar chart of option premium income by Covered Call and Secured Put', defaultSize: { w: 700, h: 220 }, categories: ['option', 'income'], spec: PREMIUM_INCOME_CHART as unknown as SubviewSpec },
   { id: 'options-timeline', name: 'Options Timeline', description: 'Timeline of option expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['option'], spec: OPTIONS_TIMELINE as unknown as SubviewSpec },
   { id: 'holdings', name: 'Stock & ETF Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },

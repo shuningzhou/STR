@@ -104,7 +104,7 @@ export class MarketDataService {
           result[ticker] = q;
           await this.quoteCacheModel.updateOne(
             { contractTicker: ticker, assetType: 'option' },
-            { $set: { symbol: parsed.symbol, contractTicker: ticker, price: q.price, provider: provider.providerId, fetchedAt: now, assetType: 'option' } },
+            { $set: { symbol: ticker, contractTicker: ticker, price: q.price, provider: provider.providerId, fetchedAt: now, assetType: 'option' } },
             { upsert: true },
           );
         } catch (err) {

@@ -1,18 +1,11 @@
 import { useState, useEffect } from 'react';
 import { fetchPrices } from '@/lib/price-service';
 
-/** Extract unique stock/ETF symbols from transactions (excludes options) */
+/** Extract unique stock/ETF symbols from transactions; includes option underlyings for ITM checks */
 function getStockEtfSymbols(transactions: { option?: unknown; instrumentSymbol?: string }[]): string[] {
   const syms = new Set<string>();
   for (const tx of transactions ?? []) {
-    const opt = tx.option;
-    const isOption =
-      opt != null &&
-      typeof opt === 'object' &&
-      'expiration' in (opt as object);
-    if (!isOption && tx.instrumentSymbol) {
-      syms.add(tx.instrumentSymbol);
-    }
+    if (tx.instrumentSymbol) syms.add(tx.instrumentSymbol);
   }
   return [...syms];
 }

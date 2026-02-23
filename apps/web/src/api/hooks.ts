@@ -390,12 +390,21 @@ export function useQuotes(symbols: string[]) {
 }
 
 export function useOptionQuotes(contracts: string[]) {
+  const contractCount = contracts.length;
   return useQuery<QuoteResult[]>({
     queryKey: queryKeys.optionQuotes(contracts),
     queryFn: () => marketDataApi.getOptionQuotes(contracts),
-    enabled: contracts.length > 0,
-    staleTime: 30 * 60 * 1000,
-    refetchInterval: 30 * 60 * 1000,
+    enabled: contractCount > 0,
+    staleTime: (query) => {
+      const data = query.state.data;
+      if (data && data.length < contractCount) return 0;
+      return 30 * 60 * 1000;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data && data.length < contractCount) return 60 * 1000;
+      return 30 * 60 * 1000;
+    },
   });
 }
 

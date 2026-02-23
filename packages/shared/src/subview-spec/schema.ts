@@ -168,6 +168,8 @@ const tableContentSchema = z.object({
     columnFormats: z.record(z.string(), columnFormatSchema).optional(),
     /** Column key -> { cellValue: color } e.g. { optionType: { 'Covered call': 'green-1', 'Secured put': 'blue-1' } } */
     columnCellColors: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+    /** Column key -> { cellValue: color } for cell background; e.g. { status: { 'ITM': 'red-4' } } */
+    columnCellBackgroundColors: z.record(z.string(), z.record(z.string(), z.string())).optional(),
     /** Message when table has no rows */
     emptyMessage: z.string().optional(),
     padding: paddingSchema,

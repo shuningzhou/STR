@@ -5,6 +5,8 @@ export interface SeedContext {
   currentPrices?: Record<string, number>;
   /** Per-instrument margin requirement %; falls back to wallet.marginRequirement */
   instrumentMarginRequirements?: Record<string, number>;
+  /** Live option quotes: OCC ticker -> price per share */
+  optionQuotes?: Record<string, number>;
   /** Wallet metrics for Python context */
   wallet: {
     baseCurrency: string;
@@ -44,6 +46,22 @@ export interface SeedContext {
  */
 export const SEED_CONTEXT: SeedContext = {
   currentPrices: { AAPL: 185.5, VOO: 405.0 },
+  optionQuotes: {
+    'O:AAPL260117C00175000': 2.80,
+    'O:MSFT260320P00405000': 3.10,
+    'O:AAPL260320C00190000': 3.20,
+    'O:MSFT260418P00420000': 0.60,
+    'O:AAPL260320C00192000': 4.00,
+    'O:MSFT260418P00415000': 8.50,
+    'O:AAPL260417P00188000': 9.10,
+    'O:AAPL260320C00195000': 10.50,
+    'O:MSFT260418P00410000': 8.80,
+    'O:AAPL260320C00196000': 8.20,
+    'O:VOO260320C00410000': 5.50,
+    'O:MSFT260418P00408000': 5.00,
+    'O:AAPL260417P00185000': 7.00,
+    'O:MSFT260515P00400000': 8.20,
+  },
   transactions: [
     {
       id: 1,

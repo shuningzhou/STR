@@ -11,7 +11,8 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory } from '@/api/hooks';
+import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory, useOptionQuotes } from '@/api/hooks';
+import { toOccTicker } from '@/lib/option-utils';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -160,6 +161,44 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   );
 
   const currentPrices = useStrategyPrices(transactions);
+
+  const openOptionContracts = useMemo(() => {
+    const positions: Record<string, number> = {};
+    for (const t of transactions) {
+      if (!t.option) continue;
+      const ticker = toOccTicker(t.instrumentSymbol, t.option.expiration, t.option.strike, t.option.callPut);
+      if (t.side === 'sell') positions[ticker] = (positions[ticker] ?? 0) + t.quantity;
+      else if (t.side === 'buy_to_cover' || t.side === 'option_assign' || t.side === 'option_expire')
+        positions[ticker] = (positions[ticker] ?? 0) - t.quantity;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    return Object.entries(positions)
+      .filter(([, qty]) => qty > 0)
+      .map(([ticker]) => ticker)
+      .filter((ticker) => {
+        const datePart = ticker.replace(/^O:\w+?(\d{6})[CP]/, '$1');
+        if (datePart.length !== 6) return true;
+        const exp = `20${datePart.slice(0, 2)}-${datePart.slice(2, 4)}-${datePart.slice(4, 6)}`;
+        return exp >= today;
+      })
+      .sort((a, b) => {
+        const expA = a.replace(/^O:\w+?(\d{6})[CP]/, '$1');
+        const expB = b.replace(/^O:\w+?(\d{6})[CP]/, '$1');
+        if (expA.length !== 6 || expB.length !== 6) return 0;
+        const isoA = `20${expA.slice(0, 2)}-${expA.slice(2, 4)}-${expA.slice(4, 6)}`;
+        const isoB = `20${expB.slice(0, 2)}-${expB.slice(2, 4)}-${expB.slice(4, 6)}`;
+        return isoA.localeCompare(isoB) || a.localeCompare(b);
+      });
+  }, [transactions]);
+
+  const { data: optionQuotesArr } = useOptionQuotes(openOptionContracts);
+  const optionQuotes = useMemo(() => {
+    if (!optionQuotesArr) return {};
+    const map: Record<string, number> = {};
+    for (const q of optionQuotesArr) map[q.symbol] = q.price;
+    return map;
+  }, [optionQuotesArr]);
+
   const strategyContext = useMemo(
     () => ({
       ...buildStrategyContext(
@@ -169,8 +208,9 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       currentPrices,
       instrumentMarginRequirements: instrumentMarginReqs ?? {},
       priceHistory,
+      optionQuotes,
     }),
-    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory]
+    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory, optionQuotes]
   );
 
   const hasSpec = !!effectiveSpec;
@@ -288,12 +328,11 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
         })}
         {hasSpec && specInputs && topbarInputs.length > 0 && (
           <div
-            className="flex flex-wrap items-center justify-end shrink-0"
+            className="flex flex-wrap items-center justify-end shrink-0 min-w-0"
             style={{
               gap: 5,
-              marginRight: isEditMode ? 5 : 0,
+              marginRight: 5,
               marginLeft: 'auto',
-              ...(!isEditMode && { flex: 1 }),
             }}
             onClick={(e) => e.stopPropagation()}
           >
