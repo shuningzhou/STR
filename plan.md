@@ -25,16 +25,16 @@ todos:
     status: pending
   - id: phase9-backend-scaffold
     content: "Phase 9: Scaffold NestJS backend, shared types, Mongoose schemas, connect to MongoDB Atlas"
-    status: pending
+    status: completed
   - id: phase10-backend-api
     content: "Phase 10: Backend API -- Strategy CRUD, Transaction CRUD (with version bumping), Instrument CRUD, Wallet CRUD, Subview cache endpoints"
-    status: pending
+    status: completed
   - id: phase11-frontend-integration
     content: "Phase 11: Wire frontend to backend -- replace Zustand mock data with TanStack Query + API calls, persist layouts/transactions/strategies"
-    status: pending
+    status: completed
   - id: phase12-market-data
-    content: "Phase 12: Market data -- FMP integration (backend), in-memory cache, instrument search, quote hooks, currency conversion"
-    status: pending
+    content: "Phase 12: Market data -- EODHD integration (backend), MongoDB cache, instrument search, batch quote/history hooks"
+    status: completed
   - id: phase13-auth
     content: "Phase 13: Auth -- email OTP via Resend, JWT tokens, guards, login page, protected routes"
     status: pending
@@ -44,17 +44,105 @@ todos:
 isProject: false
 ---
 
-# Strategy-First Investment Tracking App -- Full Implementation Plan
+# Strategy-First Investment Tracking App
+
+## Current Project State
+
+**Completed:** Phases 1-5 (frontend scaffold, tabs, canvas, gallery, subview editor/rendering) and Phases 9-12 (backend scaffold, API, frontend-backend integration, EODHD market data).
+
+**The app today:** A working full-stack app where users create strategy tabs, each with a drag-and-drop canvas of subview cards. Subviews are authored as JSON + Python specs and rendered via a generic layout engine + Pyodide. The backend (NestJS + MongoDB) provides CRUD for strategies, transactions, wallets, instruments, and market data via EODHD. Frontend uses TanStack Query for all server state.
+
+**Not yet implemented:**
+- Phase 7: Transaction UI (add/edit form modal, transaction list)
+- Phase 8: Global settings UI (viewing currency, theme panel)
+- Phase 13: Auth (email OTP, JWT, protected routes) -- currently uses `x-user-id` header with `'default-user'` fallback
+- Phase 14: Deployment
+
+**Known tech debt:**
+- `useStrategyPrices` uses raw `useEffect` + `fetch` instead of React Query, causing duplicate quote requests across SubviewCards. Should be refactored to use `useQuotes`.
+
+---
+
+## Rules & Conventions
+
+### Architecture Rules
+
+1. **Monorepo** -- npm workspaces: `apps/web` (Vite+React), `apps/api` (NestJS), `packages/shared` (shared types). Single `run.sh` starts both.
+2. **API prefix** -- All backend routes use global prefix `/api` (set in `main.ts`). Endpoint examples in this doc omit the prefix for brevity (e.g. `GET /strategies` = `GET /api/strategies`).
+3. **Market data provider** -- **EODHD** (End-of-Day Historical Data). Env var: `EODHD_API_TOKEN`. Provider: `apps/api/src/market-data/providers/eodhd-provider.ts`.
+4. **Auth (current)** -- No real auth. `UserIdMiddleware` reads `x-user-id` header, falls back to `'default-user'`. JWT/OTP planned (Phase 13).
+
+### Subview System Rules
+
+5. **Generic rendering** -- The layout engine, Pyodide executor, and content renderer have zero subview-specific branching. All behavior is driven by JSON + Python. Never add subview-specific logic to the renderer.
+6. **Two types only** -- `"readonly"` (display only, no actions, no side effects) and `"readwrite"` (actions allowed, official/premade only).
+7. **Inputs not auto-rendered** -- Place inputs in layout via `{ "input": { "ref": "key" } }`. The `ref` must match a key in `spec.inputs`.
+8. **Function calling convention** -- `py:` prefix for Python calls in JSON (e.g. `"py:calc_win_rate"`). Without `py:` = literal value.
+9. **Python rules** -- Functions accept `(context, inputs)`, return serializable values, no I/O. `context.transactions` has resolved instrument data (`instrumentSymbol`, `instrumentName`). `context.wallet` has wallet. `context.currentPrices` has live prices. `context.priceHistory` has historical EOD prices.
+10. **Strategy-scoped inputs** -- Referenced as `global.<id>` in layout. In Python: `inputs.global['<id>']`. Subview-own inputs: `inputs['<key>']`.
+11. **Subview top bar inputs** -- Add `topbar: number` to input config to show in card top bar. Lower values = further left. `topbarShowTitle: false` hides label.
+12. **Shared renderer** -- Editor Live Preview and canvas SubviewCard share the same layout engine, Pyodide executor, and content renderer (`SubviewSpecRenderer`). Changes to one must update both `SubviewCard` and `LivePreview`.
+13. **Official vs user subviews** -- Official (`maker: "official"`): readonly + readwrite templates. User-created: readonly only (readwrite remains official-only).
+
+### Canvas / Grid Rules
+
+14. **Grid config** (`canvas-grid-config.ts`) -- 48 columns, 5px row height, 12px margins. Reference width: 1200px. Optimized canvas width: 1400px.
+15. **Layout constraints** -- minW: 4, minH: 7, maxW: 48, maxH: 80 grid units.
+16. **Sizes in pixels** -- `defaultSize` and `preferredSize` in subview spec are absolute pixels. Conversion via `pixelsToGrid()` / `gridToPixels()`.
+17. **Layout change guard** -- `onLayoutChange` only calls `batchUpdatePositions` when layout actually changes (via `layoutsEqual`), preventing spurious PATCH on mount.
+
+### Color System Rules
+
+18. **Built-in color system only** -- Use built-in names (e.g. `green-2`, `red-1`, `grey-4`) in subview content, gauges, dynamic text. Python helpers return built-in names, not hex. Resolved via `resolveColor()`.
+19. **12 main colors, 5 variants each** -- red, orange, yellow, lime, green, mint, cyan, blue, violet, magenta, grey, offwhite. Variants: `-0` (lightest), `-1` (lighter), `-2` (base), `-3` (darker), `-4` (darkest). Plus `black` (#131313), `offblack` (#202020), `white` (#f2f2f2) with no variants.
+20. **Branding green** -- `green-2` (#28c207) is the accent/branding color. `green-3` for hover.
+21. **Custom colors allowed** -- `resolveColor()` passes through `rgb()`, `rgba()`, `hsl()`, `hsla()`, and `#hex` values.
+
+### Cache-Control TTL Rules
+
+22. **Four TTL levels** -- Apply per endpoint based on data change frequency:
+    - **short** = 1 min (`max-age=60`) -- live data (quotes)
+    - **medium** = 15 min (`max-age=900`) -- semi-frequent updates
+    - **long** = 1 hour (`max-age=3600`) -- stable data (history, margin-requirements)
+    - **extra-long** = 12 hours (`max-age=43200`) -- rarely changing data
+23. **React Query must match** -- `staleTime` and `refetchInterval` (in ms) should match the server-side TTL.
+
+### UI Design Rules
+
+24. **Design tokens** (from `apps/web/src/index.css`) -- All UI must use existing CSS variables:
+    - Spacing: `--space-modal` (20px), `--space-gap` (8px), `--space-section` (24px), `--space-sidebar` (16px)
+    - Controls: `--control-height` (32px)
+    - Radii: `--radius-card` (8px), `--radius-medium` (6px), `--radius-button` (8px), `--radius-pill` (9999px)
+    - Typography: label 11px, body 13px, title 15px, heading 18px, display 24px, xxl 32px, xxxl 40px
+25. **Subview card constants** -- `--subview-card-padding: 5px`, `--subview-top-bar-height: 40px`. Top bar: drag handle + title (truncate 150px), pencil icon 8x8 marginRight 5px. Content: `paddingTop` = top bar height, `paddingLeft/Right: 10px`.
+26. **Input widths (px)** -- `time_range: 240`, `ticker_selector: 100`, `number_input: 120`, `select: 200`, `checkbox: 120` (fallback 160).
+27. **Dark mode only (current)** -- `applyTheme()` removes `light` class. Theme customization in Zustand + localStorage.
+28. **Design language** -- Dark background (#131313), floating cards, large border-radius, subtle box-shadows, monochromatic palette, green/red only for financial indicators, generous whitespace, system sans-serif font.
+
+### Data Flow Rules
+
+29. **Context pipeline** -- `SubviewCard` assembles context: `strategy`, `transactions`, `currentPrices` (from `useStrategyPrices`), `instrumentMarginReqs`, `priceHistory` (from `usePriceHistory` batch API). All injected into Pyodide as `context`.
+30. **Batch APIs** -- Quotes: `GET /market-data/quotes?symbols=...`. History: `GET /market-data/history?symbols=...&from=&to=`. Option quotes: `GET /market-data/options/quote?contracts=...`.
+
+### Tooling Rules
+
+31. **Tailwind CSS** for styling, **shadcn/ui** for component primitives.
+32. **Recharts** for charts.
+33. **Zustand** for client state, **TanStack Query** for server state.
+34. **Pyodide** for Python in browser. No backend Python.
+35. **Mongoose** for MongoDB ODM.
+
+---
 
 ## Monorepo Structure
 
 ```
-Str/
+STR/
 ├── packages/
 │   └── shared/                  # Shared TypeScript types, enums, constants
 │       ├── src/
-│       │   ├── models/          # User, Strategy, Transaction, Instrument, Wallet, Subview types
-│       │   ├── enums/           # TransactionType, AssetType, CacheStatus, SubviewType, etc.
+│       │   ├── models/          # Strategy, Transaction, Instrument, Wallet, Subview types
+│       │   ├── enums/           # TransactionType, AssetType, CacheStatus, etc.
 │       │   ├── dto/             # Request/response DTOs shared between FE/BE
 │       │   └── subview-templates/# Read-only subview template schemas and types
 │       ├── package.json
@@ -62,85 +150,48 @@ Str/
 ├── apps/
 │   ├── web/                     # Vite + React + TypeScript
 │   │   ├── src/
-│   │   │   ├── api/             # API client (axios + TanStack Query hooks)
+│   │   │   ├── api/             # API client (TanStack Query hooks, market-data-api, etc.)
 │   │   │   ├── components/      # Shared UI components
 │   │   │   ├── features/
-│   │   │   │   ├── auth/        # Login, OTP verification pages
+│   │   │   │   ├── auth/        # Login, OTP verification pages (planned)
 │   │   │   │   ├── strategy/    # Tab bar, strategy settings
 │   │   │   │   ├── canvas/      # react-grid-layout canvas, subview cards
 │   │   │   │   ├── transactions/# Transaction list, add/edit forms
-│   │   │   │   └── subviews/    # Subview Editor, renderer (layout engine), gallery, JSON templates
-│   │   │   ├── hooks/           # Custom hooks (useAuth, useStrategy, useCurrency)
-│   │   │   ├── store/           # Zustand stores (auth, strategies, UI state)
-│   │   │   ├── lib/             # Pyodide executor for subview Python, currency converter, utils
+│   │   │   │   └── subviews/    # Subview Editor, renderer, gallery, JSON templates
+│   │   │   ├── hooks/           # Custom hooks (useStrategyPrices, etc.)
+│   │   │   ├── store/           # Zustand stores (strategies, theme, UI state)
+│   │   │   ├── lib/             # Pyodide executor, price-service, utils
 │   │   │   └── App.tsx
 │   │   ├── package.json
 │   │   ├── vite.config.ts
 │   │   └── tsconfig.json
 │   └── api/                     # NestJS backend
 │       ├── src/
-│       │   ├── auth/            # AuthModule: OTP generation, verification, JWT
-│       │   ├── users/           # UserModule: CRUD, subscription status
 │       │   ├── strategies/      # StrategyModule: CRUD, subview management
 │       │   ├── transactions/    # TransactionModule: CRUD, version bumping
-│       │   ├── instruments/     # InstrumentModule: CRUD, lookup
+│       │   ├── instruments/     # InstrumentModule: CRUD, margin-requirements
 │       │   ├── wallets/         # WalletModule: CRUD per strategy
-│       │   ├── market-data/     # MarketDataModule: FMP proxy, in-memory cache
-│       │   ├── common/          # Guards, interceptors, filters, decorators
+│       │   ├── market-data/     # MarketDataModule: EODHD provider, MongoDB cache
+│       │   ├── common/          # UserIdMiddleware, RequestLoggerMiddleware
 │       │   └── main.ts
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── nest-cli.json
 ├── package.json                 # npm workspaces root
 ├── tsconfig.base.json           # Shared TS config
-├── .env.example
 ├── run.sh                       # Single script to start both frontend + backend
-└── README.md
+├── subviews.md                  # Full subview JSON+Python spec
+└── plan.md                      # This file
 ```
 
-Tool choices:
-
-- **npm workspaces** for monorepo (simple, no extra tooling)
-- **Zustand** for frontend state (lightweight, minimal boilerplate)
-- **TanStack Query** for server state / data fetching
-- **Recharts** for chart rendering (React-native, good variety of chart types)
-- **Resend** for transactional email (modern API, great DX, free tier)
-- **Mongoose** for MongoDB ODM
+**Environment variables** (`apps/api/.env`):
+- `MONGODB_URI` -- MongoDB Atlas connection string
+- `PORT` -- API port (default 3001)
+- `EODHD_API_TOKEN` -- EODHD market data API token
 
 ---
 
-## 1. Project Scaffolding and Dev Environment
-
-- Initialize npm workspaces root `package.json`
-- Scaffold `apps/api` with NestJS CLI (`@nestjs/cli`)
-- Scaffold `apps/web` with Vite React-TS template
-- Create `packages/shared` with shared types
-- Set up `tsconfig.base.json` with path aliases
-- Create `run.sh` script that starts both backend and frontend dev servers concurrently (single command to launch everything)
-- Create `.env.example` with all required env vars:
-  - `MONGODB_URI`, `JWT_SECRET`, `RESEND_API_KEY`, `FMP_API_KEY`, `FRONTEND_URL`
-
----
-
-## 2. Shared Types (packages/shared)
-
-Core model interfaces and enums:
-
-```typescript
-// enums
-enum TransactionType { BUY, SELL, SELL_SHORT, BUY_TO_COVER, DIVIDEND, DEPOSIT, WITHDRAWAL, FEE, INTEREST, OPTION_EXERCISE, OPTION_ASSIGN, OPTION_EXPIRE }
-enum AssetType { STOCK, ETF, OPTION, BOND, CRYPTO, CASH, OTHER }
-enum CacheStatus { VALID, INVALID }
-enum SubscriptionStatus { FREE, ACTIVE, PAST_DUE, CANCELLED }
-
-// Model interfaces: IUser, IStrategy, ISubview, ITransaction, IInstrument, IWallet
-// Subview: JSON spec (type, name, description, maker, size, inputs, layout, python_code, functions) — see subviews.md
-// DTOs: CreateTransactionDto, UpdateStrategyDto, LoginDto, VerifyOtpDto, etc.
-```
-
----
-
-## 3. Authentication System
+## 1. Authentication System (Planned -- Phase 13)
 
 **Flow:**
 
@@ -164,110 +215,107 @@ sequenceDiagram
     Frontend->>API: Subsequent requests with Bearer token
 ```
 
+**Backend:** `AuthModule` with OTP in User doc (10 min expiry), rate limiting (`@nestjs/throttler`), JWT via `passport-jwt`, access token (15 min) + refresh token (7 days, httpOnly cookie), `JwtAuthGuard` globally with `@Public()` decorator.
 
-
-**Backend implementation:**
-
-- `AuthModule` with `AuthService`, `AuthController`
-- OTP stored in User document: `{ otpCode, otpExpiresAt }` (expires in 10 min)
-- Rate limiting: max 5 OTP requests per email per hour (use `@nestjs/throttler`)
-- JWT strategy via `@nestjs/passport` + `passport-jwt`
-- Access token (15 min) + Refresh token (7 days, httpOnly cookie)
-- `JwtAuthGuard` applied globally, whitelist public routes with `@Public()` decorator
-
-**Frontend:**
-
-- Login page: email input -> OTP input (two-step form)
-- Store access token in memory (Zustand), refresh token in httpOnly cookie
-- Axios interceptor: auto-refresh on 401
+**Frontend:** Login page (email -> OTP two-step), access token in memory (Zustand), refresh in httpOnly cookie, axios interceptor for auto-refresh on 401.
 
 ---
 
-## 4. Database Models (Mongoose Schemas)
+## 2. Database Models (Mongoose Schemas)
 
-**User:**
+**Strategy** (`strategies` collection):
 
-- `email` (unique, indexed), `subscriptionStatus`, `otpCode`, `otpExpiresAt`, `refreshToken`, `createdAt`
+- `userId` (string, indexed), `name`, `baseCurrency` (default 'USD'), `icon`
+- `initialBalance` (number, default 0), `marginAccountEnabled`, `collateralEnabled`
+- `loanInterest`, `marginRequirement`, `collateralSecurities`, `collateralCash`, `collateralRequirement`
+- `inputs` (embedded array of `StrategyInputConfig`: id, title, type, default, options, min, max)
+- `inputValues` (Mixed, default {})
+- `transactionsVersion` (number, default 0)
+- `subviews` (embedded array of SubviewDoc)
 
-**Strategy:**
+**SubviewDoc** (embedded in Strategy):
 
-- `userId` (ref, indexed), `name`, `walletId` (ref), `customData` (Mixed/JSON), `transactionsVersion` (Number, default 0), `subviews` (embedded array of SubviewSchema), `createdAt`, `updatedAt`
+- `id`, `name`, `position` ({x, y, w, h}), `templateId`, `spec` (Mixed -- full JSON subview spec)
+- `icon`, `iconColor`, `inputValues` (Mixed)
+- `cacheData` (Mixed), `cachedAt`, `cacheVersion` (default 0), `cacheStatus` (default 'invalid')
 
-**Subview (embedded in Strategy):**
+**Wallet** (`wallets` collection):
 
-- `id` (UUID), `position` ({x, y, w, h})
-- Subview spec stored as JSON (see subviews.md): `type` (readonly | readwrite), `name`, `description`, `maker`, `size`, `inputs`, `layout`, `python_code`, `functions`
-- `cacheData` (Mixed), `cachedAt`, `cacheVersion`, `cacheStatus` (enum: valid/invalid) -- used mainly by readonly subviews
+- `strategyId` (string, unique, indexed), `baseCurrency` (default 'USD')
+- `initialBalance` (default 0), `marginAccountEnabled`, `collateralEnabled`
+- `loanInterest`, `marginRequirement`, `collateralSecurities`, `collateralCash`, `collateralRequirement`
 
-**Wallet:**
+**Transaction** (`transactions` collection):
 
-- `strategyId` (ref, unique, indexed), `baseCurrency`, `balance`, `margin`, `collateralValue`, `collateralMarginRequirement`
+- `strategyId` (indexed), `userId`, `instrumentId`, `instrumentSymbol`
+- `type` (enum), `side`, `quantity`, `price`, `cashDelta`, `fee`, `timestamp`
+- `option` ({expiration, strike, callPut, contracts}), `customData` (Mixed)
+- `createdAt`, `updatedAt`
 
-**Transaction:**
+**Instrument** (`instruments` collection):
 
-- `strategyId` (ref, indexed), `instrumentId` (ref), `type` (enum), `quantity`, `price`, `cashDelta`, `timestamp`, `customData` (Mixed), `fee`, `option` (expiration, strike, callPut, etc.), `createdAt`
-- Compound index: `{ strategyId: 1, timestamp: -1 }` for efficient queries
-
-**Instrument:**
-
-- `symbol` (indexed), `assetType` (enum), `currency`, `contractMetadata` (Mixed), `marginRequirement`, unique compound index on `{ symbol, assetType }`
+- `symbol` (indexed), `name`, `assetType`, `currency`, `exchange`
+- `marginRequirement`, `contractMetadata` (Mixed)
 
 ---
 
-## 5. Backend API Endpoints
+## 3. Backend API Endpoints
 
+All routes prefixed with `/api`.
 
-| Module | Endpoints |
-| ------ | --------- |
+**Strategies:**
 
+- `GET /strategies` -- list user's strategies
+- `POST /strategies` -- create strategy
+- `PATCH /strategies/:id` -- update strategy fields
+- `DELETE /strategies/:id` -- delete strategy
+- `POST /strategies/:id/subviews` -- add subview
+- `PATCH /strategies/:id/subviews` -- batch update subview positions
+- `PATCH /strategies/:id/subviews/:subviewId` -- update single subview
+- `DELETE /strategies/:id/subviews/:subviewId` -- remove subview
+- `PUT /strategies/:id/subviews/:subviewId/cache` -- save computed cache
 
-**Auth:**
+**Transactions:**
+
+- `GET /strategies/:strategyId/transactions` -- list transactions
+- `POST /strategies/:strategyId/transactions` -- add (bumps `transactionsVersion`)
+- `PATCH /transactions/:id` -- update
+- `DELETE /transactions/:id` -- delete (bumps version)
+
+**Instruments:**
+
+- `GET /instruments/search?q=AAPL` -- search/autocomplete
+- `GET /instruments/margin-requirements?symbols=AAPL,VOO` -- batch margin reqs (Cache-Control: long)
+- `GET /instruments/:id` -- get single instrument
+- `POST /instruments` -- upsert instrument
+
+**Wallets:**
+
+- `GET /strategies/:strategyId/wallet` -- get wallet
+- `PATCH /strategies/:strategyId/wallet` -- update wallet settings
+
+**Market Data:**
+
+- `GET /market-data/quotes?symbols=AAPL,VOO` -- batch quotes (Cache-Control: short, 1 min)
+- `GET /market-data/options/quote?contracts=...` -- option quotes
+- `GET /market-data/history?symbols=AAPL,VOO&from=...&to=...` -- batch history (Cache-Control: long, 1 hour)
+- `GET /market-data/history/:symbol?from=...&to=...` -- single symbol history (Cache-Control: long)
+- `GET /market-data/search?q=...` -- symbol search
+
+**Auth (planned):**
 
 - `POST /auth/login` -- send OTP
 - `POST /auth/verify` -- verify OTP, return tokens
 - `POST /auth/refresh` -- refresh access token
 - `POST /auth/logout` -- clear refresh token
 
-**Strategies:**
-
-- `GET /strategies` -- list user's strategies
-- `POST /strategies` -- create strategy
-- `PATCH /strategies/:id` -- update name, customData
-- `DELETE /strategies/:id` -- delete strategy + cascade transactions
-- `PATCH /strategies/:id/subviews` -- update subview layout (batch position updates)
-- `POST /strategies/:id/subviews` -- add subview
-- `PATCH /strategies/:id/subviews/:subviewId` -- update subview JSON spec (full replace or partial)
-- `DELETE /strategies/:id/subviews/:subviewId` -- remove subview
-- `PUT /strategies/:id/subviews/:subviewId/cache` -- save computed cache from frontend
-
-**Transactions:**
-
-- `GET /strategies/:id/transactions` -- list (paginated, sorted by timestamp desc)
-- `POST /strategies/:id/transactions` -- add transaction (bumps `transactionsVersion`)
-- `PATCH /transactions/:id` -- update transaction
-- `DELETE /transactions/:id` -- delete transaction (bumps version)
-
-**Instruments:**
-
-- `GET /instruments/search?q=AAPL` -- search/autocomplete
-- `GET /instruments/:id` -- get instrument details
-- `POST /instruments` -- create (admin or auto-create on first transaction)
-
-**Wallets:**
-
-- `GET /strategies/:id/wallet` -- get wallet
-- `PATCH /strategies/:id/wallet` -- update wallet settings
-
-**Market Data:**
-
-- `GET /market-data/quote/:symbol` -- real-time quote (proxied from FMP, cached in memory)
-- `GET /market-data/history/:symbol` -- historical prices
-
 ---
 
-## 6. Frontend -- Core Shell and Routing
+## 4. Frontend Architecture
 
-The app has no dashboard page. The authenticated shell is simply a **tab bar** (strategies) with a **canvas area** as the tab content. Selecting a tab swaps the canvas.
+### Core Shell
+
+The app has no dashboard page. The authenticated shell is a **tab bar** (strategies) + **canvas area** as tab content.
 
 ```mermaid
 flowchart TD
@@ -287,117 +335,59 @@ flowchart TD
     EmptySpace --> SubviewGallery["Template Gallery Modal"]
 ```
 
+**Layout:** Single page, no routing between strategies. Tab bar across top (empty state: "Create your first strategy" CTA). Canvas fills viewport with toolbar + grid. User menu top-right.
 
+**Routes:** `/login` (auth), `/` (app shell, protected). Modals for: transaction list/form, strategy settings, subview gallery/editor.
 
-**Layout (single page, no routing between strategies):**
+### Strategy Tab System
 
-- **Tab bar** across the top: shows all strategy tabs + "+" button to add a new strategy. No tabs initially -- empty state prompts user to create first strategy.
-- **Canvas area** fills the rest of the viewport, showing the active strategy's content:
-  - **Toolbar** (top-right of canvas): "+ Add Transaction" | Settings (gear) | "View All Transactions"
-  - **Grid** (`react-grid-layout`): draggable/resizable subview cards
-- User menu (top-right corner of tab bar): settings, logout
+- Add tab: modal with name + base currency
+- Tab switching: loads strategy's subviews into canvas
+- Tab context menu: rename, delete (with confirmation)
+- State: Zustand `strategies[]`, `activeStrategyId`; TanStack Query `useStrategies()`, `useStrategy(id)`
 
-**Routes (minimal):**
+### Frontend Hooks
 
-- `/login` -- Auth flow (email + OTP)
-- `/` -- App shell (tab bar + canvas) -- protected. Strategy selection is via tabs, not URL routing.
-- Modal overlays for: transaction list, transaction form, strategy settings, subview gallery
-
----
-
-## 7. Strategy Tab System
-
-- **No tabs on first load** -- empty state with "Create your first strategy" CTA
-- **Add tab**: opens modal with strategy name + base currency
-- **Tab switching**: loads that strategy's subviews into the canvas
-- **Tab context menu**: rename, delete (with confirmation)
-- **State**: Zustand store holds `strategies[]`, `activeStrategyId`
-- **Data loading**: TanStack Query -- `useStrategies()` fetches all, `useStrategy(id)` fetches one with subviews
+- `useQuotes(symbols)` -- batch quotes via React Query (60s stale/refetch)
+- `useOptionQuotes(contracts)` -- option quotes via React Query (30 min stale/refetch)
+- `usePriceHistory(symbols, from, to)` -- batch history via React Query
+- `useStrategyPrices(transactions)` -- extracts stock/ETF symbols, fetches prices (tech debt: uses raw fetch, not React Query)
 
 ---
 
-## 8. Canvas and Subview Grid
+## 5. Subview System (JSON + Python)
 
-**react-grid-layout setup:**
+See `subviews.md` for the full spec. Summary:
 
-- Responsive breakpoints: lg (1200px), md (996px), sm (768px)
-- Columns: 12 (lg), 8 (md), 4 (sm)
-- Grid: 48 columns, 5px row height; min 10×5, max 48×40 units
-- Subview cards: draggable, resizable, with min/max constraints
-- On layout change: debounced PATCH to `/strategies/:id/subviews` with new positions
-- Empty canvas: large "+" button or click-anywhere to open subview gallery
+**Two types:** `readonly` (display only) and `readwrite` (actions allowed, official only).
 
-**Subview Card component:**
+**JSON structure:** `type`, `name`, `description`, `maker`, `defaultSize` (pixels), `inputs` (optional controls), `layout` (2D array of rows/cells with content), `python_code`, `functions`.
 
-- Header: subview name, edit (pencil) icon, remove (x) icon
-- Body: rendered chart/data (from `SubviewRenderer`)
-- Loading state: skeleton placeholder
-- Error state: retry button
+**Function calling:** `py:` prefix in content = Python call. Without prefix = literal value.
+
+**Python:** Functions accept `(context, inputs)`. Return serializable values. No I/O. Context includes `transactions` (with resolved instrument data), `wallet`, `currentPrices`, `priceHistory`.
+
+**Readonly restrictions:** No `actions`. Immutable returns. No side effects.
+
+**Readwrite:** Official only. Actions use predefined handlers (`addTransactionModal`, `editTransactionModal`, etc.). Row/header actions in Table content.
 
 ---
 
-## 9. Subview System (JSON + Python) — see subviews.md
+## 6. Subview Gallery & Editor
 
-The subview system is **unified**: both readonly and readwrite subviews use the same JSON structure. See `subviews.md` for the full spec. Summary:
+**Gallery:** Shows official subviews (readonly + readwrite) and user-created readonly subviews.
 
-**Two types:**
-- `readonly` — display only (no actions, no side effects, no modals, no writes)
-- `readwrite` — allows actions to edit transactions/wallet; **only official premade subviews** (authored via Subview Editor, not hardcoded)
-
-**JSON structure (required fields):**
-- `type`, `name`, `description`, `maker` ("official" or user nickname for readonly)
-- `defaultSize` — `{ w, h }` (absolute pixels); `preferredSize` — optional `{ w, h }` px (written when user scales card)
-- `inputs` (optional) — controls with defined types/schemas: `time_range`, `ticker_selector`, `number_input`, `select`, `checkbox` (see subviews.md). Inputs are **not** auto-rendered; place them in layout via `{ "input": { "ref": "key" } }` in a cell's content.
-- `layout` — 2D array of rows → cells with optional `weight` (omit for content-sized width), `alignment`, `content` (text, number, Table, Chart, etc.)
-- `python_code` — all Python function definitions for this subview
-- `functions` — array of function names used (referenced via `py:functionName` in content)
-
-**Function calling:** Use `py:` prefix in content, e.g. `{ "number": { "value": "py:calc_win_rate" } }`. Without `py:` → literal value.
-
-**Readonly restrictions:** No `actions` field; functions return immutable values; no side effects.
-
-**Readwrite restrictions/allowances:** Only when `type === "readwrite"`; actions use predefined handler names (`addTransactionModal`, `editTransactionModal`, `closeTransactionModal`, `rollTransactionModal`, etc.); row/header actions in Table content.
-
-**Python rules:** Functions accept `(context, inputs)`; return serializable values; no I/O. `context.transactions` has **resolved** instrument data (instrumentSymbol, instrumentName); `context.wallet`; `inputs` from controls (see subviews.md for input type schemas).
+**Editor:** Split-panel modal. Left: tabbed editors (JSON, Python, Transactions seed, Wallet seed) with Monaco. Right: Live Preview using the same renderer as canvas cards. Seed data injected for testing. Save validates and persists. Status bar shows validation state.
 
 ---
 
-## 10. Subview Gallery
+## 7. Subview Rendering and Caching
 
-Gallery shows:
-- **Official subviews** (`maker: "official"`) — readonly and readwrite templates authored via Subview Editor (Equity Curve, Win Rate, Open Options Positions, etc.)
-- **User-created readonly subviews** — users can create and add their own JSON + Python subviews (readwrite remains official-only)
+Editor Live Preview and canvas SubviewCard share the same layout engine, Pyodide executor, and content renderer.
 
----
+**Readwrite:** Always fresh (no caching).
 
-## 11. Subview Editor UX (for creating/editing subviews)
-
-*Editor and rendering are developed together (Phase 5). The Live Preview uses the same renderer as canvas cards.*
-
-The **Subview Editor** is the tool for authoring all subviews — official read-write and user-created readonly. No subviews are hand-coded in React.
-
-Split-panel modal (desktop):
-
-| Panel | Content |
-|-------|---------|
-| Left (tabs) | **JSON**, **Python**, **Transactions** (seed data), **Wallet** (seed data) — Monaco editors, toolbar buttons |
-| Right | **Live Preview** — same renderer as canvas; MiniCanvasPreview with identical grid config |
-
-**Seed data** for testing (injected): `context` with 10–20 fake transactions + wallet; `inputs` with timeRange, ticker.
-
-**Mobile:** Stacked tabs (JSON → Python → Preview).
-
-**Actions:** Save (validates → backend), Cancel/Discard. Status bar: "Valid JSON" / "Python syntax ok" / "Preview updated".
-
----
-
-## 12. Subview Rendering and Caching
-
-*Shared by editor Live Preview and canvas SubviewCard. Same layout engine, Pyodide executor, and content rendering.*
-
-**Readwrite subviews:** Render from JSON + Python; no caching (always fresh).
-
-**Readonly subviews** use caching. Staleness check:
+**Readonly caching:** Staleness check:
 
 ```typescript
 const isStale =
@@ -406,177 +396,97 @@ const isStale =
   (subview.cachedAt && Date.now() - subview.cachedAt > TTL);
 ```
 
-**Rendering flow:** (1) If cached and fresh → render from `cacheData`. (2) If stale → run Python with real context/inputs, render, save cache via `PUT .../cache`.
+Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, render, save cache via `PUT .../cache`.
 
-**Charts:** Line, bar, pie schemas defined in subviews.md. Python returns `{ labels, series }` for line/bar; `{ items: [{ label, value }] }` for pie. Expand to more chart types later.
+**Charts:** Line, bar, pie. Python returns data per chart schema in subviews.md.
 
-**Python execution:** Runs in **browser** via Pyodide. No backend Python service.
-
----
-
-## 13. Transaction Management
-
-**Add Transaction form:**
-
-- Instrument search (autocomplete, hits `/instruments/search`)
-- Type dropdown (buy, sell, dividend, etc.)
-- Quantity, Price, Fee fields
-- Cash delta: auto-calculated or manual override
-- Timestamp: date+time picker, defaults to now
-- Option data: conditional fields (strike, expiration, contract type) when instrument is option
-- Metadata: optional JSON editor for custom fields
-
-**Transaction list view:**
-
-- Paginated table with sorting (by date, instrument, type, P&L)
-- Inline edit capability
-- Bulk delete
-- Filter by instrument, type, date range
-- Export to CSV
+**Python execution:** Runs in browser via Pyodide. No backend Python service.
 
 ---
 
-## 14. Market Data Integration (FMP)
+## 8. Transaction Management
 
-**Backend MarketDataService:**
+**Add form:** Instrument search (autocomplete), type dropdown, quantity/price/fee, cash delta (auto or override), timestamp (default now), option fields (conditional), metadata JSON editor.
 
-- FMP API client with API key from env
-- Endpoints: `/quote/{symbol}`, `/historical-price-full/{symbol}`
-- In-memory cache using `node-cache` or simple Map with TTL:
-  - Quotes: 15-second TTL (near real-time)
-  - Historical: 1-hour TTL
-- Rate limiting awareness (FMP has request limits per plan)
-- Symbol mapping for Canadian stocks (TSX: prefix)
+**List view:** Paginated table, sort by date/instrument/type, inline edit, bulk delete, filter by instrument/type/date range, export CSV.
+
+---
+
+## 9. Market Data Integration (EODHD)
+
+**Backend (`MarketDataModule`):**
+
+- EODHD API client (`eodhd-provider.ts`) with `EODHD_API_TOKEN` from env
+- Provider registry routes symbols to EODHD (US stocks/ETFs, Canadian, fallback)
+- MongoDB-backed cache (`quote-cache`, `price-history` collections)
+- Batch endpoints: quotes, history, option quotes, search
 
 **Frontend usage:**
 
-- `useQuote(symbol)` hook -- polls via TanStack Query with `refetchInterval: 15000`
-- Used in Open Positions subview, portfolio value calculations
+- `useQuotes(symbols)` -- polls via TanStack Query with 60s stale/refetch (matches server Cache-Control: short)
+- `usePriceHistory(symbols, from, to)` -- batch history via single React Query call
+- `useStrategyPrices(transactions)` -- extracts symbols, fetches prices for context pipeline
 
 ---
 
-## 15. Currency Conversion (UI-Only)
+## 10. Currency Conversion (UI-Only -- Planned)
 
-- **Global setting** -- viewing currency dropdown lives in the top-level app bar (next to user menu), applies to all strategy tabs
-- All monetary values displayed go through `convertCurrency(amount, fromCurrency, toCurrency, rates)`
-- Exchange rates fetched from FMP (`/fx?pairs=...`) and cached
-- Conversion is purely presentational -- stored data always in original currency
-- Zustand store: `viewingCurrency` is a global value (not per-strategy), persisted to localStorage so it survives page reload
+- **Global setting** -- viewing currency dropdown in app bar, applies to all strategies
+- All displayed monetary values go through `convertCurrency(amount, from, to, rates)`
+- Exchange rates fetched from backend and cached
+- Purely presentational -- stored data always in original currency
+- Zustand `viewingCurrency` global, persisted to localStorage
 
 ---
 
-## 16. UI Design Approach
+## 11. UI Design
 
-**All UI must follow the existing design system** (see `apps/web/src/index.css`). Use the same design tokens for gaps, sizes, radii, and colors so new components visually match what's already built.
+**All UI must follow the existing design system** (see `apps/web/src/index.css`).
 
-**Design tokens (use these):**
+**Subview Card Styling (constant across canvas + editor):**
 
-- **Spacing:** `--space-modal` (20px), `--space-gap` (8px), `--space-section` (24px), `--space-sidebar` (16px)
-- **Controls:** `--control-height` (32px) for inputs, buttons, segments
-- **Radii:** `--radius-card` (8px), `--radius-medium` (6px), `--radius-button` (8px)
-- **Card styling:** `padding: var(--space-modal)`, `boxShadow: 0 4px 24px var(--color-shadow)`, `border: 1px solid var(--color-border)`
-- **SubviewCard:** Title area padding (top 6px, left 10px); pencil icon `marginRight: 5px`
-- **Filter-style layouts:** field 150px, operator 75px, segment 100px, value 150px; card padding 20px; gap 8px
+- Card constants: `--subview-card-padding: 5px`, `--subview-top-bar-height: 40px`
+- Top bar: fixed height, drag handle + title (truncate 150px), pencil icon (8x8, marginRight 5px), padding left 10px right 4px
+- Content: `paddingTop` = top bar height, `paddingLeft/Right: 10px`, `overflow-auto`
+- Input widths: `time_range: 240`, `ticker_selector: 100`, `number_input: 120`, `select: 200`, `checkbox: 120` (fallback 160)
+- Input styling: right-aligned, `paddingLeft/Right: 12`, height `var(--control-height)`, `rounded-[var(--radius-medium)]`
+- Input labels: 11px, font-medium, `--color-text-secondary`
+- `time_range`: two date inputs side-by-side, `gap-1`
+- `ticker_selector`: `<select>` from `context.transactions[].instrumentSymbol` + "all"
+- Text/number sizing: xs(11) sm(13) md(15) lg(18) xl(24) xxl(32) xxxl(40)px; optional `bold`, `italic`
 
-**Subview Card Styling Rules (Constant):**
+**Design language:**
 
-All subview cards — on canvas and in the Subview Editor Live Preview — use the same fixed layout. Do not change these without updating both `SubviewCard` and `LivePreview`.
-
-- **Card constants** (from `index.css`): `--subview-card-padding: 5px`, `--subview-top-bar-height: 40px`
-- **Top bar:** Fixed height `var(--subview-top-bar-height)`; no background; drag handle with title (truncate max 150px); pencil icon (8×8, marginRight 5px); drag-handle padding left 10px, right 4px; vertically centered content
-- **Subview content:** `paddingTop: var(--subview-top-bar-height)` to clear top bar; `paddingLeft: 10`, `paddingRight: 10`; `overflow-auto`; inputs row uses `gap: var(--space-gap)`, `p-2`
-- **Inputs in layout:** Inputs are not auto-rendered; reference them in layout via `{ "input": { "ref": "key" } }` in a cell's content array.
-- **Supported input types — fixed widths (px):** `time_range: 240`, `ticker_selector: 100`, `number_input: 120`, `select: 200`, `checkbox: 120` (fallback 160)
-- **Input value styling:** Right-aligned text; `paddingLeft: 12`, `paddingRight: 12`; height `var(--control-height)`; `rounded-[var(--radius-medium)]`; colors via `--color-bg-input`, `--color-border`, `--color-text-primary`
-- **Input labels:** `font-size: var(--font-size-label)` (11px), `font-medium`, `color: var(--color-text-secondary)`
-- **time_range:** Two date inputs side by side, `gap-1`; each `flex-1 min-w-0`; date inputs use `paddingLeft/Right: 8`
-- **ticker_selector:** Dropdown (`<select>`) populated from `context.transactions[].instrumentSymbol` (unique, sorted), plus `"all"` as first option
-- **Text/number content styling:** Optional in JSON — `size` (xs/sm/md/lg/xl/xxl/xxxl → 11/13/15/18/24/32/40px), `bold`, `italic`; only applied when specified
-
-**Design language** (soft, rounded, shadow-driven -- per reference image):
-
-- **Off-white page background** (~#f2f2f2 light / #0f172a dark) with white/dark cards floating on top
-- **Large border-radius** everywhere: 12-16px on cards/panels, pill-shaped buttons and inputs
-- **Subtle box-shadows** for depth instead of hard borders
-- **Monochromatic palette**: black primary actions, gray text hierarchy, minimal color usage
-- **Green/red** only for positive/negative financial indicators
-- **Built-in color system only:** Throughout the app, use only the built-in color system (e.g. `green-2`, `red-2`, `yellow-2`, `orange-2`). Subview content, gauges, and dynamic text colors resolve these via `resolveColor()`. Do not hardcode hex values; Python helpers should return built-in names, not hex.
-- **Cache-Control TTL levels:** Use these standard TTLs for HTTP Cache-Control headers and React Query `staleTime`/`refetchInterval`. Apply per endpoint based on data change frequency:
-  - **short** = 1 min (`max-age=60`) — live/near real-time data (e.g. quotes)
-  - **medium** = 15 min (`max-age=900`) — semi-frequent updates
-  - **long** = 1 hour (`max-age=3600`) — stable data (e.g. history, margin-requirements)
-  - **extra-long** = 12 hours (`max-age=43200`) — rarely changing data
-- **Generous whitespace and padding** -- cards have 20-24px padding, clear visual breathing room
-- **Light mode as default** (dark mode available via toggle)
-- **Clean sans-serif typography** (Inter) with strong size/weight hierarchy
-
-**Tooling:**
-
-- **Tailwind CSS** for styling (utility-first, fast iteration)
-- **shadcn/ui** for component primitives (buttons, modals, dropdowns, inputs, tabs)
-- **Both dark and light mode** supported, toggle in the app bar
-- Responsive: desktop-first, collapse grid columns on tablet/mobile
-- Animations: Framer Motion for tab transitions, modal open/close
+- Dark background (#131313), floating cards (#202020), large border-radius, subtle box-shadows
+- Monochromatic palette; green/red only for financial indicators
+- Built-in color system via `resolveColor()` -- no hardcoded hex in subview Python
+- Dark mode only (current); light mode planned
+- Generous whitespace (20-24px card padding)
+- System sans-serif font with strong size/weight hierarchy
 
 **Customizable Color Palette:**
 
-Semantic tokens (CSS variables on `:root` / `.dark`):
+Semantic CSS variables (`:root`): `--color-bg-page`, `--color-bg-card`, `--color-bg-hover`, `--color-border`, `--color-shadow`, `--color-text-primary`, `--color-text-secondary`, `--color-accent`, `--color-accent-hover`, `--color-positive`, `--color-negative`, `--color-chart-1` through `--color-chart-5`.
 
-- `--color-bg-page` -- page/app background (off-white / dark slate)
-- `--color-bg-card` -- card/panel surface (white / dark)
-- `--color-bg-hover` -- hover/subtle backgrounds
-- `--color-border` -- subtle borders (used sparingly)
-- `--color-shadow` -- box-shadow color
-- `--color-text-primary` -- main text (near-black / off-white)
-- `--color-text-secondary` -- muted/label text
-- `--color-accent` -- primary actions (black / white)
-- `--color-accent-hover` -- hover state for accent
-- `--color-positive` -- profit, gains (green)
-- `--color-negative` -- loss, drawdown (red)
-- `--color-chart-1` through `--color-chart-5` -- chart series colors
+Theme settings panel: override any token via color picker. Custom palette in Zustand + localStorage. Reset per-token or all.
 
-**Customization:**
-
-- Theme settings panel (accessible from user menu) lets user override any token via color pickers
-- Custom palette stored in Zustand + localStorage (no backend persistence needed)
-- Reset to default button per-token and for entire theme
-- Tailwind configured to reference these CSS variables so all components automatically respect the palette
+**Tooling:** Tailwind CSS + shadcn/ui. Responsive: desktop-first, collapse columns on tablet/mobile. Animations: Framer Motion.
 
 ---
 
-## 17. Running and Deployment
+## 12. Running and Deployment
 
-**Local development -- single command:**
+**Local development:**
 
 `./run.sh` starts both servers concurrently:
+- Backend: `npm run dev` in `apps/api` (NestJS, port 3001)
+- Frontend: `npm run dev` in `apps/web` (Vite, port 5173, proxies `/api` to backend)
+- Uses `concurrently`; Ctrl+C stops both
 
-- Backend: `npm run dev` in `apps/api` (NestJS, e.g. port 3001)
-- Frontend: `npm run dev` in `apps/web` (Vite, e.g. port 5173, proxies `/api` to backend)
-- Uses `concurrently` npm package to run both in one terminal with color-coded output
-- Ctrl+C stops both
-
-**Production deployment (Digital Ocean droplet, future):**
+**Production deployment (planned):**
 
 - Build frontend: `npm run build` in `apps/web` -> static files
 - Build backend: `npm run build` in `apps/api` -> compiled JS
-- Serve frontend static files via Nginx, proxy `/api` to Node process
+- Nginx serves static + proxies `/api` to Node
 - SSL via Let's Encrypt + Certbot
-- Environment variables via `.env` file on the droplet
-
----
-
-## Implementation Phases (UI-First Approach)
-
-**Phase 1 -- Scaffold:** Monorepo, Vite+React, Tailwind + shadcn/ui, theming, run.sh
-**Phase 2 -- Strategy Tabs UI:** Tab bar, add/rename/delete, empty state (mock data in Zustand)
-**Phase 3 -- Canvas UI:** react-grid-layout, subview cards, toolbar, layout persistence in Zustand
-**Phase 4 -- Subview Gallery UI:** Template gallery modal, pre-built read-only templates, add to canvas
-**Phase 5 -- Subview Editor + Rendering:** Editor modal (JSON, Python, Transactions, Wallet tabs) with Live Preview. Subview rendering is shared: the same layout engine and Pyodide executor power both the editor preview and canvas cards. Zod validation. Seed data for testing. Canvas renders JSON+Python subviews. Caching for readonly. Official read-write and user-created readonly subviews are all built via the editor.
-**Phase 7 -- Transaction UI:** Add/edit form, transaction list modal, pagination/sort/filter
-**Phase 8 -- Global Settings UI:** Viewing currency, dark/light toggle, theme customization panel
-**Phase 9 -- Backend Scaffold:** NestJS, Mongoose schemas, MongoDB Atlas connection
-**Phase 10 -- Backend API:** Strategy, Transaction, Instrument, Wallet, Subview cache endpoints
-**Phase 11 -- Frontend-Backend Integration:** Replace mock data with TanStack Query + real API
-**Phase 12 -- Market Data:** FMP backend integration, instrument search, quotes, currency conversion
-**Phase 13 -- Auth:** Email OTP (Resend), JWT, login page, route protection (done last)
-**Phase 14 -- Deployment:** Production builds, Nginx, SSL
+- Environment variables via `.env` on droplet
