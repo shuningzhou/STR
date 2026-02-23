@@ -21,6 +21,7 @@ import { PREMIUM_INCOME_CHART } from './subview-editor/PREMIUM_INCOME_CHART';
 import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
 import { DIVIDEND_TABLE } from './subview-editor/DIVIDEND_TABLE';
 import { DIVIDEND_SUMMARY } from './subview-editor/DIVIDEND_SUMMARY';
+import { DIVIDENDS_TOTAL } from './subview-editor/DIVIDENDS_TOTAL';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -42,7 +43,8 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'premium-income', name: 'Premium Income', description: 'Stacked bar chart of option premium income by Covered Call and Secured Put', defaultSize: { w: 700, h: 220 }, categories: ['option', 'income'], spec: PREMIUM_INCOME_CHART as unknown as SubviewSpec },
   { id: 'options-timeline', name: 'Options Timeline', description: 'Timeline of option expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['option'], spec: OPTIONS_TIMELINE as unknown as SubviewSpec },
   { id: 'holdings', name: 'Stock & ETF Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
-  { id: 'dividend', name: 'Dividends', description: 'Track dividend income from stocks and ETFs', defaultSize: { w: 500, h: 120 }, categories: ['essential', 'stock-etf', 'income'], spec: DIVIDEND_TABLE as unknown as SubviewSpec },
+  { id: 'dividend', name: 'Dividends Distribution', description: 'Track dividend income from stocks and ETFs', defaultSize: { w: 500, h: 120 }, categories: ['essential', 'stock-etf', 'income'], spec: DIVIDEND_TABLE as unknown as SubviewSpec },
+  { id: 'dividends-total', name: 'Dividends', description: 'Total dividends earned for the strategy', defaultSize: { w: 175, h: 40 }, categories: ['stock-etf', 'income'], spec: DIVIDENDS_TOTAL as unknown as SubviewSpec },
   { id: 'dividend-summary', name: 'Dividend Summary', description: 'Dividend summary per symbol: cumulative, monthly avg, yield, yearly estimate', defaultSize: { w: 650, h: 120 }, categories: ['stock-etf', 'income'], spec: DIVIDEND_SUMMARY as unknown as SubviewSpec },
   { id: 'portfolio-pie', name: 'Allocation', description: 'Donut chart showing % of portfolio by holding', defaultSize: { w: 375, h: 125 }, categories: ['stock-etf'], spec: PORTFOLIO_PIE_CHART as unknown as SubviewSpec },
   { id: 'portfolio-growth', name: 'Portfolio Growth', description: 'Line chart of portfolio value over time', defaultSize: { w: 600, h: 100 }, categories: ['stock-etf'], spec: PORTFOLIO_GROWTH_LINE_CHART as unknown as SubviewSpec },

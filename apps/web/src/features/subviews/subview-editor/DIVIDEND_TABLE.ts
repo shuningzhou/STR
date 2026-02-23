@@ -6,7 +6,7 @@ import type { SubviewSpec } from '@str/shared';
 
 export const DIVIDEND_TABLE: SubviewSpec = {
   type: 'readwrite',
-  name: 'Dividends',
+  name: 'Dividends Distribution',
   icon: 'BanknoteArrowDown',
   description: 'Track dividend income from stocks and ETFs',
   maker: 'official',
