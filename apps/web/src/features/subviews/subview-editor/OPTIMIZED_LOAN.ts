@@ -85,7 +85,7 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
       {
         flex: { flex: 1, flexDirection: 'column' },
         padding: { top: 0, left: 12, right: 12 },
-        content: [{ separator: { orientation: 'horizontal', padding: { top: 15, bottom: 15 } } }],
+        content: [{ separator: { orientation: 'horizontal', padding: { top: 5, bottom: 5 } } }],
       },
     ],
     [
@@ -100,7 +100,7 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
     [
       {
         flex: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
-        padding: { top: 0, left: 12, bottom: 8 },
+        padding: { top: 0, left: 12, bottom: 5 },
         content: [
           { Chart: { type: 'gauge', source: 'py:get_margin_health' } },
         ],

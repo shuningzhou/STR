@@ -34,22 +34,49 @@ const DEFAULT_LEFT_WIDTH = 50;
 const MIN_LEFT_WIDTH = 25;
 const MAX_LEFT_WIDTH = 75;
 
+type SubviewWithSpec = { id: string; spec?: unknown; templateId?: string; position?: { w: number; h: number } };
+type StrategyWithInputs = { id: string; inputs?: { id: string; type: string; default?: unknown }[]; inputValues?: Record<string, unknown> };
+
 export function SubviewEditorModal() {
   const { data: strategies = [] } = useStrategies();
+  const { subviewSettingsOpen } = useUIStore();
+
+  const strategy = subviewSettingsOpen
+    ? strategies.find((s) => s.id === subviewSettingsOpen.strategyId) ?? null
+    : null;
+  const subview = strategy?.subviews?.find((sv) => sv.id === subviewSettingsOpen?.subviewId);
+
+  const initialSpec = useMemo((): SubviewSpec => {
+    if (subview?.spec) return subview.spec as SubviewSpec;
+    return BLANK_SPEC as unknown as SubviewSpec;
+  }, [subview?.spec]);
+
+  if (!subviewSettingsOpen || !subview) return null;
+
+  return (
+    <SubviewEditorModalContent
+      key={subview.id}
+      subview={subview as SubviewWithSpec}
+      strategy={strategy as StrategyWithInputs | null}
+      initialSpec={initialSpec}
+    />
+  );
+}
+
+/** Inner content keyed by subview.id so it remounts on open — useState then initializes with correct initialSpec (fixes stale BLANK_SPEC on refresh). */
+function SubviewEditorModalContent({
+  subview,
+  strategy,
+  initialSpec,
+}: {
+  subview: SubviewWithSpec;
+  strategy: StrategyWithInputs | null;
+  initialSpec: SubviewSpec;
+}) {
   const removeSubviewMut = useRemoveSubview();
   const updateSubviewMut = useUpdateSubview();
   const updateStrategyMut = useDebouncedUpdateStrategy();
   const { subviewSettingsOpen, setSubviewSettingsOpen } = useUIStore();
-
-  const strategy = subviewSettingsOpen
-    ? strategies.find((s) => s.id === subviewSettingsOpen.strategyId)
-    : null;
-  const subview = strategy?.subviews.find((sv) => sv.id === subviewSettingsOpen?.subviewId);
-
-  const initialSpec = useMemo((): SubviewSpec => {
-    if (subview?.spec) return subview.spec;
-    return BLANK_SPEC as unknown as SubviewSpec;
-  }, [subview?.spec]);
 
   const [jsonText, setJsonText] = useState(() => JSON.stringify(initialSpec, null, 2));
   const [pythonText, setPythonText] = useState(initialSpec.python_code);
@@ -360,29 +387,12 @@ export function SubviewEditorModal() {
   }, [subviewSettingsOpen, strategy, deleteConfirm, removeSubviewMut, setSubviewSettingsOpen]);
 
   useEffect(() => {
-    if (subview) {
-      if (validationTimeoutRef.current) {
-        clearTimeout(validationTimeoutRef.current);
-        validationTimeoutRef.current = null;
-      }
-      const spec = subview.spec ?? (BLANK_SPEC as unknown as SubviewSpec);
-      const str = JSON.stringify(spec, null, 2);
-      setJsonText(str);
-      latestJsonRef.current = str;
-      setPythonText(spec.python_code);
-      setParseResult({ success: true, data: spec });
-    }
-  }, [subview?.id]);
-
-  useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') handleClose();
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [handleClose]);
-
-  if (!subviewSettingsOpen || !subview) return null;
 
   const canSave = parseResult.success;
 
