@@ -56,6 +56,19 @@ export async function getHistory(
   return apiFetch<HistoryBar[]>(`/market-data/history/${encodeURIComponent(symbol)}${qs ? '?' + qs : ''}`);
 }
 
+export async function getHistoryBatch(
+  symbols: string[],
+  from?: string,
+  to?: string,
+): Promise<Record<string, HistoryBar[]>> {
+  if (symbols.length === 0) return {};
+  const params = new URLSearchParams();
+  params.set('symbols', symbols.join(','));
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return apiFetch<Record<string, HistoryBar[]>>(`/market-data/history?${params.toString()}`);
+}
+
 export async function searchSymbols(query: string): Promise<SymbolMatch[]> {
   if (!query) return [];
   return apiFetch<SymbolMatch[]>(`/market-data/search?q=${encodeURIComponent(query)}`);

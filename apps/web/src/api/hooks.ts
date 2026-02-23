@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as strategiesApi from './strategies-api';
 import * as transactionsApi from './transactions-api';
 import * as walletsApi from './wallets-api';
@@ -21,6 +21,7 @@ export const queryKeys = {
   quotes: (symbols: string[]) => ['quotes', symbols.join(',')] as const,
   optionQuotes: (contracts: string[]) => ['optionQuotes', contracts.join(',')] as const,
   history: (symbol: string, from?: string, to?: string) => ['history', symbol, from, to] as const,
+  historyBatch: (symbols: string[], from?: string, to?: string) => ['history', 'batch', symbols.join(','), from, to] as const,
   symbolSearch: (q: string) => ['symbolSearch', q] as const,
   instrumentMarginReqs: (symbols: string[]) => ['instrumentMarginReqs', symbols.join(',')] as const,
 };
@@ -383,8 +384,8 @@ export function useQuotes(symbols: string[]) {
     queryKey: queryKeys.quotes(symbols),
     queryFn: () => marketDataApi.getQuotes(symbols),
     enabled: symbols.length > 0,
-    staleTime: 30 * 60 * 1000,
-    refetchInterval: 30 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
 }
 
@@ -407,27 +408,26 @@ export function useHistory(symbol: string, from?: string, to?: string) {
   });
 }
 
-/** EOD price history: { [symbol]: { [date]: close } } for portfolio growth chart */
+/** EOD price history: { [symbol]: { [date]: close } } for portfolio growth chart. Uses batch API (1 request, 1 DB query). */
 export function usePriceHistory(
   symbols: string[],
   fromDate?: string,
   toDate?: string,
 ): Record<string, Record<string, number>> {
-  const results = useQueries({
-    queries: symbols.map((symbol) => ({
-      queryKey: queryKeys.history(symbol, fromDate, toDate),
-      queryFn: () => marketDataApi.getHistory(symbol, fromDate, toDate),
-      enabled: !!symbol && !!fromDate && !!toDate,
-      staleTime: 60 * 60 * 1000,
-    })),
+  const { data } = useQuery({
+    queryKey: queryKeys.historyBatch(symbols, fromDate, toDate),
+    queryFn: () => marketDataApi.getHistoryBatch(symbols, fromDate, toDate),
+    enabled: symbols.length > 0 && !!fromDate && !!toDate,
+    staleTime: 60 * 60 * 1000,
   });
 
   const out: Record<string, Record<string, number>> = {};
-  for (let i = 0; i < symbols.length; i++) {
-    const bars = results[i]?.data ?? [];
-    out[symbols[i]] = {};
+  if (!data) return out;
+  for (const sym of symbols) {
+    out[sym] = {};
+    const bars = data[sym] ?? [];
     for (const b of bars) {
-      if (b?.date) out[symbols[i]][b.date] = b.close;
+      if (b?.date) out[sym][b.date] = b.close;
     }
   }
   return out;

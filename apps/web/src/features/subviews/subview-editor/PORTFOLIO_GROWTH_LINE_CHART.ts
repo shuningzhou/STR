@@ -58,9 +58,8 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
   python_code: `def get_portfolio_growth(context, inputs):
     """Return line chart data: { items: [{ label, value, depositWithdraw?, loan?, holdingsValue? }, ...] }.
     Portfolio = holdings - loan + wallet (net equity at each date).
-    Uses EOD (end-of-day) prices from priceHistory when available; falls back to currentPrices for today.
-    depositWithdraw: cumulative deposit, withdrawal, and dividend (money in/out of wallet).
-    holdingsValue: market value of positions. loan: borrowed amount (margin).
+    Plots at every trading day (from priceHistory), not just transaction dates — reflects daily price moves.
+    Uses EOD prices; forward-fills missing dates; currentPrices for today.
     """
     txs = context.get('transactions') or []
     wallet = context.get('wallet') or {}
@@ -85,50 +84,60 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         except Exception:
             return True
 
-    # Sort transactions by timestamp
+    def date_of(tx):
+        ts = tx.get('timestamp') or ''
+        return ts[:10] if len(ts) >= 10 else ts
+
     stock_txs = [t for t in txs if is_non_option(t)]
     stock_txs.sort(key=lambda t: t.get('timestamp') or '')
 
     if not stock_txs:
         return {'items': []}
 
+    first_tx_date = date_of(stock_txs[0]) or ''
+    from datetime import date
+    today = date.today().isoformat()
+
+    # Trading days: union of dates in priceHistory, filtered to [first_tx_date, today]
+    # Fall back to transaction dates if no price history (e.g. loading)
+    all_dates = set()
+    for sym, hist in (price_history if isinstance(price_history, dict) else {}).items():
+        if isinstance(hist, dict):
+            all_dates.update(hist.keys())
+    trading_dates = sorted(d for d in all_dates if d and first_tx_date <= d <= today)
+    if not trading_dates:
+        tx_dates = sorted({date_of(t) for t in stock_txs_sorted if date_of(t)})
+        trading_dates = [d for d in tx_dates if first_tx_date <= d <= today]
+
     # Precompute cumulative deposit/withdraw/dividend at each date (for showDepositWithdraw)
     dw_cumulative = {}
     if show_dw:
-        date_set = set()
-        for t in txs:
-            ts = t.get('timestamp') or ''
-            d = ts[:10] if len(ts) >= 10 else ''
-            if d:
-                date_set.add(d)
-        all_dates = ['Start'] + sorted(date_set)
-        for d in all_dates:
+        for d in ['Start'] + trading_dates + ([today] if today not in trading_dates else []):
             total = 0.0
             if d != 'Start':
                 for t in txs:
                     side = (t.get('side') or t.get('type') or '').lower()
                     if side not in ('deposit', 'withdrawal', 'withdraw', 'dividend'):
                         continue
-                    td = (t.get('timestamp') or '')[:10]
+                    td = date_of(t)
                     if td and td <= d:
                         total += float(t.get('cashDelta') or 0)
             dw_cumulative[d] = round(total, 2)
 
+    last_known_price = {}
     def price_for(sym, date_str):
-        """EOD price for symbol on date; fallback to current price."""
         hist = price_history.get(sym) if isinstance(price_history, dict) else {}
         if isinstance(hist, dict) and date_str in hist:
-            return float(hist[date_str])
+            p = float(hist[date_str])
+            last_known_price[sym] = p
+            return p
+        if sym in last_known_price:
+            return last_known_price[sym]
         cp = current_prices.get(sym) if isinstance(current_prices, dict) else None
         if cp is not None:
             return float(cp)
         return 0.0
 
-    # Build portfolio value at each transaction date; start with initial balance
-    from itertools import groupby
-    def date_of(tx):
-        ts = tx.get('timestamp') or ''
-        return ts[:10] if len(ts) >= 10 else ts
     stock_txs_sorted = sorted(stock_txs, key=date_of)
     cash_only_sides = {'deposit', 'withdrawal', 'withdraw', 'interest', 'fee'}
 
@@ -139,38 +148,40 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         items[0]['loan'] = round(max(0.0, -initial), 2)
     if show_holdings:
         items[0]['holdingsValue'] = 0.0
+
     cash = initial
     agg = {}
+    tx_idx = 0
 
-    for date_str, group in groupby(stock_txs_sorted, key=date_of):
-        if not date_str:
-            continue
-        for tx in group:
-            sym = tx.get('instrumentSymbol') or ''
-            inst_id = tx.get('instrumentId') or sym or ''
+    for date_str in trading_dates:
+        # Apply all txs with date <= date_str that we haven't applied yet
+        while tx_idx < len(stock_txs_sorted):
+            tx_date = date_of(stock_txs_sorted[tx_idx])
+            if not tx_date or tx_date > date_str:
+                break
+            tx = stock_txs_sorted[tx_idx]
             cash_delta = float(tx.get('cashDelta') or 0)
             side = (tx.get('side') or tx.get('type') or '').lower()
             cash += cash_delta
-            if side in cash_only_sides:
-                continue
-            if not inst_id:
-                continue
-            qty = int(tx.get('quantity') or 0)
-            if side in ('sell', 'short'):
-                qty = -qty
-            if inst_id not in agg:
-                agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
-            agg[inst_id]['quantity'] += qty
+            if side not in cash_only_sides:
+                sym = tx.get('instrumentSymbol') or ''
+                inst_id = tx.get('instrumentId') or sym or ''
+                if inst_id:
+                    qty = int(tx.get('quantity') or 0)
+                    if side in ('sell', 'short'):
+                        qty = -qty
+                    if inst_id not in agg:
+                        agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+                    agg[inst_id]['quantity'] += qty
+            tx_idx += 1
 
-        # Market value: EOD price for this date when available
         mv = 0.0
         for inst_id, row in agg.items():
             q = row['quantity']
             if q <= 0:
                 continue
             sym = row['symbol']
-            price = price_for(sym, date_str)
-            mv += q * float(price)
+            mv += q * float(price_for(sym, date_str))
 
         item = {'label': date_str, 'value': round(cash + mv, 2)}
         if show_dw:
@@ -181,24 +192,37 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
             item['holdingsValue'] = round(mv, 2)
         items.append(item)
 
-    # Add today's point so chart extends to current value (if last tx was before today)
-    from datetime import date
-    today = date.today().isoformat()
-    last_date = date_of(stock_txs_sorted[-1]) if stock_txs_sorted else ''
-    if last_date and last_date < today:
+    # Add today if not already in trading_dates (e.g. market closed, no EOD yet)
+    if trading_dates and trading_dates[-1] < today:
+        while tx_idx < len(stock_txs_sorted):
+            tx = stock_txs_sorted[tx_idx]
+            cash_delta = float(tx.get('cashDelta') or 0)
+            side = (tx.get('side') or tx.get('type') or '').lower()
+            cash += cash_delta
+            if side not in cash_only_sides:
+                sym = tx.get('instrumentSymbol') or ''
+                inst_id = tx.get('instrumentId') or sym or ''
+                if inst_id:
+                    qty = int(tx.get('quantity') or 0)
+                    if side in ('sell', 'short'):
+                        qty = -qty
+                    if inst_id not in agg:
+                        agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+                    agg[inst_id]['quantity'] += qty
+            tx_idx += 1
         mv = 0.0
         for inst_id, row in agg.items():
             q = row['quantity']
             if q <= 0:
                 continue
             sym = row['symbol']
-            price = price_for(sym, today)
-            if price == 0:
-                price = price_for(sym, last_date)
-            mv += q * float(price)
+            p = price_for(sym, today)
+            if p == 0 and trading_dates:
+                p = price_for(sym, trading_dates[-1])
+            mv += q * float(p)
         item = {'label': today, 'value': round(cash + mv, 2)}
         if show_dw:
-            item['depositWithdraw'] = dw_cumulative.get(today, dw_cumulative.get(last_date, 0.0))
+            item['depositWithdraw'] = dw_cumulative.get(today, dw_cumulative.get(trading_dates[-1], 0.0))
         if show_loan and margin_enabled:
             item['loan'] = round(max(0.0, -cash), 2)
         if show_holdings:

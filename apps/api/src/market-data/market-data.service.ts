@@ -174,6 +174,119 @@ export class MarketDataService {
     }));
   }
 
+  /** Batch: one DB query for all symbols. Returns Record<symbol, HistoryBar[]>. */
+  async getHistoryBatch(
+    symbols: string[],
+    from?: string,
+    to?: string,
+    exchange = 'US',
+  ): Promise<Record<string, HistoryBar[]>> {
+    if (symbols.length === 0) return {};
+    const toDate = to ?? new Date().toISOString().slice(0, 10);
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    const fromDate = from ?? twoYearsAgo.toISOString().slice(0, 10);
+
+    const existing = await this.priceHistoryModel
+      .find({
+        symbol: { $in: symbols },
+        exchange,
+        interval: 'daily',
+        date: { $gte: new Date(fromDate), $lte: new Date(toDate) },
+      })
+      .sort({ symbol: 1, date: 1 })
+      .lean();
+
+    const bySymbol: Record<string, (typeof existing)[0][]> = {};
+    for (const sym of symbols) bySymbol[sym] = [];
+    for (const bar of existing) {
+      const s = bar.symbol;
+      if (bySymbol[s]) bySymbol[s].push(bar);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const toFetch: string[] = [];
+    for (const sym of symbols) {
+      const bars = bySymbol[sym] || [];
+      const needsFresh =
+        bars.length === 0 ||
+        bars.some((b) => {
+          const d = b.date.toISOString().slice(0, 10);
+          return d === today && now.getTime() - b.fetchedAt.getTime() > HISTORY_FRESHNESS_MS;
+        });
+      if (needsFresh) toFetch.push(sym);
+    }
+
+    if (toFetch.length > 0) {
+      const provider = this.registry.resolve(toFetch[0], 'stock');
+      const fetchResults = await Promise.all(
+        toFetch.map(async (sym) => {
+          try {
+            const bars = await provider.getHistory(sym, fromDate, toDate);
+            return { sym, bars };
+          } catch (err) {
+            this.logger.error(`Failed to fetch history for ${sym}`, err);
+            return { sym, bars: [] };
+          }
+        }),
+      );
+      const allOps: Parameters<typeof this.priceHistoryModel.bulkWrite>[0] = [];
+      for (const { sym, bars } of fetchResults) {
+        if (bars.length > 0) {
+          for (const bar of bars) {
+            allOps.push({
+              updateOne: {
+                filter: { symbol: sym, exchange, interval: 'daily', date: new Date(bar.date) },
+                update: {
+                  $set: {
+                    ...bar,
+                    date: new Date(bar.date),
+                    symbol: sym,
+                    exchange,
+                    interval: 'daily',
+                    provider: provider.providerId,
+                    fetchedAt: now,
+                  },
+                },
+                upsert: true,
+              },
+            });
+          }
+          bySymbol[sym] = bars.map((b) => ({
+            date: new Date(b.date),
+            open: b.open,
+            high: b.high,
+            low: b.low,
+            close: b.close,
+            volume: b.volume,
+            symbol: sym,
+            exchange,
+            interval: 'daily',
+            provider: provider.providerId,
+            fetchedAt: now,
+          })) as (typeof existing)[0][];
+        }
+      }
+      if (allOps.length > 0) await this.priceHistoryModel.bulkWrite(allOps);
+    }
+
+    const result: Record<string, HistoryBar[]> = {};
+    const toBar = (b: { date: Date; open: number; high: number; low: number; close: number; volume?: number }) => ({
+      date: b.date.toISOString().slice(0, 10),
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume ?? 0,
+    });
+    for (const sym of symbols) {
+      const bars = bySymbol[sym] || [];
+      result[sym] = bars.map(toBar);
+    }
+    return result;
+  }
+
   /* ── Search ───────────────────────────────────── */
 
   async searchSymbols(query: string): Promise<SymbolMatch[]> {
