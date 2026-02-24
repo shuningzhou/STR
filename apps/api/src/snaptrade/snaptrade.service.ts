@@ -404,15 +404,12 @@ export class SnaptradeService {
     const holdingsSnapshot: Array<{ symbol: string; quantity: number; averagePrice: number; currency: string }> = [];
 
     for (const pos of positions) {
-      const symbol: string =
-        (pos as any).symbol?.symbol ??
-        (pos as any).symbol?.raw_symbol ??
-        '';
+      const symbol = this.extractSymbolStr(pos);
       if (!symbol) continue;
 
       const currentQty = ((pos as any).units ?? 0) + ((pos as any).fractional_units ?? 0);
       const avgPrice = (pos as any).average_purchase_price ?? 0;
-      const posCurrency = (pos as any).currency?.code ?? (pos as any).symbol?.currency?.code ?? doc.currency;
+      const posCurrency = this.extractCurrencyStr(pos, doc.currency);
 
       holdingsSnapshot.push({ symbol, quantity: currentQty, averagePrice: avgPrice, currency: posCurrency });
 
@@ -658,6 +655,25 @@ export class SnaptradeService {
       }
     }
     return earliest || new Date().toISOString();
+  }
+
+  private extractSymbolStr(pos: any): string {
+    const symField = pos?.symbol;
+    if (typeof symField === 'string') return symField;
+    if (symField && typeof symField === 'object') {
+      const s = symField.symbol ?? symField.raw_symbol;
+      return typeof s === 'string' ? s : String(s ?? '');
+    }
+    return '';
+  }
+
+  private extractCurrencyStr(pos: any, fallback: string): string {
+    const cur = pos?.currency;
+    if (typeof cur === 'string') return cur;
+    if (cur && typeof cur === 'object' && cur.code) return String(cur.code);
+    const symCur = pos?.symbol?.currency;
+    if (symCur && typeof symCur === 'object' && symCur.code) return String(symCur.code);
+    return fallback;
   }
 
   private async findAccountInfo(userId: string, accountId: string) {
