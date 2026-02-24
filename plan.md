@@ -488,6 +488,8 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 **SnapTrade activity types** — Use original types from SnapTrade. Standard types (BUY, SELL, etc.) are normalized in `ACTIVITY_TYPE_MAP`; brokerage-native types (e.g. `FUNDS_CONVERSION`) pass through as-is (lowercased).
 
+**option_assign / option_exercise / option_expire** — When an option is assigned, exercised, or expired, the option is removed; do not add synthetic option transactions to compensate. For assign/exercise only, the underlying instrument is affected: put assign → shares added; call assign → shares removed; call exercise → shares added; put exercise → shares removed (100 shares per contract). Rebuild must not update optionState when reversing assign/exercise/expire (avoids phantom residuals).
+
 **Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
 
 **Frontend:** User modal — Connect Brokerage button, connection status, Refresh, disconnect, **Account Transactions** button to view sanitized transactions per brokerage account (with **Rebuild** button per account to re-sync + recompute). AddStrategyModal — Manual/Synced toggle, account + type selection for synced.

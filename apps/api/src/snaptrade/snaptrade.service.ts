@@ -23,6 +23,9 @@ const ACTIVITY_TYPE_MAP: Record<string, string> = {
   OPTIONEXERCISE: 'option_exercise',
   OPTIONASSIGNMENT: 'option_assign',
   OPTIONEXPIRATION: 'option_expire',
+  OPTIONS_ASSIGN: 'option_assign',
+  OPTIONS_SHORT_EXPIRY: 'option_expire',
+  OPTIONS_EXERCISE: 'option_exercise',
   TRANSFER: 'transfer',
   EXTERNAL_ASSET_TRANSFER_IN: 'transfer_in',
   EXTERNAL_ASSET_TRANSFER_OUT: 'transfer_out',
@@ -282,11 +285,13 @@ export class SnaptradeService {
         const callPut = (optSym?.option_type ?? 'CALL').charAt(0);
         const exp = (optSym?.expiration_date ?? '').slice(0, 10);
         const symbol = und ? `${und} $${strike} ${callPut} ${exp}` : (optSym?.ticker ?? sym?.description ?? 'option');
-        const currency = typeof opt?.currency === 'string' ? opt.currency : opt?.currency?.code ?? '';
+        const undCurrency = underlying?.currency?.code;
+        const topCurrency = typeof opt?.currency === 'string' ? opt.currency : opt?.currency?.code;
+        const currency = topCurrency || undCurrency || '';
         return {
           symbol,
           quantity: opt?.units ?? 0,
-          averagePrice: opt?.average_purchase_price ?? 0,
+          averagePrice: ((opt?.average_purchase_price ?? 0) / 100),
           currency,
           isOption: true,
         };
@@ -306,18 +311,56 @@ export class SnaptradeService {
     return typeof t.instrumentSymbol === 'string' ? t.instrumentSymbol : '';
   }
 
+  private parseOptionKey(key: string): { underlying: string; option: any } {
+    const m = key.match(/^(.+?)\s+\$([.\d]+)\s+([CP])\s+(\S+)$/);
+    if (!m) return { underlying: key, option: null };
+    return {
+      underlying: m[1],
+      option: {
+        strike: parseFloat(m[2]),
+        callPut: m[3] === 'C' ? 'call' : 'put',
+        expiration: m[4],
+        underlyingSymbol: m[1],
+      },
+    };
+  }
+
   private deriveHoldingsFromTransactions(txns: any[]): {
     positions: Array<{ symbol: string; quantity: number }>;
     cash: number;
   } {
     const byKey: Record<string, number> = {};
     let cash = 0;
+    const OPTION_CONTRACT_MULTIPLIER = 100;
     const addSides = ['buy', 'option_exercise', 'transfer_in'];
     const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
     for (const t of txns) {
       const key = this.txKey(t);
       const q = t.quantity ?? 0;
-      if (key && q) {
+      const opt = t.option;
+      const underlying = opt?.underlyingSymbol ?? t.instrumentSymbol ?? '';
+      const callPut = (opt?.callPut ?? '').toLowerCase();
+      const isPut = callPut.startsWith('p');
+      const isCall = callPut.startsWith('c');
+
+      if (t.side === 'option_assign') {
+        // Closes SHORT option position + affects underlying equity
+        if (key && q) byKey[key] = (byKey[key] ?? 0) + q;
+        if (underlying && q) {
+          const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
+          byKey[underlying] = (byKey[underlying] ?? 0) + (isPut ? shareDelta : -shareDelta);
+        }
+      } else if (t.side === 'option_exercise') {
+        // Closes LONG option position + affects underlying equity
+        if (key && q) byKey[key] = (byKey[key] ?? 0) - q;
+        if (underlying && q) {
+          const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
+          byKey[underlying] = (byKey[underlying] ?? 0) + (isCall ? shareDelta : -shareDelta);
+        }
+      } else if (t.side === 'option_expire') {
+        // Closes SHORT option position, no equity effect
+        if (key && q) byKey[key] = (byKey[key] ?? 0) + q;
+      } else if (key && q) {
         if (addSides.includes(t.side)) byKey[key] = (byKey[key] ?? 0) + q;
         else if (subSides.includes(t.side)) byKey[key] = (byKey[key] ?? 0) - q;
       }
@@ -528,15 +571,45 @@ export class SnaptradeService {
     const addSides = ['buy', 'option_exercise', 'transfer_in'];
     const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
 
+    const OPTION_CONTRACT_MULTIPLIER = 100;
+
     const sorted = [...realTxns].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
     for (const tx of sorted) {
       const q = tx.quantity ?? 0;
       const isOption = tx.option && tx.option.strike != null;
+      const opt = tx.option;
+      const underlying = opt?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
+      const callPut = (opt?.callPut ?? '').toLowerCase();
+      const isPut = callPut.startsWith('p');
+      const isCall = callPut.startsWith('c');
+
       if (isOption) {
         const optKey = this.txKey(tx);
-        if (optKey && q) {
-          if (addSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) - q;
-          else if (subSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) + q;
+        if (tx.side === 'option_assign') {
+          // Assign closes a SHORT option position. Forward: option += q. Reverse: option -= q.
+          if (optKey && q) optionState[optKey] = (optionState[optKey] ?? 0) - q;
+          // Equity: short call assigned → deliver shares; short put assigned → receive shares.
+          if (underlying && q) {
+            const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
+            equityState[underlying] = (equityState[underlying] ?? 0) + (isPut ? -shareDelta : shareDelta);
+          }
+        } else if (tx.side === 'option_exercise') {
+          // Exercise closes a LONG option position. Forward: option -= q. Reverse: option += q.
+          if (optKey && q) optionState[optKey] = (optionState[optKey] ?? 0) + q;
+          // Equity: long call exercised → receive shares; long put exercised → deliver shares.
+          if (underlying && q) {
+            const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
+            equityState[underlying] = (equityState[underlying] ?? 0) + (isCall ? -shareDelta : shareDelta);
+          }
+        } else if (tx.side === 'option_expire') {
+          // Expire closes a SHORT option position. Forward: option += q. Reverse: option -= q.
+          if (optKey && q) optionState[optKey] = (optionState[optKey] ?? 0) - q;
+        } else {
+          if (optKey && q) {
+            if (addSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) - q;
+            else if (subSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) + q;
+          }
         }
       } else {
         const sym = typeof tx.instrumentSymbol === 'string' ? tx.instrumentSymbol : '';
@@ -569,15 +642,19 @@ export class SnaptradeService {
       if (Math.abs(qty) < 0.0001) continue;
       const synSide = qty > 0 ? 'buy' : 'sell';
       const optHolding = optionHoldings.find((h) => h.symbol === optKey);
+      const parsed = this.parseOptionKey(optKey);
+      const optPrice = optHolding?.averagePrice ?? 0;
+      const optCashDelta = synSide === 'buy' ? -(optPrice * Math.abs(qty) * 100) : (optPrice * Math.abs(qty) * 100);
+      stateCash -= optCashDelta;
       doc.adjustedTransactions.push({
         side: synSide,
         quantity: Math.abs(qty),
-        price: optHolding?.averagePrice ?? 0,
-        cashDelta: 0,
-        currency: optHolding?.currency ?? doc.currency,
+        price: optPrice,
+        cashDelta: optCashDelta,
+        currency: optHolding?.currency || 'USD',
         timestamp: earliestTransferDate,
-        instrumentSymbol: optKey,
-        option: null,
+        instrumentSymbol: parsed.underlying,
+        option: parsed.option,
         synthetic: true,
       } as any);
     }
