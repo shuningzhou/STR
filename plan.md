@@ -265,7 +265,7 @@ sequenceDiagram
 - `strategyId` (indexed), `userId`, `instrumentId`, `instrumentSymbol`
 - `side` (string: buy, sell, dividend, deposit, withdrawal, fee, interest, tax, transfer, split, adjustment, option_exercise, option_assign, option_expire), `quantity`, `price`, `cashDelta`, `currency`, `timestamp`
 - `option` ({expiration, strike, callPut, contracts}), `customData` (Mixed)
-- `source` ('manual' | 'snaptrade'), `snaptradeActivityId` (for dedup), `readonly` (synced txs cannot be edited)
+- `source` ('manual' | 'snaptrade'), `snaptradeActivityId` (for dedup), `accountTransactionId` (for account-to-strategy dedup), `readonly` (synced txs cannot be edited)
 - `createdAt`, `updatedAt`
 
 **Instrument** (`instruments` collection):
@@ -277,6 +277,15 @@ sequenceDiagram
 
 - `userId` (indexed), `authorizationId` (unique per user), `institutionName`, `status`
 - `accounts` (embedded array: accountId, name, number, currency, type, balanceAmount, etc.)
+
+**SyncedAccount** (`synced_accounts` collection):
+
+- `userId` (indexed), `accountId` (SnapTrade account ID, unique per user)
+- `authorizationId`, `institutionName`, `currency`
+- `rebuiltAt` (Date | null), `lastSyncedAt` (Date | null)
+- `currentHoldings` (embedded array: symbol, quantity, averagePrice, currency)
+- `currentCash` (number)
+- `adjustedTransactions` (embedded array of AdjustedTransaction: side, quantity, price, cashDelta, currency, timestamp, instrumentSymbol, option, snaptradeActivityId, synthetic)
 
 ---
 
@@ -323,7 +332,9 @@ All routes prefixed with `/api`.
 - `POST /snaptrade/connections/refresh` -- refresh account list from SnapTrade
 - `DELETE /snaptrade/connections/:authorizationId` -- remove connection
 - `GET /snaptrade/accounts` -- list accounts across all connections
-- `POST /snaptrade/sync/:strategyId` -- sync transactions from selected accounts into strategy
+- `POST /snaptrade/sync/:strategyId` -- sync transactions from selected accounts into strategy (two-step: syncAccount → syncStrategy)
+- `GET /snaptrade/accounts/:accountId/transactions` -- view sanitized adjusted transactions for a brokerage account
+- `POST /snaptrade/accounts/:accountId/rebuild` -- rebuild account: re-fetch activities + positions from SnapTrade, recompute synthetic transactions, drop all downstream strategy transactions (they get re-copied on next strategy sync)
 
 **Market Data:**
 
@@ -463,20 +474,22 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 ## 10. SnapTrade Brokerage Integration
 
-**Purpose:** Connect brokerage accounts via SnapTrade OAuth and sync transactions into strategies.
+**Purpose:** Connect brokerage accounts via SnapTrade OAuth, sanitize transaction data at the account level, and sync sanitized transactions into strategies.
 
 **Backend (`SnaptradeModule`, `apps/api/src/snaptrade/`):**
 
 - **User registration** — `POST /snaptrade/register` stores `snaptradeUserId`, `snaptradeUserSecret` on User doc
 - **Connection portal** — `POST /snaptrade/connect` returns SnapTrade OAuth redirect URL; user links brokerage in embedded iframe (450×600, no top bar)
 - **Connections** — List, refresh (fetches accounts from SnapTrade), delete. Closed and CARD/MSB accounts filtered out
-- **Sync** — `POST /snaptrade/sync/:strategyId` fetches activities via `accountInformation.getAccountActivities` with per-account pagination (limit 1000). Maps all SnapTrade activity types to app `side`; stores `currency`, `source: 'snaptrade'`, `snaptradeActivityId`, `readonly: true`
+- **Account sanitization** — `SyncedAccount` (collection `synced_accounts`) stores per-account sanitized transaction history as an embedded `adjustedTransactions` array. On first sync of any brokerage account, a **rebuild** runs automatically: fetches current positions + cash balance from SnapTrade, diffs against raw transaction history, and inserts synthetic transactions (`synthetic: true`) to fill gaps (in-kind transfers, cash discrepancies). Synthetic transactions use real `side` types (`buy`, `sell`, `deposit`, `withdrawal`). After rebuild, replaying all adjusted transactions from earliest to latest produces the exact current holdings + cash.
+- **Manual rebuild** — `POST /snaptrade/accounts/:accountId/rebuild` clears the account's adjusted transactions, re-fetches all activities + positions from SnapTrade, recomputes synthetic transactions, and drops all downstream strategy transactions that originated from this account. Affected strategies get `transactionsVersion` bumped. On next strategy sync or visit, transactions are re-copied from the rebuilt account.
+- **Two-step sync** — (1) `syncAccount`: fetch SnapTrade activities → dedup → append to `SyncedAccount.adjustedTransactions`, rebuild if first time. (2) `syncStrategy`: for each configured account, call `syncAccount`, then copy filtered adjusted transactions to strategy (dedup by `accountTransactionId`).
 
 **SnapTrade activity type mapping** (in `ACTIVITY_TYPE_MAP`): BUY→buy, SELL→sell; DIVIDEND, REI, STOCK_DIVIDEND→dividend; CONTRIBUTION→deposit; WITHDRAWAL, FEE, INTEREST, TAX; OPTIONEXERCISE, OPTIONASSIGNMENT, OPTIONEXPIRATION; TRANSFER, EXTERNAL_ASSET_TRANSFER_IN/OUT; SPLIT, ADJUSTMENT. Brokerage-native types fall back to `rawType.toLowerCase()`.
 
 **Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
 
-**Frontend:** User modal — Connect Brokerage button, connection status, Refresh, disconnect. AddStrategyModal — Manual/Synced toggle, account + type selection for synced.
+**Frontend:** User modal — Connect Brokerage button, connection status, Refresh, disconnect, **Account Transactions** button to view sanitized transactions per brokerage account (with **Rebuild** button per account to re-sync + recompute). AddStrategyModal — Manual/Synced toggle, account + type selection for synced.
 
 ---
 

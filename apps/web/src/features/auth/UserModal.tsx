@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Link2, Trash2, RefreshCw } from 'lucide-react';
+import { LogOut, Link2, Trash2, RefreshCw, FileText } from 'lucide-react';
 import { Modal, Button } from '@/components/ui';
 import { useAuthStore } from './auth-store';
 import { useUIStore } from '@/store/ui-store';
@@ -11,6 +11,7 @@ import {
   useSnaptradeRefreshConnections,
   useSnaptradeDisconnect,
 } from '@/api/hooks';
+import { AccountTransactionsModal } from './AccountTransactionsModal';
 
 export function UserModal() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export function UserModal() {
 
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [showAccountTxns, setShowAccountTxns] = useState(false);
 
   const { data: connections = [], isLoading: loadingConns } = useSnaptradeConnections();
   const registerMut = useSnaptradeRegister();
@@ -101,6 +103,10 @@ export function UserModal() {
         </div>
       </div>
     );
+  }
+
+  if (showAccountTxns) {
+    return <AccountTransactionsModal onClose={() => setShowAccountTxns(false)} />;
   }
 
   return (
@@ -195,17 +201,29 @@ export function UserModal() {
               {connecting ? 'Connecting...' : 'Connect brokerage'}
             </Button>
             {connections.length > 0 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => refreshMut.mutate()}
-                disabled={refreshMut.isPending}
-                className="gap-1 self-start"
-              >
-                <RefreshCw size={14} strokeWidth={1.5} className={refreshMut.isPending ? 'animate-spin' : ''} />
-                Refresh
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refreshMut.mutate()}
+                  disabled={refreshMut.isPending}
+                  className="gap-1"
+                >
+                  <RefreshCw size={14} strokeWidth={1.5} className={refreshMut.isPending ? 'animate-spin' : ''} />
+                  Refresh
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAccountTxns(true)}
+                  className="gap-1"
+                >
+                  <FileText size={14} strokeWidth={1.5} />
+                  Account Transactions
+                </Button>
+              </div>
             )}
           </div>
         </div>

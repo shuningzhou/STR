@@ -494,6 +494,7 @@ import * as snaptradeApi from './snaptrade-api';
 export const snaptradeKeys = {
   connections: ['snaptrade', 'connections'] as const,
   accounts: ['snaptrade', 'accounts'] as const,
+  accountTransactions: (accountId: string) => ['snaptrade', 'account-transactions', accountId] as const,
 };
 
 export function useSnaptradeConnections() {
@@ -550,4 +551,23 @@ export function useSyncStrategy() {
   });
 }
 
-export { type SnaptradeAccount, type SnaptradeConnection } from './snaptrade-api';
+export function useAccountTransactions(accountId: string | null) {
+  return useQuery({
+    queryKey: snaptradeKeys.accountTransactions(accountId ?? ''),
+    queryFn: () => snaptradeApi.snaptradeGetAccountTransactions(accountId!),
+    enabled: !!accountId,
+  });
+}
+
+export function useRebuildAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: snaptradeApi.snaptradeRebuildAccount,
+    onSuccess: (_data, accountId) => {
+      qc.invalidateQueries({ queryKey: snaptradeKeys.accountTransactions(accountId) });
+      qc.invalidateQueries({ queryKey: queryKeys.strategies });
+    },
+  });
+}
+
+export { type SnaptradeAccount, type SnaptradeConnection, type AdjustedTransaction } from './snaptrade-api';

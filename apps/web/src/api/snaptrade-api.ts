@@ -57,3 +57,25 @@ export async function snaptradeListAccounts(): Promise<SnaptradeAccount[]> {
 export async function snaptradeSyncStrategy(strategyId: string): Promise<{ synced: number }> {
   return apiFetch(`/snaptrade/sync/${strategyId}`, { method: 'POST' });
 }
+
+export interface AdjustedTransaction {
+  _id: string;
+  side: string;
+  quantity: number;
+  price: number;
+  cashDelta: number;
+  currency: string;
+  timestamp: string;
+  instrumentSymbol: string;
+  option: { expiration: string; strike: number; callPut: string; underlyingSymbol?: string } | null;
+  snaptradeActivityId?: string;
+  synthetic: boolean;
+}
+
+export async function snaptradeGetAccountTransactions(accountId: string): Promise<AdjustedTransaction[]> {
+  return apiFetch(`/snaptrade/accounts/${accountId}/transactions`);
+}
+
+export async function snaptradeRebuildAccount(accountId: string): Promise<{ rebuilt: boolean; activities: number }> {
+  return apiFetch(`/snaptrade/accounts/${accountId}/rebuild`, { method: 'POST' });
+}
