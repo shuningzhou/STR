@@ -40,6 +40,13 @@ export class StrategyInputConfig {
   @Prop() max?: number;
 }
 
+/* ── SnapTrade Config (embedded in Strategy) ─────── */
+@Schema({ _id: false })
+export class SnaptradeConfig {
+  @Prop({ type: [String], default: [] }) accountIds!: string[];
+  @Prop({ type: [String], default: [] }) transactionTypes!: string[];
+}
+
 /* ── Strategy ─────────────────────────────────────── */
 @Schema({ timestamps: true, collection: 'strategies' })
 export class Strategy {
@@ -60,6 +67,9 @@ export class Strategy {
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} }) inputValues!: Record<string, unknown>;
   @Prop({ default: 0 }) transactionsVersion!: number;
   @Prop({ type: [SubviewSchema], default: [] }) subviews!: SubviewDoc[];
+  @Prop({ default: 'manual', enum: ['manual', 'synced'] }) mode!: string;
+  @Prop({ type: SnaptradeConfig }) snaptradeConfig?: SnaptradeConfig;
+  @Prop() lastSyncedAt?: Date;
 }
 
 export type StrategyDocument = HydratedDocument<Strategy>;

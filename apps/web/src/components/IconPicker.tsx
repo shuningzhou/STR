@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { getIconComponent, AVAILABLE_ICONS, ICONS_BY_CATEGORY } from '@/lib/icons';
 import { BUILT_IN_COLORS, resolveColor } from '@/features/subviews/SubviewSpecRenderer';
@@ -31,6 +32,28 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
   const [open, setOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const colorTriggerRef = useRef<HTMLButtonElement>(null);
+  const [popupRect, setPopupRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [colorPopupRect, setColorPopupRect] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPopupRect({ top: rect.bottom + 4, left: rect.left, width: Math.max(280, rect.width) });
+    } else {
+      setPopupRect(null);
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (colorOpen && colorTriggerRef.current) {
+      const rect = colorTriggerRef.current.getBoundingClientRect();
+      setColorPopupRect({ top: rect.bottom + 4, left: rect.left });
+    } else {
+      setColorPopupRect(null);
+    }
+  }, [colorOpen]);
   const effectiveValue = value && value.trim() && value !== placeholder ? value : undefined;
   const IconComp = effectiveValue ? getIconComponent(effectiveValue) : null;
   const resolvedColor = color ? (resolveColor(color) ?? color) : undefined;
@@ -52,6 +75,7 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
       )}
       <div className="flex items-center gap-2 flex-wrap">
         <button
+          ref={triggerRef}
           type="button"
           className="flex items-center gap-2 min-w-[100px] rounded-[var(--radius-medium)] border text-left shrink-0"
           style={{
@@ -88,6 +112,7 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
         {showColorPicker && effectiveValue && (
           <div className="relative shrink-0">
             <button
+              ref={colorTriggerRef}
               type="button"
               className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-medium)] border text-left min-w-[90px]"
               style={{
@@ -112,17 +137,21 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
               </span>
               <ChevronDown size={14} className="shrink-0 opacity-60" />
             </button>
-            {colorOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setColorOpen(false)} aria-hidden="true" />
-                <div
-                  className="absolute z-50 mt-1 py-1 rounded-[var(--radius-medium)] border max-h-[240px] overflow-auto"
-                  style={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    borderColor: 'var(--color-border)',
-                    minWidth: 140,
-                  }}
-                >
+            {colorOpen && colorPopupRect &&
+              createPortal(
+                <>
+                  <div className="fixed inset-0 z-[100]" onClick={() => setColorOpen(false)} aria-hidden="true" style={{ backgroundColor: 'transparent' }} />
+                  <div
+                    className="fixed py-1 rounded-[var(--radius-medium)] border max-h-[240px] overflow-auto shadow-lg"
+                    style={{
+                      top: colorPopupRect.top,
+                      left: colorPopupRect.left,
+                      zIndex: 101,
+                      backgroundColor: 'var(--color-bg-card)',
+                      borderColor: 'var(--color-border)',
+                      minWidth: 140,
+                    }}
+                  >
                   {COLOR_OPTIONS.map((c) => (
                     <button
                       key={c.value || 'default'}
@@ -146,23 +175,28 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
                     </button>
                   ))}
                 </div>
-              </>
+              </>,
+              document.body
             )}
           </div>
         )}
       </div>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div
-            className="absolute z-50 mt-1 p-2 rounded-[var(--radius-medium)] border max-h-[420px] overflow-auto"
-            style={{
-              backgroundColor: 'var(--color-bg-card)',
-              borderColor: 'var(--color-border)',
-              minWidth: 280,
-            }}
-          >
+      {open && popupRect &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[100]" onClick={() => setOpen(false)} aria-hidden="true" style={{ backgroundColor: 'transparent' }} />
+            <div
+              className="fixed p-2 rounded-[var(--radius-medium)] border max-h-[420px] overflow-auto shadow-lg"
+              style={{
+                top: popupRect.top,
+                left: popupRect.left,
+                width: popupRect.width,
+                zIndex: 101,
+                backgroundColor: 'var(--color-bg-card)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
             <input
               type="text"
               placeholder="Search icons..."
@@ -242,9 +276,10 @@ export function IconPicker({ value, color, onChange, label = 'Icon', placeholder
                 </div>
               )}
             </div>
-          </div>
-        </>
-      )}
+            </div>
+          </>,
+          document.body
+        )}
 
     </div>
   );

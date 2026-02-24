@@ -40,6 +40,7 @@ export function DepositWithdrawModal() {
           strategyId,
           side: mode,
           cashDelta,
+          currency,
           timestamp,
           instrumentSymbol: currency,
           option: null,

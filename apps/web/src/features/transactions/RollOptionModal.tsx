@@ -82,10 +82,12 @@ export function RollOptionModal() {
 
       try {
         // 1. Buy to cover - close the original option (same premium as when we sold it)
+        const currency = transaction.currency ?? 'USD';
         await createTx.mutateAsync({
           strategyId,
           side: 'buy_to_cover',
           cashDelta: closePremium,
+          currency,
           timestamp,
           instrumentSymbol: symbol,
           option: opt,
@@ -98,6 +100,7 @@ export function RollOptionModal() {
           strategyId,
           side: 'sell',
           cashDelta: newOptionPremium,
+          currency,
           timestamp,
           instrumentSymbol: symbol,
           option: optionRolledTo,

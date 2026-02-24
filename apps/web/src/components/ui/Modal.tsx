@@ -6,8 +6,8 @@ interface ModalProps {
   children: React.ReactNode;
   onClose: () => void;
   className?: string;
-  /** 'lg' = wider modal (max-w-2xl) for forms with many fields */
-  size?: 'default' | 'lg';
+  /** 'lg' = 772px, 'xl' = 960px, '2xl' = 1120px for wide tables */
+  size?: 'default' | 'lg' | 'xl' | '2xl';
   /** Optional content to render in the top right of the header (e.g. currency badge) */
   headerRight?: React.ReactNode;
 }
@@ -36,8 +36,8 @@ export function Modal({ title, children, onClose, className, size = 'default', h
 
       <div
         className={cn(
-          'relative w-full rounded-[var(--radius-card)]',
-          size === 'lg' ? 'max-w-[772px]' : 'max-w-[484px]', // default 384+100, lg 672+100
+          'relative w-full rounded-[var(--radius-card)] flex flex-col',
+          size === '2xl' ? 'max-w-[1280px] max-h-[95vh]' : size === 'xl' ? 'max-w-[960px] max-h-[95vh]' : size === 'lg' ? 'max-w-[772px]' : 'max-w-[484px]',
           'border border-[var(--color-border)]',
           className
         )}
@@ -55,6 +55,7 @@ export function Modal({ title, children, onClose, className, size = 'default', h
             alignItems: 'center',
             marginBottom: 'var(--space-modal)',
             gap: 12,
+            flexShrink: 0,
           }}
         >
           <h2
@@ -70,7 +71,9 @@ export function Modal({ title, children, onClose, className, size = 'default', h
           </h2>
           {headerRight}
         </div>
-        {children}
+        <div className={cn('min-h-0 overflow-auto', (size === 'xl' || size === '2xl') && 'flex-1')}>
+          {children}
+        </div>
       </div>
     </div>
   );

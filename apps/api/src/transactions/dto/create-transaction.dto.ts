@@ -14,6 +14,7 @@ export class CreateTransactionDto {
   @IsOptional() @IsNumber() quantity?: number;
   @IsOptional() @IsNumber() price?: number;
   @IsNumber() cashDelta!: number;
+  @IsOptional() @IsString() currency?: string;
   @IsString() timestamp!: string;
   @IsOptional() @IsString() instrumentSymbol?: string;
   @IsOptional() @IsObject() customData?: Record<string, unknown>;

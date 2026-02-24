@@ -17,12 +17,17 @@ export class Transaction {
   @Prop({ default: 0 }) quantity!: number;
   @Prop({ default: 0 }) price!: number;
   @Prop({ default: 0 }) cashDelta!: number;
+  @Prop({ default: '' }) currency!: string;
   @Prop({ required: true }) timestamp!: string;
   @Prop({ default: '' }) instrumentSymbol!: string;
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} }) customData!: Record<string, unknown>;
   @Prop({ type: OptionData, default: null }) option!: OptionData | null;
+  @Prop({ default: 'manual', enum: ['manual', 'snaptrade'] }) source!: string;
+  @Prop() snaptradeActivityId?: string;
+  @Prop({ default: false }) readonly!: boolean;
 }
 
 export type TransactionDocument = HydratedDocument<Transaction>;
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 TransactionSchema.index({ strategyId: 1, timestamp: -1 });
+TransactionSchema.index({ strategyId: 1, snaptradeActivityId: 1 }, { sparse: true });

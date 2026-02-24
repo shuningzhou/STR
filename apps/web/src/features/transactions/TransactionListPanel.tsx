@@ -21,6 +21,7 @@ export function TransactionListPanel() {
     () => strategies.find((s) => s.id === strategyId),
     [strategies, strategyId]
   );
+  const isSynced = strategy?.mode === 'synced';
 
   const sortedTransactions = useMemo(
     () => [...transactions].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')),
@@ -47,7 +48,7 @@ export function TransactionListPanel() {
     setEditTransactionModalOpen({ strategyId: strategyId!, transaction: tx, mode: 'full' });
   };
 
-  const handleDelete = (txId: number) => {
+  const handleDelete = (txId: string | number) => {
     setDeleteTransactionConfirmOpen({ strategyId: strategyId!, transactionId: txId });
   };
 
@@ -123,24 +124,26 @@ export function TransactionListPanel() {
           >
             Transactions — {strategy?.name ?? 'Strategy'}
           </h2>
-          <button
-            type="button"
-            className="w-5 h-5 shrink-0 flex items-center justify-center rounded-[var(--radius-medium)] transition-colors"
-            style={{
-              backgroundColor: 'var(--color-active)',
-              color: 'var(--color-text-on-primary)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg-primary-hover)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-active)';
-            }}
-            onClick={handleAdd}
-            title="Add Transaction"
-          >
-            <Plus size={10} strokeWidth={1.5} />
-          </button>
+          {!isSynced && (
+            <button
+              type="button"
+              className="w-5 h-5 shrink-0 flex items-center justify-center rounded-[var(--radius-medium)] transition-colors"
+              style={{
+                backgroundColor: 'var(--color-active)',
+                color: 'var(--color-text-on-primary)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-primary-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-active)';
+              }}
+              onClick={handleAdd}
+              title="Add Transaction"
+            >
+              <Plus size={10} strokeWidth={1.5} />
+            </button>
+          )}
           <button
             type="button"
             onClick={handleClose}
@@ -160,10 +163,16 @@ export function TransactionListPanel() {
               style={{ color: 'var(--color-text-muted)' }}
             >
               <p className="text-sm font-medium mb-1">No transactions yet</p>
-              <p className="text-xs mb-4">Add your first transaction to get started</p>
-              <Button type="button" variant="secondary" size="sm" onClick={handleAdd}>
-                Add Transaction
-              </Button>
+              {isSynced ? (
+                <p className="text-xs">Sync transactions from the toolbar</p>
+              ) : (
+                <>
+                  <p className="text-xs mb-4">Add your first transaction to get started</p>
+                  <Button type="button" variant="secondary" size="sm" onClick={handleAdd}>
+                    Add Transaction
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div
@@ -201,6 +210,7 @@ export function TransactionListPanel() {
                         ['Qty', 'text-right'],
                         ['Price', 'text-right'],
                         ['Amount', 'text-right'],
+                        ['Currency', 'text-left'],
                         ['Option', 'text-left'],
                         ['Custom', 'text-left'],
                       ].map(([label]) => (
@@ -306,6 +316,15 @@ export function TransactionListPanel() {
                             color: 'var(--color-text-primary)',
                             borderRight: '1px solid var(--color-table-border)',
                             padding: CELL_PADDING,
+                          }}
+                        >
+                          {(tx as { currency?: string }).currency || '—'}
+                        </td>
+                        <td
+                          style={{
+                            color: 'var(--color-text-primary)',
+                            borderRight: '1px solid var(--color-table-border)',
+                            padding: CELL_PADDING,
                             whiteSpace: 'nowrap',
                             minWidth: 140,
                           }}
@@ -325,26 +344,28 @@ export function TransactionListPanel() {
                           {formatCustomData(tx)}
                         </td>
                         <td style={{ paddingTop: CELL_PADDING, paddingBottom: CELL_PADDING, paddingLeft: 10, paddingRight: 10, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          <div className="inline-flex shrink-0" style={{ gap: 10 }}>
-                            <button
-                              type="button"
-                              className="p-1 rounded"
-                              style={{ color: 'var(--color-text-secondary)' }}
-                              onClick={() => handleEdit(tx)}
-                              title="Edit"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              className="p-1 rounded"
-                              style={{ color: 'var(--color-text-secondary)' }}
-                              onClick={() => handleDelete(tx.id)}
-                              title="Delete"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                          {!isSynced && (
+                            <div className="inline-flex shrink-0" style={{ gap: 10 }}>
+                              <button
+                                type="button"
+                                className="p-1 rounded"
+                                style={{ color: 'var(--color-text-secondary)' }}
+                                onClick={() => handleEdit(tx)}
+                                title="Edit"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="p-1 rounded"
+                                style={{ color: 'var(--color-text-secondary)' }}
+                                onClick={() => handleDelete(tx.id)}
+                                title="Delete"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

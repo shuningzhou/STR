@@ -35,6 +35,8 @@ export class StrategiesService {
       initialBalance: dto.initialBalance ?? 0,
       marginAccountEnabled: dto.marginAccountEnabled ?? false,
       collateralEnabled: dto.collateralEnabled ?? false,
+      mode: dto.mode ?? 'manual',
+      snaptradeConfig: dto.snaptradeConfig,
     });
     await this.walletModel.create({
       strategyId: strategy._id.toString(),

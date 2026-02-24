@@ -14,6 +14,7 @@ export class UpdateTransactionDto {
   @IsOptional() @IsNumber() quantity?: number;
   @IsOptional() @IsNumber() price?: number;
   @IsOptional() @IsNumber() cashDelta?: number;
+  @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsString() timestamp?: string;
   @IsOptional() @IsString() instrumentSymbol?: string;
   @IsOptional() @IsObject() customData?: Record<string, unknown>;

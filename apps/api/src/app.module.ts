@@ -12,6 +12,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { WalletsModule } from './wallets/wallets.module';
 import { InstrumentsModule } from './instruments/instruments.module';
 import { MarketDataModule } from './market-data/market-data.module';
+import { SnaptradeModule } from './snaptrade/snaptrade.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MarketDataModule } from './market-data/market-data.module';
     WalletsModule,
     InstrumentsModule,
     MarketDataModule,
+    SnaptradeModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Transaction, TransactionDocument } from './transaction.schema';
@@ -19,13 +19,14 @@ export class TransactionsService {
   }
 
   async create(strategyId: string, userId: string, dto: CreateTransactionDto) {
-    await this.verifyStrategyOwnership(strategyId, userId);
+    const strategy = await this.verifyManualStrategy(strategyId, userId);
     const tx = await this.txModel.create({
       strategyId,
       side: dto.side,
       quantity: dto.quantity ?? 0,
       price: dto.price ?? 0,
       cashDelta: dto.cashDelta,
+      currency: dto.currency ?? (strategy as any).baseCurrency ?? '',
       timestamp: dto.timestamp,
       instrumentSymbol: dto.instrumentSymbol ?? '',
       customData: dto.customData ?? {},
@@ -41,7 +42,8 @@ export class TransactionsService {
   async update(txId: string, userId: string, dto: UpdateTransactionDto) {
     const tx = await this.txModel.findById(txId).lean().exec();
     if (!tx) throw new NotFoundException('Transaction not found');
-    await this.verifyStrategyOwnership(tx.strategyId, userId);
+    if ((tx as any).readonly) throw new ForbiddenException('Cannot edit imported transactions');
+    await this.verifyManualStrategy(tx.strategyId, userId);
     const updated = await this.txModel.findByIdAndUpdate(txId, { $set: dto }, { new: true }).lean().exec();
     await this.strategyModel.updateOne(
       { _id: tx.strategyId },
@@ -53,7 +55,8 @@ export class TransactionsService {
   async remove(txId: string, userId: string) {
     const tx = await this.txModel.findById(txId).lean().exec();
     if (!tx) throw new NotFoundException('Transaction not found');
-    await this.verifyStrategyOwnership(tx.strategyId, userId);
+    if ((tx as any).readonly) throw new ForbiddenException('Cannot delete imported transactions');
+    await this.verifyManualStrategy(tx.strategyId, userId);
     await this.txModel.findByIdAndDelete(txId);
     await this.strategyModel.updateOne(
       { _id: tx.strategyId },
@@ -65,5 +68,13 @@ export class TransactionsService {
   private async verifyStrategyOwnership(strategyId: string, userId: string) {
     const strategy = await this.strategyModel.findOne({ _id: strategyId, userId }).lean().exec();
     if (!strategy) throw new NotFoundException('Strategy not found');
+    return strategy;
+  }
+
+  private async verifyManualStrategy(strategyId: string, userId: string) {
+    const strategy = await this.verifyStrategyOwnership(strategyId, userId);
+    if ((strategy as any).mode === 'synced') {
+      throw new ForbiddenException('Cannot modify transactions in a synced strategy');
+    }
   }
 }

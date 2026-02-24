@@ -484,3 +484,70 @@ export function useActiveStrategyTransactions() {
 
 export { type WalletData } from './wallets-api';
 export { type QuoteResult, type HistoryBar, type SymbolMatch } from './market-data-api';
+
+/* ────────────────────────────────────────────────────
+   SnapTrade Hooks
+   ──────────────────────────────────────────────────── */
+
+import * as snaptradeApi from './snaptrade-api';
+
+export const snaptradeKeys = {
+  connections: ['snaptrade', 'connections'] as const,
+  accounts: ['snaptrade', 'accounts'] as const,
+};
+
+export function useSnaptradeConnections() {
+  return useQuery({
+    queryKey: snaptradeKeys.connections,
+    queryFn: snaptradeApi.snaptradeListConnections,
+  });
+}
+
+export function useSnaptradeAccounts() {
+  return useQuery({
+    queryKey: snaptradeKeys.accounts,
+    queryFn: snaptradeApi.snaptradeListAccounts,
+  });
+}
+
+export function useSnaptradeRegister() {
+  return useMutation({ mutationFn: snaptradeApi.snaptradeRegister });
+}
+
+export function useSnaptradeConnect() {
+  return useMutation({ mutationFn: snaptradeApi.snaptradeConnect });
+}
+
+export function useSnaptradeRefreshConnections() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: snaptradeApi.snaptradeRefreshConnections,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: snaptradeKeys.connections });
+      qc.invalidateQueries({ queryKey: snaptradeKeys.accounts });
+    },
+  });
+}
+
+export function useSnaptradeDisconnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: snaptradeApi.snaptradeDeleteConnection,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: snaptradeKeys.connections });
+      qc.invalidateQueries({ queryKey: snaptradeKeys.accounts });
+    },
+  });
+}
+
+export function useSyncStrategy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: snaptradeApi.snaptradeSyncStrategy,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.strategies });
+    },
+  });
+}
+
+export { type SnaptradeAccount, type SnaptradeConnection } from './snaptrade-api';

@@ -49,6 +49,7 @@ export interface StrategyTransaction {
   id: string | number;
   side: string;
   cashDelta: number;
+  currency: string;
   timestamp: string;
   instrumentSymbol: string;
   option: { expiration: string; strike: number; callPut: string } | null;
@@ -84,6 +85,9 @@ export interface Strategy {
   /** @deprecated Transactions are fetched separately via useTransactions() */
   transactions?: StrategyTransaction[];
   subviews: Subview[];
+  mode?: 'manual' | 'synced';
+  snaptradeConfig?: { accountIds: string[]; transactionTypes: string[] };
+  lastSyncedAt?: string;
 }
 
 /* ─── UI-only Zustand store ─────────────────────── */

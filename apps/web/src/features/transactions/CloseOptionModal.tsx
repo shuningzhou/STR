@@ -46,6 +46,7 @@ export function CloseOptionModal() {
           strategyId,
           side: 'buy_to_cover',
           cashDelta: premium,
+          currency: transaction.currency ?? 'USD',
           timestamp,
           instrumentSymbol: transaction.instrumentSymbol ?? '',
           option: transaction.option,

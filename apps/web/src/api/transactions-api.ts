@@ -10,7 +10,7 @@ export async function listTransactions(strategyId: string): Promise<StrategyTran
 
 export async function createTransaction(
   strategyId: string,
-  dto: Omit<StrategyTransaction, 'id'>,
+  dto: Omit<StrategyTransaction, 'id'> & { currency?: string },
 ): Promise<StrategyTransaction> {
   const raw = await apiFetch<Record<string, unknown>>(
     `/strategies/${strategyId}/transactions`,
@@ -40,6 +40,7 @@ function mapTransaction(raw: Record<string, unknown>): StrategyTransaction {
     id: doc.id as string,
     side: doc.side as string,
     cashDelta: (doc.cashDelta as number) ?? 0,
+    currency: (doc.currency as string) ?? '',
     timestamp: doc.timestamp as string,
     instrumentSymbol: (doc.instrumentSymbol as string) ?? '',
     option: doc.option as StrategyTransaction['option'],
