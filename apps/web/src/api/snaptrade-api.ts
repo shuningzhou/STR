@@ -72,7 +72,26 @@ export interface AdjustedTransaction {
   synthetic: boolean;
 }
 
-export async function snaptradeGetAccountTransactions(accountId: string): Promise<AdjustedTransaction[]> {
+export interface HoldingsPosition {
+  symbol: string;
+  quantity: number;
+  averagePrice?: number;
+  currency?: string;
+  isOption?: boolean;
+}
+
+export interface AccountHoldings {
+  positions: HoldingsPosition[];
+  cash: number;
+}
+
+export interface AccountTransactionsResponse {
+  transactions: AdjustedTransaction[];
+  rawHoldings: AccountHoldings | null;
+  derivedHoldings: AccountHoldings;
+}
+
+export async function snaptradeGetAccountTransactions(accountId: string): Promise<AccountTransactionsResponse> {
   return apiFetch(`/snaptrade/accounts/${accountId}/transactions`);
 }
 

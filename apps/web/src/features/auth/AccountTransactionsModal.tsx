@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { Modal, Button } from '@/components/ui';
 import {
   useSnaptradeConnections,
   useAccountTransactions,
   useRebuildAccount,
   type SnaptradeConnection,
+  type AdjustedTransaction,
 } from '@/api/hooks';
 
 interface Props {
@@ -24,10 +24,19 @@ export function AccountTransactionsModal({ onClose }: Props) {
 
   const accounts = useMemo(() => selectedConn?.accounts ?? [], [selectedConn]);
 
-  const { data: transactions = [], isLoading } = useAccountTransactions(selectedAccountId);
+  const { data: txData, isLoading } = useAccountTransactions(selectedAccountId);
   const rebuildMut = useRebuildAccount();
 
-  const sorted = useMemo(
+  const transactions = txData?.transactions ?? [];
+  const rawHoldings = txData?.rawHoldings ?? null;
+  const derivedHoldings = txData?.derivedHoldings ?? { positions: [], cash: 0 };
+
+  const rawTxns = useMemo(
+    () => transactions.filter((t) => !t.synthetic).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    [transactions],
+  );
+
+  const adjustedTxns = useMemo(
     () => [...transactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
     [transactions],
   );
@@ -37,11 +46,13 @@ export function AccountTransactionsModal({ onClose }: Props) {
     rebuildMut.mutate(selectedAccountId);
   };
 
+  const hasData = rawTxns.length > 0 || adjustedTxns.length > 0;
+
   return (
-    <Modal title="Account Transactions" onClose={onClose} size="xl">
-      <div className="flex flex-col" style={{ gap: 'var(--space-gap)' }}>
+    <Modal title="Account Transactions" onClose={onClose} size="2xl" className="!max-w-[96vw] !min-h-[88vh]">
+      <div className="flex flex-col h-full" style={{ gap: 'var(--space-gap)' }}>
         {/* Filters */}
-        <div className="flex items-center" style={{ gap: 'var(--space-gap)' }}>
+        <div className="flex items-center shrink-0" style={{ gap: 'var(--space-gap)' }}>
           <select
             value={selectedConnId}
             onChange={(e) => {
@@ -92,109 +103,257 @@ export function AccountTransactionsModal({ onClose }: Props) {
             <Button
               type="button"
               variant="primary"
-              size="sm"
+              size="md"
               onClick={handleRebuild}
               disabled={rebuildMut.isPending}
-              className="gap-1 shrink-0"
+              className="shrink-0 min-w-[140px] px-6"
             >
-              <RefreshCw size={14} strokeWidth={1.5} className={rebuildMut.isPending ? 'animate-spin' : ''} />
-              {rebuildMut.isPending ? 'Rebuilding...' : 'Rebuild'}
+              {rebuildMut.isPending ? 'Sanitizing...' : 'Sanitize'}
             </Button>
           )}
         </div>
 
-        {/* Table */}
+        {/* Content */}
         {!selectedAccountId ? (
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-body)', padding: '24px 0' }}>
-            Select a brokerage and account to view adjusted transactions.
+            Select a brokerage and account to view transactions.
           </p>
         ) : isLoading ? (
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-body)', padding: '24px 0' }}>
             Loading...
           </p>
-        ) : sorted.length === 0 ? (
+        ) : !hasData ? (
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-body)', padding: '24px 0' }}>
-            No transactions found. Click Rebuild to fetch and sanitize transactions from SnapTrade.
+            No transactions found. Click Sanitize to fetch and sanitize transactions from SnapTrade.
           </p>
         ) : (
-          <div className="overflow-auto" style={{ maxHeight: 480 }}>
-            <table className="w-full text-[13px]" style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr
-                  style={{
-                    color: 'var(--color-text-muted)',
-                    fontSize: 11,
-                    borderBottom: '1px solid var(--color-border)',
-                  }}
+          <div className="grid grid-cols-2 flex-1 min-h-0" style={{ gap: 16 }}>
+            {/* Raw column */}
+            <div className="flex flex-col min-h-0" style={{ gap: 'var(--space-gap)' }}>
+              <div className="flex items-center justify-between shrink-0">
+                <h3
+                  className="font-medium"
+                  style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-secondary)', margin: 0 }}
                 >
-                  <th className="text-left font-medium py-2 px-2">Date</th>
-                  <th className="text-left font-medium py-2 px-2">Side</th>
-                  <th className="text-left font-medium py-2 px-2">Symbol</th>
-                  <th className="text-right font-medium py-2 px-2">Qty</th>
-                  <th className="text-right font-medium py-2 px-2">Price</th>
-                  <th className="text-right font-medium py-2 px-2">Cash Delta</th>
-                  <th className="text-center font-medium py-2 px-2">Synthetic</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((tx) => (
-                  <tr
-                    key={tx._id}
-                    style={{
-                      borderBottom: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                      backgroundColor: tx.synthetic ? 'rgba(40, 194, 7, 0.05)' : 'transparent',
-                    }}
-                  >
-                    <td className="py-1.5 px-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      {tx.timestamp?.slice(0, 10) ?? '—'}
-                    </td>
-                    <td className="py-1.5 px-2">
-                      <span
-                        className="inline-block rounded-[var(--radius-medium)] px-1.5 py-0.5 text-[11px] font-medium"
-                        style={{
-                          backgroundColor: sideColor(tx.side),
-                          color: 'var(--color-text-primary)',
-                        }}
-                      >
-                        {tx.side}
-                      </span>
-                    </td>
-                    <td className="py-1.5 px-2 font-medium">{tx.instrumentSymbol || '—'}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">
-                      {tx.quantity ? formatNum(tx.quantity) : '—'}
-                    </td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">
-                      {tx.price ? `$${formatNum(tx.price)}` : '—'}
-                    </td>
-                    <td
-                      className="py-1.5 px-2 text-right tabular-nums"
-                      style={{ color: tx.cashDelta > 0 ? 'var(--color-positive)' : tx.cashDelta < 0 ? 'var(--color-negative)' : 'var(--color-text-secondary)' }}
-                    >
-                      {tx.cashDelta ? `$${formatNum(tx.cashDelta)}` : '—'}
-                    </td>
-                    <td className="py-1.5 px-2 text-center">
-                      {tx.synthetic && (
-                        <span
-                          className="inline-block rounded-[var(--radius-pill)] px-2 py-0.5 text-[10px] font-semibold"
-                          style={{
-                            backgroundColor: 'rgba(40, 194, 7, 0.15)',
-                            color: 'var(--color-accent)',
-                          }}
-                        >
-                          synthetic
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  Raw Transactions
+                </h3>
+                <span className="tabular-nums" style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                  {rawTxns.length}
+                </span>
+              </div>
+              <HoldingsSummary holdings={rawHoldings} label="SnapTrade holdings" />
+              <TxnTable transactions={rawTxns} showSynthetic={false} />
+            </div>
+
+            {/* Adjusted column */}
+            <div className="flex flex-col min-h-0" style={{ gap: 'var(--space-gap)' }}>
+              <div className="flex items-center justify-between shrink-0">
+                <h3
+                  className="font-medium"
+                  style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-secondary)', margin: 0 }}
+                >
+                  Adjusted Transactions
+                </h3>
+                <span className="tabular-nums" style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                  {adjustedTxns.length}
+                </span>
+              </div>
+              <HoldingsSummary holdings={derivedHoldings} label="Derived from adjusted txns" />
+              <TxnTable transactions={adjustedTxns} showSynthetic />
+            </div>
           </div>
         )}
       </div>
     </Modal>
   );
+}
+
+/* ── Holdings summary ──────────────────────────────── */
+
+interface HoldingsSummaryProps {
+  holdings: {
+    positions: Array<{
+      symbol: string;
+      quantity: number;
+      averagePrice?: number;
+      currency?: string;
+      isOption?: boolean;
+    }>;
+    cash: number;
+  } | null;
+  label: string;
+}
+
+function HoldingsSummary({ holdings, label }: HoldingsSummaryProps) {
+  if (!holdings) {
+    return (
+      <div
+        className="rounded-[var(--radius-medium)] px-3 py-2 shrink-0"
+        style={{ backgroundColor: 'var(--color-bg-input)', border: '1px solid var(--color-border)' }}
+      >
+        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No data (run Sanitize first)</div>
+      </div>
+    );
+  }
+  const sorted = [...holdings.positions].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  return (
+    <div
+      className="rounded-[var(--radius-medium)] px-3 py-2 shrink-0"
+      style={{ backgroundColor: 'var(--color-bg-input)', border: '1px solid var(--color-border)' }}
+    >
+      <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>{label}</div>
+      <ul
+        className="list-none m-0 p-0"
+        style={{ fontSize: 11, color: 'var(--color-text-primary)', lineHeight: 1.6 }}
+      >
+        {sorted.map((p) => (
+          <li key={p.symbol} className="flex justify-between gap-4">
+            <span>
+              {p.symbol}
+              {p.isOption && (
+                <span
+                  className="ml-1 px-1 rounded text-[9px]"
+                  style={{ backgroundColor: 'rgba(0, 122, 255, 0.15)', color: 'var(--color-accent)' }}
+                >
+                  opt
+                </span>
+              )}
+            </span>
+            <span className="tabular-nums font-medium shrink-0">
+              {formatQty(p.quantity)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div style={{ fontSize: 11, color: 'var(--color-text-primary)', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--color-border)' }}>
+        Cash: <span className="tabular-nums font-medium">${formatNum(holdings.cash)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Shared transaction table ──────────────────────── */
+
+function TxnTable({
+  transactions,
+  showSynthetic,
+}: {
+  transactions: AdjustedTransaction[];
+  showSynthetic: boolean;
+}) {
+  if (transactions.length === 0) {
+    return (
+      <p style={{ color: 'var(--color-text-muted)', fontSize: 12, padding: '16px 0' }}>
+        No transactions.
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="flex-1 min-h-0 overflow-auto rounded-[var(--radius-medium)]"
+      style={{ border: '1px solid var(--color-border)' }}
+    >
+      <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr
+            style={{
+              color: 'var(--color-text-muted)',
+              fontSize: 10,
+              borderBottom: '1px solid var(--color-border)',
+              position: 'sticky',
+              top: 0,
+              backgroundColor: 'var(--palette-offblack)',
+              zIndex: 1,
+            }}
+          >
+            <th className="text-left font-medium py-1.5 px-2">Date</th>
+            <th className="text-left font-medium py-1.5 px-2">Side</th>
+            <th className="text-left font-medium py-1.5 px-2">Symbol</th>
+            <th className="text-left font-medium py-1.5 px-2">Option</th>
+            <th className="text-right font-medium py-1.5 px-2">Qty</th>
+            <th className="text-right font-medium py-1.5 px-2">Price</th>
+            <th className="text-right font-medium py-1.5 px-2">Cash Delta</th>
+            <th className="text-center font-medium py-1.5 px-2">Ccy</th>
+            {showSynthetic && <th className="text-center font-medium py-1.5 px-2">Syn</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.map((tx) => (
+            <tr
+              key={tx._id}
+              style={{
+                borderBottom: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+                backgroundColor: tx.synthetic ? 'rgba(40, 194, 7, 0.05)' : 'transparent',
+              }}
+            >
+              <td className="py-1 px-2 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                {tx.timestamp?.slice(0, 10) ?? '—'}
+              </td>
+              <td className="py-1 px-2">
+                <span
+                  className="inline-block rounded-[var(--radius-medium)] px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap"
+                  style={{ backgroundColor: sideColor(tx.side), color: 'var(--color-text-primary)' }}
+                >
+                  {tx.side}
+                </span>
+              </td>
+              <td className="py-1 px-2 font-medium whitespace-nowrap">{tx.instrumentSymbol || '—'}</td>
+              <td className="py-1 px-2 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)', fontSize: 10 }}>
+                {formatOption(tx.option)}
+              </td>
+              <td className="py-1 px-2 text-right tabular-nums">
+                {tx.quantity ? formatNum(tx.quantity) : '—'}
+              </td>
+              <td className="py-1 px-2 text-right tabular-nums">
+                {tx.price ? `$${formatNum(tx.price)}` : '—'}
+              </td>
+              <td
+                className="py-1 px-2 text-right tabular-nums"
+                style={{
+                  color: tx.cashDelta > 0
+                    ? 'var(--color-positive)'
+                    : tx.cashDelta < 0
+                      ? 'var(--color-negative)'
+                      : 'var(--color-text-secondary)',
+                }}
+              >
+                {tx.cashDelta ? `$${formatNum(tx.cashDelta)}` : '—'}
+              </td>
+              <td className="py-1 px-2 text-center" style={{ color: 'var(--color-text-muted)', fontSize: 10 }}>
+                {tx.currency || '—'}
+              </td>
+              {showSynthetic && (
+                <td className="py-1 px-2 text-center">
+                  {tx.synthetic && (
+                    <span
+                      className="inline-block rounded-[var(--radius-pill)] px-1.5 py-0.5 text-[9px] font-semibold"
+                      style={{ backgroundColor: 'rgba(40, 194, 7, 0.15)', color: 'var(--color-accent)' }}
+                    >
+                      syn
+                    </span>
+                  )}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ── Helpers ───────────────────────────────────────── */
+
+function formatOption(option: AdjustedTransaction['option']): string {
+  if (!option) return '—';
+  const parts: string[] = [];
+  if (option.strike) parts.push(`$${option.strike}`);
+  if (option.callPut) parts.push(option.callPut.toUpperCase());
+  if (option.expiration) parts.push(option.expiration.slice(0, 10));
+  return parts.join(' ') || '—';
 }
 
 function sideColor(side: string): string {
@@ -204,10 +363,16 @@ function sideColor(side: string): string {
     case 'dividend': return 'rgba(0, 122, 255, 0.15)';
     case 'deposit': return 'rgba(40, 194, 7, 0.10)';
     case 'withdrawal': return 'rgba(255, 59, 48, 0.10)';
+    case 'refund': return 'rgba(0, 122, 255, 0.10)';
+    case 'funds_conversion': return 'rgba(255, 165, 0, 0.10)';
     default: return 'rgba(255, 255, 255, 0.05)';
   }
 }
 
 function formatNum(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatQty(n: number): string {
+  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }

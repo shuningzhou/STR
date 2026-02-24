@@ -24,8 +24,8 @@ const ACTIVITY_TYPE_MAP: Record<string, string> = {
   OPTIONASSIGNMENT: 'option_assign',
   OPTIONEXPIRATION: 'option_expire',
   TRANSFER: 'transfer',
-  EXTERNAL_ASSET_TRANSFER_IN: 'transfer',
-  EXTERNAL_ASSET_TRANSFER_OUT: 'transfer',
+  EXTERNAL_ASSET_TRANSFER_IN: 'transfer_in',
+  EXTERNAL_ASSET_TRANSFER_OUT: 'transfer_out',
   SPLIT: 'split',
   ADJUSTMENT: 'adjustment',
 };
@@ -230,8 +230,110 @@ export class SnaptradeService {
       .findOne({ userId: new Types.ObjectId(userId), accountId })
       .lean()
       .exec();
-    if (!doc) return [];
-    return doc.adjustedTransactions;
+    if (!doc) {
+      return { transactions: [] as any[], rawHoldings: null, derivedHoldings: { positions: [], cash: 0 } };
+    }
+
+    const equityPositions = (doc.currentHoldings ?? []).map((h: any) => ({
+      symbol: h.symbol,
+      quantity: h.quantity ?? 0,
+      averagePrice: h.averagePrice ?? 0,
+      currency: h.currency ?? '',
+      isOption: false,
+    }));
+
+    const optionPositions = await this.fetchOptionHoldings(accountId, userId);
+    const rawPositions = [...equityPositions, ...optionPositions].sort((a, b) =>
+      a.symbol.localeCompare(b.symbol),
+    );
+
+    const rawHoldings = {
+      positions: rawPositions,
+      cash: doc.currentCash ?? 0,
+    };
+
+    const derived = this.deriveHoldingsFromTransactions(doc.adjustedTransactions ?? []);
+
+    return {
+      transactions: doc.adjustedTransactions ?? [],
+      rawHoldings,
+      derivedHoldings: derived,
+    };
+  }
+
+  private async fetchOptionHoldings(
+    accountId: string,
+    userId: string,
+  ): Promise<Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string; isOption: boolean }>> {
+    try {
+      const creds = await this.getSnapCreds(userId);
+      const resp = await this.snaptrade.options.listOptionHoldings({
+        accountId,
+        userId: creds.userId,
+        userSecret: creds.userSecret,
+      });
+      const data = resp?.data ?? [];
+      return data.map((opt: any) => {
+        const sym = opt?.symbol;
+        const optSym = sym?.option_symbol;
+        const ticker = optSym?.ticker ?? sym?.description ?? '';
+        const underlying = optSym?.underlying_symbol;
+        const und = typeof underlying === 'string' ? underlying : underlying?.symbol ?? underlying?.raw_symbol ?? '';
+        const strike = optSym?.strike_price ?? 0;
+        const callPut = (optSym?.option_type ?? 'CALL').charAt(0);
+        const exp = (optSym?.expiration_date ?? '').slice(0, 10);
+        const symbol = ticker || (und ? `${und} $${strike} ${callPut} ${exp}` : 'option');
+        const currency = typeof opt?.currency === 'string' ? opt.currency : opt?.currency?.code ?? '';
+        return {
+          symbol,
+          quantity: opt?.units ?? 0,
+          averagePrice: opt?.average_purchase_price ?? 0,
+          currency,
+          isOption: true,
+        };
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to fetch option holdings for ${accountId}: ${e}`);
+      return [];
+    }
+  }
+
+  private deriveHoldingsFromTransactions(txns: any[]): {
+    positions: Array<{ symbol: string; quantity: number; isOption?: boolean }>;
+    cash: number;
+  } {
+    const sorted = [...txns].sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+    const bySymbol: Record<string, number> = {};
+    let cash = 0;
+    const eqAdd = ['option_exercise', 'transfer_in'];
+    const eqSub = ['option_assign', 'transfer_out'];
+    const optAdd = ['buy'];
+    const optSub = ['sell', 'option_expire'];
+    for (const t of sorted) {
+      const q = t.quantity ?? 0;
+      const opt = t.option;
+      const isOptTxn = !!opt && ['buy', 'sell', 'option_expire'].includes(t.side);
+      const s = isOptTxn
+        ? `${opt.underlyingSymbol ?? t.instrumentSymbol ?? ''} $${opt.strike ?? 0} ${(opt.callPut ?? '').toUpperCase().charAt(0)} ${(opt.expiration ?? '').slice(0, 10)}`
+        : typeof t.instrumentSymbol === 'string'
+          ? t.instrumentSymbol
+          : '';
+      if (s) {
+        if (eqAdd.includes(t.side) || (t.side === 'buy' && !opt)) bySymbol[s] = (bySymbol[s] ?? 0) + q;
+        else if (eqSub.includes(t.side) || (t.side === 'sell' && !opt)) bySymbol[s] = (bySymbol[s] ?? 0) - q;
+        else if (optAdd.includes(t.side) && opt) bySymbol[s] = (bySymbol[s] ?? 0) + q;
+        else if (optSub.includes(t.side) && opt) bySymbol[s] = (bySymbol[s] ?? 0) - q;
+      }
+      cash += t.cashDelta ?? 0;
+    }
+    const positions = Object.entries(bySymbol)
+      .map(([symbol, quantity]) => ({
+        symbol,
+        quantity,
+        isOption: symbol.includes(' $'),
+      }))
+      .sort((a, b) => a.symbol.localeCompare(b.symbol));
+    return { positions, cash };
   }
 
   async rebuildAccountFull(accountId: string, userId: string): Promise<{ rebuilt: boolean; activities: number }> {
@@ -419,10 +521,14 @@ export class SnaptradeService {
 
       for (const tx of realTxns) {
         if (tx.instrumentSymbol !== symbol) continue;
-        if (tx.side === 'buy') {
+        if (tx.side === 'buy' || tx.side === 'option_exercise') {
           totalBought += tx.quantity;
-          knownBuyCost += tx.quantity * tx.price;
-        } else if (tx.side === 'sell') {
+          if (tx.side === 'buy') knownBuyCost += tx.quantity * tx.price;
+        } else if (tx.side === 'sell' || tx.side === 'option_assign' || tx.side === 'option_expire') {
+          totalSold += tx.quantity;
+        } else if (tx.side === 'transfer_in') {
+          totalBought += tx.quantity;
+        } else if (tx.side === 'transfer_out') {
           totalSold += tx.quantity;
         }
       }
@@ -476,6 +582,8 @@ export class SnaptradeService {
     doc.currentCash = cashBalance;
     doc.rebuiltAt = new Date();
 
+    doc.adjustedTransactions.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+
     this.logger.log(
       `Rebuild complete for ${accountId}: ${positions.length} positions, cash=${cashBalance}, ` +
       `${doc.adjustedTransactions.filter((t) => t.synthetic).length} synthetic txns`,
@@ -513,7 +621,11 @@ export class SnaptradeService {
 
     const typeFilter = strategy.snaptradeConfig.transactionTypes;
     if (typeFilter && typeFilter.length > 0) {
-      allAdjusted = allAdjusted.filter((tx) => typeFilter.includes(tx.side));
+      allAdjusted = allAdjusted.filter((tx) => {
+        if (typeFilter.includes(tx.side)) return true;
+        if (typeFilter.includes('transfer') && (tx.side === 'transfer_in' || tx.side === 'transfer_out')) return true;
+        return false;
+      });
     }
 
     const existingAcctTxIds = new Set(
@@ -606,15 +718,13 @@ export class SnaptradeService {
     const side = ACTIVITY_TYPE_MAP[rawType] ?? rawType.toLowerCase();
 
     const optionObj = (activity as any).option_symbol;
-    const symbolObj = (activity as any).symbol;
-    const instrumentSymbol =
-      symbolObj?.symbol ??
-      symbolObj?.raw_symbol ??
-      optionObj?.underlying_symbol?.symbol ??
-      optionObj?.underlying_symbol?.raw_symbol ??
-      '';
 
-    const currency = (activity as any).currency?.code ?? '';
+    let instrumentSymbol = this.extractSymbolStr(activity);
+    if (!instrumentSymbol && optionObj?.underlying_symbol) {
+      instrumentSymbol = this.extractSymbolStr({ symbol: optionObj.underlying_symbol });
+    }
+
+    const currency = this.extractCurrencyStr(activity, '');
 
     let option = null;
     if (optionObj) {
@@ -622,7 +732,7 @@ export class SnaptradeService {
         expiration: optionObj.expiration_date ?? '',
         strike: optionObj.strike_price ?? 0,
         callPut: (optionObj.option_type ?? '').toLowerCase(),
-        underlyingSymbol: optionObj.underlying_symbol?.symbol,
+        underlyingSymbol: this.extractSymbolStr({ symbol: optionObj.underlying_symbol }),
       };
     }
 
@@ -641,7 +751,7 @@ export class SnaptradeService {
   private findEarliestTransferDate(txns: Array<{ side: string; timestamp: string }>): string {
     let earliest = '';
     for (const tx of txns) {
-      if (tx.side === 'deposit' || tx.side === 'transfer') {
+      if (tx.side === 'deposit' || tx.side === 'transfer' || tx.side === 'transfer_in' || tx.side === 'transfer_out') {
         if (!earliest || tx.timestamp < earliest) {
           earliest = tx.timestamp;
         }
@@ -658,13 +768,13 @@ export class SnaptradeService {
   }
 
   private extractSymbolStr(pos: any): string {
-    const symField = pos?.symbol;
-    if (typeof symField === 'string') return symField;
-    if (symField && typeof symField === 'object') {
-      const s = symField.symbol ?? symField.raw_symbol;
-      return typeof s === 'string' ? s : String(s ?? '');
+    let val = pos?.symbol;
+    for (let depth = 0; depth < 4 && val != null && typeof val === 'object'; depth++) {
+      if (typeof val.symbol === 'string') return val.symbol;
+      if (typeof val.raw_symbol === 'string') return val.raw_symbol;
+      val = val.symbol;
     }
-    return '';
+    return typeof val === 'string' ? val : '';
   }
 
   private extractCurrencyStr(pos: any, fallback: string): string {

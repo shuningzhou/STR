@@ -570,4 +570,10 @@ export function useRebuildAccount() {
   });
 }
 
-export { type SnaptradeAccount, type SnaptradeConnection, type AdjustedTransaction } from './snaptrade-api';
+export {
+  type SnaptradeAccount,
+  type SnaptradeConnection,
+  type AdjustedTransaction,
+  type AccountHoldings,
+  type AccountTransactionsResponse,
+} from './snaptrade-api';
