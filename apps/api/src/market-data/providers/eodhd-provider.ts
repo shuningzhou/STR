@@ -113,20 +113,26 @@ export class EodhdProvider implements IMarketDataProvider {
     }));
   }
 
+  private toNum(v: unknown): number | undefined {
+    if (v == null || v === 'NA') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
   private normalizeQuote(item: Record<string, unknown>): QuoteResult {
     const code = String(item.code ?? '');
-    const symbol = code.includes('.') ? code.split('.')[0] : code;
+    const symbol = code.endsWith('.US') ? code.slice(0, -3) : code;
     return {
       symbol,
-      price: Number(item.close) || 0,
-      open: item.open != null ? Number(item.open) : undefined,
-      high: item.high != null ? Number(item.high) : undefined,
-      low: item.low != null ? Number(item.low) : undefined,
-      previousClose: item.previousClose != null ? Number(item.previousClose) : undefined,
-      change: item.change != null ? Number(item.change) : undefined,
-      changePercent: item.change_p != null ? Number(item.change_p) : undefined,
-      volume: item.volume != null ? Number(item.volume) : undefined,
-      timestamp: item.timestamp != null ? Number(item.timestamp) : undefined,
+      price: this.toNum(item.close) ?? 0,
+      open: this.toNum(item.open),
+      high: this.toNum(item.high),
+      low: this.toNum(item.low),
+      previousClose: this.toNum(item.previousClose),
+      change: this.toNum(item.change),
+      changePercent: this.toNum(item.change_p),
+      volume: this.toNum(item.volume),
+      timestamp: this.toNum(item.timestamp),
     };
   }
 
