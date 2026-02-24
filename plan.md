@@ -41,6 +41,9 @@ todos:
   - id: phase14-deploy
     content: "Phase 14: Deployment -- production build scripts, Nginx config, SSL, .env management"
     status: pending
+  - id: phase-snaptrade
+    content: "SnapTrade brokerage integration -- register user, connect portal, list/refresh/delete connections, sync strategy from selected accounts with full activity type mapping"
+    status: completed
 isProject: false
 ---
 
@@ -50,7 +53,7 @@ isProject: false
 
 **Completed:** Phases 1-5 (frontend scaffold, tabs, canvas, gallery, subview editor/rendering) and Phases 9-12 (backend scaffold, API, frontend-backend integration, EODHD market data).
 
-**The app today:** A working full-stack app where users create strategy tabs, each with a drag-and-drop canvas of subview cards. Subviews are authored as JSON + Python specs and rendered via a generic layout engine + Pyodide. The backend (NestJS + MongoDB) provides CRUD for strategies, transactions, wallets, instruments, and market data via EODHD. Frontend uses TanStack Query for all server state.
+**The app today:** A working full-stack app where users create strategy tabs, each with a drag-and-drop canvas of subview cards. Subviews are authored as JSON + Python specs and rendered via a generic layout engine + Pyodide. The backend (NestJS + MongoDB) provides CRUD for strategies, transactions, wallets, instruments, and market data via EODHD. SnapTrade integration allows connecting brokerage accounts (OAuth) and syncing transactions into strategies. Frontend uses TanStack Query for all server state.
 
 **Not yet implemented:**
 - Phase 7: Transaction UI (add/edit form modal, transaction list)
@@ -70,67 +73,68 @@ isProject: false
 1. **Monorepo** -- npm workspaces: `apps/web` (Vite+React), `apps/api` (NestJS), `packages/shared` (shared types). Single `run.sh` starts both.
 2. **API prefix** -- All backend routes use global prefix `/api` (set in `main.ts`). Endpoint examples in this doc omit the prefix for brevity (e.g. `GET /strategies` = `GET /api/strategies`).
 3. **Market data provider** -- **EODHD** (stocks/ETFs) — env var: `EODHD_API_TOKEN`. Provider: `apps/api/src/market-data/providers/eodhd-provider.ts`. **Massive** (options, via Polygon.io) — env var: `MASSIVE_API_KEY`. Provider: `apps/api/src/market-data/providers/massive-provider.ts`.
-4. **Auth (current)** -- No real auth. `UserIdMiddleware` reads `x-user-id` header, falls back to `'default-user'`. JWT/OTP planned (Phase 13).
+4. **SnapTrade** — Brokerage OAuth integration. Env: `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CLIENT_SECRET`. Synced strategies are read-only (transactions from SnapTrade cannot be edited). `apps/api/src/snaptrade/`.
+5. **Auth (current)** -- No real auth. `UserIdMiddleware` reads `x-user-id` header, falls back to `'default-user'`. JWT/OTP planned (Phase 13).
 
 ### Subview System Rules
 
-5. **Generic rendering** -- The layout engine, Pyodide executor, and content renderer have zero subview-specific branching. All behavior is driven by JSON + Python. Never add subview-specific logic to the renderer.
-6. **Two types only** -- `"readonly"` (display only, no actions, no side effects) and `"readwrite"` (actions allowed, official/premade only).
-7. **Inputs not auto-rendered** -- Place inputs in layout via `{ "input": { "ref": "key" } }`. The `ref` must match a key in `spec.inputs`.
-8. **Function calling convention** -- `py:` prefix for Python calls in JSON (e.g. `"py:calc_win_rate"`). Without `py:` = literal value.
-9. **Python rules** -- Functions accept `(context, inputs)`, return serializable values, no I/O. `context.transactions` has resolved instrument data (`instrumentSymbol`, `instrumentName`). `context.wallet` has wallet. `context.currentPrices` has live prices. `context.priceHistory` has historical EOD prices.
-10. **Strategy-scoped inputs** -- Referenced as `global.<id>` in layout. In Python: `inputs.global['<id>']`. Subview-own inputs: `inputs['<key>']`.
-11. **Subview top bar inputs** -- Add `topbar: number` to input config to show in card top bar. Lower values = further left. `topbarShowTitle: false` hides label.
-12. **Shared renderer** -- Editor Live Preview and canvas SubviewCard share the same layout engine, Pyodide executor, and content renderer (`SubviewSpecRenderer`). Changes to one must update both `SubviewCard` and `LivePreview`.
-13. **Official vs user subviews** -- Official (`maker: "official"`): readonly + readwrite templates. User-created: readonly only (readwrite remains official-only).
+6. **Generic rendering** -- The layout engine, Pyodide executor, and content renderer have zero subview-specific branching. All behavior is driven by JSON + Python. Never add subview-specific logic to the renderer.
+7. **Two types only** -- `"readonly"` (display only, no actions, no side effects) and `"readwrite"` (actions allowed, official/premade only).
+8. **Inputs not auto-rendered** -- Place inputs in layout via `{ "input": { "ref": "key" } }`. The `ref` must match a key in `spec.inputs`.
+9. **Function calling convention** -- `py:` prefix for Python calls in JSON (e.g. `"py:calc_win_rate"`). Without `py:` = literal value.
+10. **Python rules** -- Functions accept `(context, inputs)`, return serializable values, no I/O. `context.transactions` has resolved instrument data (`instrumentSymbol`, `instrumentName`). `context.wallet` has wallet. `context.currentPrices` has live prices. `context.priceHistory` has historical EOD prices.
+11. **Strategy-scoped inputs** -- Referenced as `global.<id>` in layout. In Python: `inputs.global['<id>']`. Subview-own inputs: `inputs['<key>']`.
+12. **Subview top bar inputs** -- Add `topbar: number` to input config to show in card top bar. Lower values = further left. `topbarShowTitle: false` hides label.
+13. **Shared renderer** -- Editor Live Preview and canvas SubviewCard share the same layout engine, Pyodide executor, and content renderer (`SubviewSpecRenderer`). Changes to one must update both `SubviewCard` and `LivePreview`.
+14. **Official vs user subviews** -- Official (`maker: "official"`): readonly + readwrite templates. User-created: readonly only (readwrite remains official-only).
 
 ### Canvas / Grid Rules
 
-14. **Grid config** (`canvas-grid-config.ts`) -- 48 columns, 5px row height, 12px margins. Reference width: 1200px. Optimized canvas width: 1400px.
-15. **Layout constraints** -- minW: 4, minH: 7, maxW: 48, maxH: 80 grid units.
-16. **Sizes in pixels** -- `defaultSize` and `preferredSize` in subview spec are absolute pixels. Conversion via `pixelsToGrid()` / `gridToPixels()`.
-17. **Layout change guard** -- `onLayoutChange` only calls `batchUpdatePositions` when layout actually changes (via `layoutsEqual`), preventing spurious PATCH on mount.
+15. **Grid config** (`canvas-grid-config.ts`) -- 48 columns, 5px row height, 12px margins. Reference width: 1200px. Optimized canvas width: 1400px.
+16. **Layout constraints** -- minW: 4, minH: 7, maxW: 48, maxH: 80 grid units.
+17. **Sizes in pixels** -- `defaultSize` and `preferredSize` in subview spec are absolute pixels. Conversion via `pixelsToGrid()` / `gridToPixels()`.
+18. **Layout change guard** -- `onLayoutChange` only calls `batchUpdatePositions` when layout actually changes (via `layoutsEqual`), preventing spurious PATCH on mount.
 
 ### Color System Rules
 
-18. **Built-in color system only** -- Use built-in names (e.g. `green-2`, `red-1`, `grey-4`) in subview content, gauges, dynamic text. Python helpers return built-in names, not hex. Resolved via `resolveColor()`.
+19. **Built-in color system only** -- Use built-in names (e.g. `green-2`, `red-1`, `grey-4`) in subview content, gauges, dynamic text. Python helpers return built-in names, not hex. Resolved via `resolveColor()`.
 19. **12 main colors, 5 variants each** -- red, orange, yellow, lime, green, mint, cyan, blue, violet, magenta, grey, offwhite. Variants: `-0` (lightest), `-1` (lighter), `-2` (base), `-3` (darker), `-4` (darkest). Plus `black` (#131313), `offblack` (#202020), `white` (#f2f2f2) with no variants.
-20. **Branding green** -- `green-2` (#28c207) is the accent/branding color. `green-3` for hover.
-21. **Custom colors allowed** -- `resolveColor()` passes through `rgb()`, `rgba()`, `hsl()`, `hsla()`, and `#hex` values.
+21. **Branding green** -- `green-2` (#28c207) is the accent/branding color. `green-3` for hover.
+22. **Custom colors allowed** -- `resolveColor()` passes through `rgb()`, `rgba()`, `hsl()`, `hsla()`, and `#hex` values.
 
 ### Cache-Control TTL Rules
 
-22. **Four TTL levels** -- Apply per endpoint based on data change frequency:
+23. **Four TTL levels** -- Apply per endpoint based on data change frequency:
     - **short** = 1 min (`max-age=60`) -- live data (quotes)
     - **medium** = 15 min (`max-age=900`) -- semi-frequent updates
     - **long** = 1 hour (`max-age=3600`) -- stable data (history, margin-requirements)
     - **extra-long** = 12 hours (`max-age=43200`) -- rarely changing data
-23. **React Query must match** -- `staleTime` and `refetchInterval` (in ms) should match the server-side TTL.
+24. **React Query must match** -- `staleTime` and `refetchInterval` (in ms) should match the server-side TTL.
 
 ### UI Design Rules
 
-24. **Design tokens** (from `apps/web/src/index.css`) -- All UI must use existing CSS variables:
+25. **Design tokens** (from `apps/web/src/index.css`) -- All UI must use existing CSS variables:
     - Spacing: `--space-modal` (20px), `--space-gap` (8px), `--space-section` (24px), `--space-sidebar` (16px)
     - Controls: `--control-height` (32px)
     - Radii: `--radius-card` (8px), `--radius-medium` (6px), `--radius-button` (8px), `--radius-pill` (9999px)
     - Typography: label 11px, body 13px, title 15px, heading 18px, display 24px, xxl 32px, xxxl 40px
-25. **Subview card constants** -- `--subview-card-padding: 5px`, `--subview-top-bar-height: 40px`. Top bar: drag handle + title (truncate 150px), pencil icon 8x8 marginRight 5px. Content: `paddingTop` = top bar height, `paddingLeft/Right: 10px`.
-26. **Input widths (px)** -- `time_range: 240`, `ticker_selector: 100`, `number_input: 120`, `select: 200`, `checkbox: 120` (fallback 160).
-27. **Dark mode only (current)** -- `applyTheme()` removes `light` class. Theme customization in Zustand + localStorage.
-28. **Design language** -- Dark background (#131313), floating cards, large border-radius, subtle box-shadows, monochromatic palette, green/red only for financial indicators, generous whitespace, system sans-serif font.
+26. **Subview card constants** -- `--subview-card-padding: 5px`, `--subview-top-bar-height: 40px`. Top bar: drag handle + title (truncate 150px), pencil icon 8x8 marginRight 5px. Content: `paddingTop` = top bar height, `paddingLeft/Right: 10px`.
+27. **Input widths (px)** -- `time_range: 240`, `ticker_selector: 100`, `number_input: 120`, `select: 200`, `checkbox: 120` (fallback 160).
+28. **Dark mode only (current)** -- `applyTheme()` removes `light` class. Theme customization in Zustand + localStorage.
+29. **Design language** -- Dark background (#131313), floating cards, large border-radius, subtle box-shadows, monochromatic palette, green/red only for financial indicators, generous whitespace, system sans-serif font.
 
 ### Data Flow Rules
 
-29. **Context pipeline** -- `SubviewCard` assembles context: `strategy`, `transactions`, `currentPrices` (from `useStrategyPrices`), `instrumentMarginReqs`, `priceHistory` (from `usePriceHistory` batch API). All injected into Pyodide as `context`.
-30. **Batch APIs** -- Quotes: `GET /market-data/quotes?symbols=...`. History: `GET /market-data/history?symbols=...&from=&to=`. Option quotes: `GET /market-data/options/quote?contracts=...`.
+30. **Context pipeline** -- `SubviewCard` assembles context: `strategy`, `transactions`, `currentPrices` (from `useStrategyPrices`), `instrumentMarginReqs`, `priceHistory` (from `usePriceHistory` batch API). All injected into Pyodide as `context`.
+31. **Batch APIs** -- Quotes: `GET /market-data/quotes?symbols=...`. History: `GET /market-data/history?symbols=...&from=&to=`. Option quotes: `GET /market-data/options/quote?contracts=...`.
 
 ### Tooling Rules
 
-31. **Tailwind CSS** for styling, **shadcn/ui** for component primitives.
-32. **Recharts** for charts.
-33. **Zustand** for client state, **TanStack Query** for server state.
-34. **Pyodide** for Python in browser. No backend Python.
-35. **Mongoose** for MongoDB ODM.
+32. **Tailwind CSS** for styling, **shadcn/ui** for component primitives.
+33. **Recharts** for charts.
+34. **Zustand** for client state, **TanStack Query** for server state.
+35. **Pyodide** for Python in browser. No backend Python.
+36. **Mongoose** for MongoDB ODM.
 
 ---
 
@@ -169,6 +173,7 @@ STR/
 │       ├── src/
 │       │   ├── strategies/      # StrategyModule: CRUD, subview management
 │       │   ├── transactions/    # TransactionModule: CRUD, version bumping
+│       │   ├── snaptrade/       # SnaptradeModule: registration, connect portal, connections, sync
 │       │   ├── instruments/     # InstrumentModule: CRUD, margin-requirements
 │       │   ├── wallets/         # WalletModule: CRUD per strategy
 │       │   ├── market-data/     # MarketDataModule: EODHD (stocks), Massive (options), MongoDB cache
@@ -189,6 +194,8 @@ STR/
 - `PORT` -- API port (default 3001)
 - `EODHD_API_TOKEN` -- EODHD market data API token (stocks/ETFs)
 - `MASSIVE_API_KEY` -- Massive/Polygon.io API key (option quotes)
+- `SNAPTRADE_CLIENT_ID` -- SnapTrade app client ID
+- `SNAPTRADE_CLIENT_SECRET` -- SnapTrade app secret
 - `JWT_SECRET` -- Secret for JWT signing
 - `JWT_EXPIRES_IN` -- Token expiry (default 12h)
 - `RESEND_API_KEY` -- Resend API key for transactional email
@@ -237,6 +244,9 @@ sequenceDiagram
 - `inputValues` (Mixed, default {})
 - `transactionsVersion` (number, default 0)
 - `subviews` (embedded array of SubviewDoc)
+- `mode` ('manual' | 'synced') — manual = user-entered transactions; synced = SnapTrade sync
+- `snaptradeConfig` (optional, embedded: `accountIds`, `transactionTypes`) — for synced strategies
+- `lastSyncedAt` (optional Date)
 
 **SubviewDoc** (embedded in Strategy):
 
@@ -253,14 +263,20 @@ sequenceDiagram
 **Transaction** (`transactions` collection):
 
 - `strategyId` (indexed), `userId`, `instrumentId`, `instrumentSymbol`
-- `type` (enum), `side`, `quantity`, `price`, `cashDelta`, `fee`, `timestamp`
+- `side` (string: buy, sell, dividend, deposit, withdrawal, fee, interest, tax, transfer, split, adjustment, option_exercise, option_assign, option_expire), `quantity`, `price`, `cashDelta`, `currency`, `timestamp`
 - `option` ({expiration, strike, callPut, contracts}), `customData` (Mixed)
+- `source` ('manual' | 'snaptrade'), `snaptradeActivityId` (for dedup), `readonly` (synced txs cannot be edited)
 - `createdAt`, `updatedAt`
 
 **Instrument** (`instruments` collection):
 
 - `symbol` (indexed), `name`, `assetType`, `currency`, `exchange`
 - `marginRequirement`, `contractMetadata` (Mixed)
+
+**SnaptradeConnection** (`snaptrade_connections` collection):
+
+- `userId` (indexed), `authorizationId` (unique per user), `institutionName`, `status`
+- `accounts` (embedded array: accountId, name, number, currency, type, balanceAmount, etc.)
 
 ---
 
@@ -298,6 +314,16 @@ All routes prefixed with `/api`.
 
 - `GET /strategies/:strategyId/wallet` -- get wallet
 - `PATCH /strategies/:strategyId/wallet` -- update wallet settings
+
+**SnapTrade:**
+
+- `POST /snaptrade/register` -- register user with SnapTrade (stores snaptradeUserId, snaptradeUserSecret on User)
+- `POST /snaptrade/connect` -- return connection portal URL (OAuth flow)
+- `GET /snaptrade/connections` -- list user's brokerage connections
+- `POST /snaptrade/connections/refresh` -- refresh account list from SnapTrade
+- `DELETE /snaptrade/connections/:authorizationId` -- remove connection
+- `GET /snaptrade/accounts` -- list accounts across all connections
+- `POST /snaptrade/sync/:strategyId` -- sync transactions from selected accounts into strategy
 
 **Market Data:**
 
@@ -346,7 +372,7 @@ flowchart TD
 
 ### Strategy Tab System
 
-- Add tab: modal with name + base currency
+- Add tab: modal with name, base currency, Manual/Synced mode; for Synced: select SnapTrade accounts + transaction types
 - Tab switching: loads strategy's subviews into canvas
 - Tab context menu: rename, delete (with confirmation)
 - State: Zustand `strategies[]`, `activeStrategyId`; TanStack Query `useStrategies()`, `useStrategy(id)`
@@ -435,7 +461,26 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 ---
 
-## 10. Currency Conversion (UI-Only -- Planned)
+## 10. SnapTrade Brokerage Integration
+
+**Purpose:** Connect brokerage accounts via SnapTrade OAuth and sync transactions into strategies.
+
+**Backend (`SnaptradeModule`, `apps/api/src/snaptrade/`):**
+
+- **User registration** — `POST /snaptrade/register` stores `snaptradeUserId`, `snaptradeUserSecret` on User doc
+- **Connection portal** — `POST /snaptrade/connect` returns SnapTrade OAuth redirect URL; user links brokerage in embedded iframe (450×600, no top bar)
+- **Connections** — List, refresh (fetches accounts from SnapTrade), delete. Closed and CARD/MSB accounts filtered out
+- **Sync** — `POST /snaptrade/sync/:strategyId` fetches activities via `accountInformation.getAccountActivities` with per-account pagination (limit 1000). Maps all SnapTrade activity types to app `side`; stores `currency`, `source: 'snaptrade'`, `snaptradeActivityId`, `readonly: true`
+
+**SnapTrade activity type mapping** (in `ACTIVITY_TYPE_MAP`): BUY→buy, SELL→sell; DIVIDEND, REI, STOCK_DIVIDEND→dividend; CONTRIBUTION→deposit; WITHDRAWAL, FEE, INTEREST, TAX; OPTIONEXERCISE, OPTIONASSIGNMENT, OPTIONEXPIRATION; TRANSFER, EXTERNAL_ASSET_TRANSFER_IN/OUT; SPLIT, ADJUSTMENT. Brokerage-native types fall back to `rawType.toLowerCase()`.
+
+**Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
+
+**Frontend:** User modal — Connect Brokerage button, connection status, Refresh, disconnect. AddStrategyModal — Manual/Synced toggle, account + type selection for synced.
+
+---
+
+## 11. Currency Conversion (UI-Only -- Planned)
 
 - **Global setting** -- viewing currency dropdown in app bar, applies to all strategies
 - All displayed monetary values go through `convertCurrency(amount, from, to, rates)`
@@ -445,7 +490,7 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 ---
 
-## 11. UI Design
+## 12. UI Design
 
 **All UI must follow the existing design system** (see `apps/web/src/index.css`).
 
@@ -480,7 +525,7 @@ Theme settings panel: override any token via color picker. Custom palette in Zus
 
 ---
 
-## 12. Running and Deployment
+## 13. Running and Deployment
 
 **Local development:**
 
