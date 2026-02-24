@@ -276,13 +276,12 @@ export class SnaptradeService {
       return data.map((opt: any) => {
         const sym = opt?.symbol;
         const optSym = sym?.option_symbol;
-        const ticker = optSym?.ticker ?? sym?.description ?? '';
         const underlying = optSym?.underlying_symbol;
         const und = typeof underlying === 'string' ? underlying : underlying?.symbol ?? underlying?.raw_symbol ?? '';
         const strike = optSym?.strike_price ?? 0;
         const callPut = (optSym?.option_type ?? 'CALL').charAt(0);
         const exp = (optSym?.expiration_date ?? '').slice(0, 10);
-        const symbol = ticker || (und ? `${und} $${strike} ${callPut} ${exp}` : 'option');
+        const symbol = und ? `${und} $${strike} ${callPut} ${exp}` : (optSym?.ticker ?? sym?.description ?? 'option');
         const currency = typeof opt?.currency === 'string' ? opt.currency : opt?.currency?.code ?? '';
         return {
           symbol,
@@ -298,40 +297,35 @@ export class SnaptradeService {
     }
   }
 
+  private txKey(t: any): string {
+    const opt = t.option;
+    if (opt && opt.strike != null && opt.callPut) {
+      const und = opt.underlyingSymbol ?? t.instrumentSymbol ?? '';
+      return `${und} $${opt.strike} ${(opt.callPut ?? '').toUpperCase().charAt(0)} ${(opt.expiration ?? '').slice(0, 10)}`;
+    }
+    return typeof t.instrumentSymbol === 'string' ? t.instrumentSymbol : '';
+  }
+
   private deriveHoldingsFromTransactions(txns: any[]): {
-    positions: Array<{ symbol: string; quantity: number; isOption?: boolean }>;
+    positions: Array<{ symbol: string; quantity: number }>;
     cash: number;
   } {
-    const sorted = [...txns].sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
-    const bySymbol: Record<string, number> = {};
+    const byKey: Record<string, number> = {};
     let cash = 0;
-    const eqAdd = ['option_exercise', 'transfer_in'];
-    const eqSub = ['option_assign', 'transfer_out'];
-    const optAdd = ['buy'];
-    const optSub = ['sell', 'option_expire'];
-    for (const t of sorted) {
+    const addSides = ['buy', 'option_exercise', 'transfer_in'];
+    const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
+    for (const t of txns) {
+      const key = this.txKey(t);
       const q = t.quantity ?? 0;
-      const opt = t.option;
-      const isOptTxn = !!opt && ['buy', 'sell', 'option_expire'].includes(t.side);
-      const s = isOptTxn
-        ? `${opt.underlyingSymbol ?? t.instrumentSymbol ?? ''} $${opt.strike ?? 0} ${(opt.callPut ?? '').toUpperCase().charAt(0)} ${(opt.expiration ?? '').slice(0, 10)}`
-        : typeof t.instrumentSymbol === 'string'
-          ? t.instrumentSymbol
-          : '';
-      if (s) {
-        if (eqAdd.includes(t.side) || (t.side === 'buy' && !opt)) bySymbol[s] = (bySymbol[s] ?? 0) + q;
-        else if (eqSub.includes(t.side) || (t.side === 'sell' && !opt)) bySymbol[s] = (bySymbol[s] ?? 0) - q;
-        else if (optAdd.includes(t.side) && opt) bySymbol[s] = (bySymbol[s] ?? 0) + q;
-        else if (optSub.includes(t.side) && opt) bySymbol[s] = (bySymbol[s] ?? 0) - q;
+      if (key && q) {
+        if (addSides.includes(t.side)) byKey[key] = (byKey[key] ?? 0) + q;
+        else if (subSides.includes(t.side)) byKey[key] = (byKey[key] ?? 0) - q;
       }
       cash += t.cashDelta ?? 0;
     }
-    const positions = Object.entries(bySymbol)
-      .map(([symbol, quantity]) => ({
-        symbol,
-        quantity,
-        isOption: symbol.includes(' $'),
-      }))
+    const positions = Object.entries(byKey)
+      .filter(([, q]) => Math.abs(q) >= 0.0001)
+      .map(([symbol, quantity]) => ({ symbol, quantity }))
       .sort((a, b) => a.symbol.localeCompare(b.symbol));
     return { positions, cash };
   }
@@ -504,72 +498,97 @@ export class SnaptradeService {
     const earliestTransferDate = this.findEarliestTransferDate(realTxns);
 
     const holdingsSnapshot: Array<{ symbol: string; quantity: number; averagePrice: number; currency: string }> = [];
-
     for (const pos of positions) {
       const symbol = this.extractSymbolStr(pos);
       if (!symbol) continue;
-
       const currentQty = ((pos as any).units ?? 0) + ((pos as any).fractional_units ?? 0);
       const avgPrice = (pos as any).average_purchase_price ?? 0;
       const posCurrency = this.extractCurrencyStr(pos, doc.currency);
-
       holdingsSnapshot.push({ symbol, quantity: currentQty, averagePrice: avgPrice, currency: posCurrency });
+    }
 
-      let totalBought = 0;
-      let totalSold = 0;
-      let knownBuyCost = 0;
+    const equityState: Record<string, number> = {};
+    for (const h of holdingsSnapshot) {
+      equityState[h.symbol] = (equityState[h.symbol] ?? 0) + h.quantity;
+    }
 
-      for (const tx of realTxns) {
-        if (tx.instrumentSymbol !== symbol) continue;
-        if (tx.side === 'buy' || tx.side === 'option_exercise') {
-          totalBought += tx.quantity;
-          if (tx.side === 'buy') knownBuyCost += tx.quantity * tx.price;
-        } else if (tx.side === 'sell' || tx.side === 'option_assign' || tx.side === 'option_expire') {
-          totalSold += tx.quantity;
-        } else if (tx.side === 'transfer_in') {
-          totalBought += tx.quantity;
-        } else if (tx.side === 'transfer_out') {
-          totalSold += tx.quantity;
+    let optionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }> = [];
+    try {
+      optionHoldings = await this.fetchOptionHoldings(accountId, doc.userId.toString());
+    } catch (e) {
+      this.logger.warn(`Failed to fetch option holdings during rebuild for ${accountId}: ${e}`);
+    }
+    const optionState: Record<string, number> = {};
+    for (const oh of optionHoldings) {
+      if (oh.symbol && oh.quantity) optionState[oh.symbol] = (optionState[oh.symbol] ?? 0) + oh.quantity;
+    }
+
+    let stateCash = cashBalance;
+
+    const addSides = ['buy', 'option_exercise', 'transfer_in'];
+    const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
+
+    const sorted = [...realTxns].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    for (const tx of sorted) {
+      const q = tx.quantity ?? 0;
+      const isOption = tx.option && tx.option.strike != null;
+      if (isOption) {
+        const optKey = this.txKey(tx);
+        if (optKey && q) {
+          if (addSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) - q;
+          else if (subSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) + q;
+        }
+      } else {
+        const sym = typeof tx.instrumentSymbol === 'string' ? tx.instrumentSymbol : '';
+        if (sym && q) {
+          if (addSides.includes(tx.side)) equityState[sym] = (equityState[sym] ?? 0) - q;
+          else if (subSides.includes(tx.side)) equityState[sym] = (equityState[sym] ?? 0) + q;
         }
       }
+      stateCash -= tx.cashDelta ?? 0;
+    }
 
-      const netFromTxns = totalBought - totalSold;
-      const impliedInitial = currentQty - netFromTxns;
-
-      if (Math.abs(impliedInitial) < 0.0001) continue;
-
-      let syntheticPrice = avgPrice;
-      if (impliedInitial > 0 && currentQty > 0) {
-        const totalCost = avgPrice * currentQty;
-        const computed = (totalCost - knownBuyCost) / impliedInitial;
-        syntheticPrice = Math.max(computed, 0);
-      }
-
-      const syntheticSide = impliedInitial > 0 ? 'buy' : 'sell';
-
+    for (const [sym, qty] of Object.entries(equityState)) {
+      if (Math.abs(qty) < 0.0001) continue;
+      const synSide = qty > 0 ? 'buy' : 'sell';
+      const holding = holdingsSnapshot.find((h) => h.symbol === sym);
       doc.adjustedTransactions.push({
-        side: syntheticSide,
-        quantity: Math.abs(impliedInitial),
-        price: syntheticPrice,
+        side: synSide,
+        quantity: Math.abs(qty),
+        price: holding?.averagePrice ?? 0,
         cashDelta: 0,
-        currency: posCurrency,
+        currency: holding?.currency ?? doc.currency,
         timestamp: earliestTransferDate,
-        instrumentSymbol: symbol,
+        instrumentSymbol: sym,
         option: null,
         synthetic: true,
       } as any);
     }
 
-    const impliedCash = doc.adjustedTransactions.reduce((sum, t) => sum + (t.cashDelta ?? 0), 0);
-    const cashGap = cashBalance - impliedCash;
+    for (const [optKey, qty] of Object.entries(optionState)) {
+      if (Math.abs(qty) < 0.0001) continue;
+      const synSide = qty > 0 ? 'buy' : 'sell';
+      const optHolding = optionHoldings.find((h) => h.symbol === optKey);
+      doc.adjustedTransactions.push({
+        side: synSide,
+        quantity: Math.abs(qty),
+        price: optHolding?.averagePrice ?? 0,
+        cashDelta: 0,
+        currency: optHolding?.currency ?? doc.currency,
+        timestamp: earliestTransferDate,
+        instrumentSymbol: optKey,
+        option: null,
+        synthetic: true,
+      } as any);
+    }
 
-    if (Math.abs(cashGap) > 0.01) {
-      const cashSide = cashGap > 0 ? 'deposit' : 'withdrawal';
+    if (Math.abs(stateCash) > 0.01) {
+      const cashSide = stateCash > 0 ? 'deposit' : 'withdrawal';
       doc.adjustedTransactions.push({
         side: cashSide,
         quantity: 0,
         price: 0,
-        cashDelta: cashGap,
+        cashDelta: stateCash,
         currency: doc.currency,
         timestamp: earliestTransferDate,
         instrumentSymbol: '',
