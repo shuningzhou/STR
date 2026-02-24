@@ -74,12 +74,13 @@ isProject: false
 2. **API prefix** -- All backend routes use global prefix `/api` (set in `main.ts`). Endpoint examples in this doc omit the prefix for brevity (e.g. `GET /strategies` = `GET /api/strategies`).
 3. **Market data provider** -- **EODHD** (stocks/ETFs) — env var: `EODHD_API_TOKEN`. Provider: `apps/api/src/market-data/providers/eodhd-provider.ts`. **Massive** (options, via Polygon.io) — env var: `MASSIVE_API_KEY`. Provider: `apps/api/src/market-data/providers/massive-provider.ts`.
 4. **SnapTrade** — Brokerage OAuth integration. Env: `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CLIENT_SECRET`. Synced strategies are read-only (transactions from SnapTrade cannot be edited). `apps/api/src/snaptrade/`.
-5. **Auth (current)** -- No real auth. `UserIdMiddleware` reads `x-user-id` header, falls back to `'default-user'`. JWT/OTP planned (Phase 13).
+5. **SnapTrade transaction types** — Use the original transaction type from SnapTrade. Standard SnapTrade types (BUY, SELL, etc.) are normalized via `ACTIVITY_TYPE_MAP`; brokerage-native types (e.g. `FUNDS_CONVERSION`) are preserved as returned (lowercased).
+6. **Auth (current)** -- No real auth. `UserIdMiddleware` reads `x-user-id` header, falls back to `'default-user'`. JWT/OTP planned (Phase 13).
 
 ### Subview System Rules
 
-6. **Generic rendering** -- The layout engine, Pyodide executor, and content renderer have zero subview-specific branching. All behavior is driven by JSON + Python. Never add subview-specific logic to the renderer.
-7. **Two types only** -- `"readonly"` (display only, no actions, no side effects) and `"readwrite"` (actions allowed, official/premade only).
+7. **Generic rendering** -- The layout engine, Pyodide executor, and content renderer have zero subview-specific branching. All behavior is driven by JSON + Python. Never add subview-specific logic to the renderer.
+8. **Two types only** -- `"readonly"` (display only, no actions, no side effects) and `"readwrite"` (actions allowed, official/premade only).
 8. **Inputs not auto-rendered** -- Place inputs in layout via `{ "input": { "ref": "key" } }`. The `ref` must match a key in `spec.inputs`.
 9. **Function calling convention** -- `py:` prefix for Python calls in JSON (e.g. `"py:calc_win_rate"`). Without `py:` = literal value.
 10. **Python rules** -- Functions accept `(context, inputs)`, return serializable values, no I/O. `context.transactions` has resolved instrument data (`instrumentSymbol`, `instrumentName`). `context.wallet` has wallet. `context.currentPrices` has live prices. `context.priceHistory` has historical EOD prices.
@@ -485,7 +486,7 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 - **Manual rebuild** — `POST /snaptrade/accounts/:accountId/rebuild` clears the account's adjusted transactions, re-fetches all activities + positions from SnapTrade, recomputes synthetic transactions, and drops all downstream strategy transactions that originated from this account. Affected strategies get `transactionsVersion` bumped. On next strategy sync or visit, transactions are re-copied from the rebuilt account.
 - **Two-step sync** — (1) `syncAccount`: fetch SnapTrade activities → dedup → append to `SyncedAccount.adjustedTransactions`, rebuild if first time. (2) `syncStrategy`: for each configured account, call `syncAccount`, then copy filtered adjusted transactions to strategy (dedup by `accountTransactionId`).
 
-**SnapTrade activity type mapping** (in `ACTIVITY_TYPE_MAP`): BUY→buy, SELL→sell; DIVIDEND, REI, STOCK_DIVIDEND→dividend; CONTRIBUTION→deposit; WITHDRAWAL, FEE, INTEREST, TAX; OPTIONEXERCISE, OPTIONASSIGNMENT, OPTIONEXPIRATION; TRANSFER, EXTERNAL_ASSET_TRANSFER_IN/OUT; SPLIT, ADJUSTMENT. Brokerage-native types fall back to `rawType.toLowerCase()`.
+**SnapTrade activity types** — Use original types from SnapTrade. Standard types (BUY, SELL, etc.) are normalized in `ACTIVITY_TYPE_MAP`; brokerage-native types (e.g. `FUNDS_CONVERSION`) pass through as-is (lowercased).
 
 **Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
 

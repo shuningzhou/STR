@@ -734,7 +734,7 @@ export class SnaptradeService {
     option: any;
   } {
     const rawType = ((activity as any).type ?? '').toUpperCase();
-    const side = ACTIVITY_TYPE_MAP[rawType] ?? rawType.toLowerCase();
+    const side = ACTIVITY_TYPE_MAP[rawType] ?? (rawType ? rawType.toLowerCase() : 'adjustment');
 
     const optionObj = (activity as any).option_symbol;
 
