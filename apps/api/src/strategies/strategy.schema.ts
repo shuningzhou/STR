@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory, raw } from '@nestjs/mongoose';
-import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 /* ── Subview Position ─────────────────────────────── */
 @Schema({ _id: false })
@@ -43,7 +43,8 @@ export class StrategyInputConfig {
 /* ── Strategy ─────────────────────────────────────── */
 @Schema({ timestamps: true, collection: 'strategies' })
 export class Strategy {
-  @Prop({ required: true, index: true }) userId!: string;
+  @Prop({ required: true, index: true, type: MongooseSchema.Types.ObjectId, ref: 'User' })
+  userId!: Types.ObjectId;
   @Prop({ required: true }) name!: string;
   @Prop({ default: 'USD' }) baseCurrency!: string;
   @Prop() icon?: string;

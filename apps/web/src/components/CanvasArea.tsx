@@ -9,7 +9,7 @@ const floatingButton =
   'w-9 h-9 flex items-center justify-center rounded-[var(--radius-button)] cursor-pointer transition-colors';
 
 export function CanvasArea() {
-  const { strategy: activeStrategy, strategyId: activeStrategyId } = useActiveStrategy();
+  const { strategy: activeStrategy } = useActiveStrategy();
   const { data: strategies = [] } = useStrategies();
   const {
     canvasEditMode,
@@ -24,33 +24,25 @@ export function CanvasArea() {
   const hasSubviews = (activeStrategy?.subviews?.length ?? 0) > 0;
 
   const handleGearClick = () => {
-    if (activeStrategyId) {
-      setStrategySettingsModalOpen(true);
-    }
+    if (activeStrategy) setStrategySettingsModalOpen(true);
   };
 
   const handleOpenGallery = () => {
-    if (activeStrategyId) {
-      setSubviewGalleryModalOpen(true);
-    }
+    if (activeStrategy) setSubviewGalleryModalOpen(true);
   };
 
   const handleOpenTransactionList = () => {
-    if (activeStrategyId) {
-      setTransactionListPanelOpen(activeStrategyId);
-    }
+    if (activeStrategy) setTransactionListPanelOpen(activeStrategy.id);
   };
 
   const handleOpenWallet = () => {
-    if (activeStrategyId) {
-      setWalletSettingsModalOpen(activeStrategyId);
-    }
+    if (activeStrategy) setWalletSettingsModalOpen(activeStrategy.id);
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Strategy inputs bar - top bar (similar to tool buttons bar) */}
-      {activeStrategyId && (
+      {activeStrategy && (
         <StrategyInputsBar strategy={activeStrategy} />
       )}
 
@@ -63,14 +55,14 @@ export function CanvasArea() {
             backgroundColor: 'var(--color-bg-page)',
           }}
         >
-          {activeStrategyId ? (
+          {activeStrategy ? (
             <>
             {hasSubviews ? (
               <div
                 className="flex-1 min-h-[150px] shrink-0"
                 style={{ minWidth: OPTIMIZED_CANVAS_WIDTH, width: '100%' }}
               >
-                <CanvasGrid strategyId={activeStrategyId} isEditMode={canvasEditMode} />
+                <CanvasGrid strategyId={activeStrategy.id} isEditMode={canvasEditMode} />
               </div>
             ) : (
             <div
@@ -122,7 +114,7 @@ export function CanvasArea() {
         </div>
 
         {/* Tool buttons: fixed column on the right (only when strategy selected) */}
-        {activeStrategyId && (
+        {activeStrategy && (
           <div
             className="flex flex-col gap-2 shrink-0 py-4 pr-4 pl-2"
             style={{

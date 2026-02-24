@@ -31,6 +31,8 @@ interface UIState {
   rollOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
   /** When open: { strategyId, transaction } for close option modal (partial close supported) */
   closeOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
+  /** User account modal (logout etc.) */
+  userModalOpen: boolean;
   /** Measured canvas grid width so preview can match */
   canvasWidth: number;
 
@@ -52,6 +54,7 @@ interface UIState {
   setDeleteTransactionConfirmOpen: (value: { strategyId: string; transactionId: string | number } | null) => void;
   setRollOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setUserModalOpen: (open: boolean) => void;
   setCanvasWidth: (width: number) => void;
 }
 
@@ -72,6 +75,7 @@ export const useUIStore = create<UIState>()(
       deleteTransactionConfirmOpen: null,
       rollOptionModalOpen: null,
       closeOptionModalOpen: null,
+      userModalOpen: false,
       canvasWidth: 0,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -88,6 +92,7 @@ export const useUIStore = create<UIState>()(
       setDeleteTransactionConfirmOpen: (value) => set({ deleteTransactionConfirmOpen: value }),
       setRollOptionModalOpen: (value) => set({ rollOptionModalOpen: value }),
       setCloseOptionModalOpen: (value) => set({ closeOptionModalOpen: value }),
+      setUserModalOpen: (open) => set({ userModalOpen: open }),
       setCanvasWidth: (width) => set({ canvasWidth: width }),
     }),
     { name: 'str-ui', partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }) }

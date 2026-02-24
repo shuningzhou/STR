@@ -10,7 +10,7 @@ const CURRENCIES = ['USD', 'CAD'] as const;
 
 export function Sidebar() {
   const { viewingCurrency, setViewingCurrency } = useThemeStore();
-  const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen, setUserModalOpen } = useUIStore();
   const { data: strategies = [] } = useStrategies();
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const setActiveStrategy = useStrategyStore((s) => s.setActiveStrategy);
@@ -224,6 +224,7 @@ export function Sidebar() {
                 e.currentTarget.style.color = 'var(--color-text-secondary)';
               }}
               title="Account"
+              onClick={() => setUserModalOpen(true)}
             >
               <User size={16} strokeWidth={1.5} />
             </button>

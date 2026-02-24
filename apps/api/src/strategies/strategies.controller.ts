@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Put, Param, Body, Req } from '@nestjs/common';
 import { Request } from 'express';
+import type { AuthUser } from '../common/auth-user';
 import { StrategiesService } from './strategies.service';
 import { CreateStrategyDto } from './dto/create-strategy.dto';
 import { UpdateStrategyDto } from './dto/update-strategy.dto';
@@ -11,34 +12,34 @@ export class StrategiesController {
 
   @Get()
   findAll(@Req() req: Request) {
-    return this.service.findAll(req.userId);
+    return this.service.findAll((req.user as AuthUser).id);
   }
 
   @Post()
   create(@Req() req: Request, @Body() dto: CreateStrategyDto) {
-    return this.service.create(req.userId, dto);
+    return this.service.create((req.user as AuthUser).id, dto);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Req() req: Request, @Body() dto: UpdateStrategyDto) {
-    return this.service.update(id, req.userId, dto);
+    return this.service.update(id, (req.user as AuthUser).id, dto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: Request) {
-    return this.service.remove(id, req.userId);
+    return this.service.remove(id, (req.user as AuthUser).id);
   }
 
   /* ── Subview endpoints ────────────────────────────── */
 
   @Post(':id/subviews')
   addSubview(@Param('id') id: string, @Req() req: Request, @Body() dto: AddSubviewDto) {
-    return this.service.addSubview(id, req.userId, dto);
+    return this.service.addSubview(id, (req.user as AuthUser).id, dto);
   }
 
   @Patch(':id/subviews')
   batchUpdatePositions(@Param('id') id: string, @Req() req: Request, @Body() dto: BatchUpdateSubviewPositionsDto) {
-    return this.service.batchUpdateSubviewPositions(id, req.userId, dto);
+    return this.service.batchUpdateSubviewPositions(id, (req.user as AuthUser).id, dto);
   }
 
   @Patch(':id/subviews/:subviewId')
@@ -48,12 +49,12 @@ export class StrategiesController {
     @Req() req: Request,
     @Body() dto: UpdateSubviewDto,
   ) {
-    return this.service.updateSubview(id, subviewId, req.userId, dto);
+    return this.service.updateSubview(id, subviewId, (req.user as AuthUser).id, dto);
   }
 
   @Delete(':id/subviews/:subviewId')
   removeSubview(@Param('id') id: string, @Param('subviewId') subviewId: string, @Req() req: Request) {
-    return this.service.removeSubview(id, subviewId, req.userId);
+    return this.service.removeSubview(id, subviewId, (req.user as AuthUser).id);
   }
 
   @Put(':id/subviews/:subviewId/cache')
@@ -63,6 +64,6 @@ export class StrategiesController {
     @Req() req: Request,
     @Body() dto: SaveCacheDto,
   ) {
-    return this.service.saveCache(id, subviewId, req.userId, dto);
+    return this.service.saveCache(id, subviewId, (req.user as AuthUser).id, dto);
   }
 }

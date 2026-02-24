@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: phase13-auth
     content: "Phase 13: Auth -- email OTP via Resend, JWT tokens, guards, login page, protected routes"
-    status: pending
+    status: completed
   - id: phase14-deploy
     content: "Phase 14: Deployment -- production build scripts, Nginx config, SSL, .env management"
     status: pending
@@ -55,7 +55,7 @@ isProject: false
 **Not yet implemented:**
 - Phase 7: Transaction UI (add/edit form modal, transaction list)
 - Phase 8: Global settings UI (viewing currency, theme panel)
-- Phase 13: Auth (email OTP, JWT, protected routes) -- currently uses `x-user-id` header with `'default-user'` fallback
+- Phase 13: Auth — implemented (register with email+password, 6-digit verification, sign-in with 2FA, JWT 12h)
 - Phase 14: Deployment
 
 **Known tech debt:**
@@ -189,6 +189,10 @@ STR/
 - `PORT` -- API port (default 3001)
 - `EODHD_API_TOKEN` -- EODHD market data API token (stocks/ETFs)
 - `MASSIVE_API_KEY` -- Massive/Polygon.io API key (option quotes)
+- `JWT_SECRET` -- Secret for JWT signing
+- `JWT_EXPIRES_IN` -- Token expiry (default 12h)
+- `RESEND_API_KEY` -- Resend API key for transactional email
+- `EMAIL_FROM` -- From address (default signal@opticanvas.com)
 
 ---
 

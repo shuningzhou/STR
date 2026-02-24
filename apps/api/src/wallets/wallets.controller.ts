@@ -1,5 +1,6 @@
 import { Controller, Get, Patch, Param, Body, Req } from '@nestjs/common';
 import { Request } from 'express';
+import type { AuthUser } from '../common/auth-user';
 import { WalletsService } from './wallets.service';
 import { UpdateWalletDto } from './dto/update-wallet.dto';
 
@@ -9,11 +10,11 @@ export class WalletsController {
 
   @Get()
   findByStrategy(@Param('strategyId') strategyId: string, @Req() req: Request) {
-    return this.service.findByStrategy(strategyId, req.userId);
+    return this.service.findByStrategy(strategyId, (req.user as AuthUser).id);
   }
 
   @Patch()
   update(@Param('strategyId') strategyId: string, @Req() req: Request, @Body() dto: UpdateWalletDto) {
-    return this.service.update(strategyId, req.userId, dto);
+    return this.service.update(strategyId, (req.user as AuthUser).id, dto);
   }
 }
