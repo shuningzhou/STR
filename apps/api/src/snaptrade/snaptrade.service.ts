@@ -593,14 +593,20 @@ export class SnaptradeService {
       const originSell = realTxns.find(
         (t) => !processed.has(t) && t.side === 'sell' && this.txKey(t) === originKey,
       );
+      const originBuy = realTxns.find(
+        (t) => !processed.has(t) && t.side === 'buy' && this.txKey(t) === originKey,
+      );
 
       const holdingKey = `${underlying}|${callPut}`;
       const finalHolding = optHoldingByUndCP.get(holdingKey);
 
-      const qty = originSell?.quantity
+      const isLongRoll = !!originBuy && !originSell;
+      const originTx = originSell ?? originBuy;
+      const qty = originTx?.quantity
         ?? (finalHolding ? Math.abs(finalHolding.quantity) : 1);
 
       if (originSell) processed.add(originSell);
+      if (originBuy) processed.add(originBuy);
 
       chain.reverse();
 
@@ -608,8 +614,8 @@ export class SnaptradeService {
 
       const toPlain = (t: any) => (typeof t?.toObject === 'function' ? t.toObject() : { ...t });
 
-      if (originSell) {
-        newTxns.push(toPlain(originSell));
+      if (originTx) {
+        newTxns.push(toPlain(originTx));
       }
 
       let prevKey = originKey;
@@ -628,38 +634,68 @@ export class SnaptradeService {
         const oldParsed = this.parseOptionKey(mlOldKey);
         const newParsed = this.parseOptionKey(newOptKey);
 
-        newTxns.push({
-          side: 'buy',
-          quantity: qty,
-          price: 0,
-          cashDelta: 0,
-          currency: ml.currency || 'USD',
-          timestamp: ml.timestamp,
-          instrumentSymbol: oldParsed.underlying,
-          option: oldParsed.option,
-          synthetic: false,
-          assetType: 'option',
-          chainResolved: true,
-        });
-
-        newTxns.push({
-          side: 'sell',
-          quantity: qty,
-          price: 0,
-          cashDelta: ml.cashDelta ?? 0,
-          currency: ml.currency || 'USD',
-          timestamp: ml.timestamp,
-          instrumentSymbol: newParsed.underlying,
-          option: newParsed.option,
-          synthetic: false,
-          assetType: 'option',
-          chainResolved: true,
-        });
+        if (isLongRoll) {
+          newTxns.push({
+            side: 'sell',
+            quantity: qty,
+            price: 0,
+            cashDelta: ml.cashDelta ?? 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: oldParsed.underlying,
+            option: oldParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+          });
+          newTxns.push({
+            side: 'buy',
+            quantity: qty,
+            price: 0,
+            cashDelta: 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: newParsed.underlying,
+            option: newParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+          });
+        } else {
+          newTxns.push({
+            side: 'buy',
+            quantity: qty,
+            price: 0,
+            cashDelta: 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: oldParsed.underlying,
+            option: oldParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+          });
+          newTxns.push({
+            side: 'sell',
+            quantity: qty,
+            price: 0,
+            cashDelta: ml.cashDelta ?? 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: newParsed.underlying,
+            option: newParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+          });
+        }
 
         prevKey = newOptKey;
       }
 
-      const closeSides = ['buy', 'option_assign', 'option_exercise', 'option_expire'];
+      const closeSides = isLongRoll
+        ? ['sell', 'option_exercise', 'option_expire']
+        : ['buy', 'option_assign', 'option_exercise', 'option_expire'];
       const finalKey = prevKey;
       const closeTx = realTxns.find(
         (t) => !processed.has(t) && closeSides.includes(t.side) && this.txKey(t) === finalKey,
@@ -669,7 +705,7 @@ export class SnaptradeService {
         processed.add(closeTx);
       }
 
-      const toRemove = new Set([originSell, ...chain, closeTx].filter(Boolean));
+      const toRemove = new Set([originTx, ...chain, closeTx].filter(Boolean));
       for (let i = doc.adjustedTransactions.length - 1; i >= 0; i--) {
         if (toRemove.has(doc.adjustedTransactions[i])) {
           doc.adjustedTransactions.splice(i, 1);

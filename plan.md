@@ -495,16 +495,20 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 1. Iterate raw transactions from latest to earliest, find each `options_multileg`.
 2. Build a chain: trace backward through earlier multiligs for the same underlying + call/put type to find the full roll sequence.
-3. Find the origin: the original sell-to-open matching the earliest old option in the chain.
-4. Find the endpoint: the final holding in current option holdings (same underlying + call/put), or a close transaction (buy/assign/exercise/expire).
-5. Expand each multileg into a buy-to-close (old leg, cashDelta=0) + sell-to-open (new leg, cashDelta=multileg amount). The new leg of each multileg is inferred: next multileg's old option, or the final holding for the last multileg.
-6. Replace the original multileg + origin sell + close in `doc.adjustedTransactions` with the reconstructed chain.
-7. Mark only the synthetic buy/sell legs with `chainResolved: true` (for Assigned Rate exclusion). Origin sell and close transaction stay unmarked.
-8. After all chains are resolved, run the standard reverse-apply rebuild on the remaining transactions.
+3. Find the origin: the original open matching the earliest old option — either **sell-to-open** (short) or **buy-to-open** (long).
+4. Find the endpoint: the final holding in current option holdings (same underlying + call/put), or a close transaction.
+5. **Short roll** (origin = sell, e.g. secured put): Expand each multileg into buy-to-close (old leg, cashDelta=0) + sell-to-open (new leg, cashDelta=multileg amount). Close transaction: buy, option_assign, option_expire.
+6. **Long roll** (origin = buy, e.g. long call): Expand each multileg into sell-to-close (old leg, cashDelta=multileg amount) + buy-to-open (new leg, cashDelta=0). Close transaction: sell, option_exercise, option_expire.
+7. The new leg of each multileg is inferred: next multileg's old option, or the final holding for the last multileg.
+8. Replace the original multileg + origin + close in `doc.adjustedTransactions` with the reconstructed chain.
+9. Mark only the synthetic buy/sell legs with `chainResolved: true` (for Assigned Rate exclusion). Origin and close transaction stay unmarked.
+10. After all chains are resolved, run the standard reverse-apply rebuild on the remaining transactions.
 
-Example lifecycle: `Sell $60P → Multileg($60P→$57P) → Multileg($57P→$55P) → $55P in holdings` expands to: `sell 1 $60P | buy 1 $60P + sell 1 $57P | buy 1 $57P + sell 1 $55P`.
+Example lifecycles:
+- **Short (secured put):** `Sell $60P → Multileg($60P→$57P) → Multileg($57P→$55P) → $55P in holdings` expands to: `sell 1 $60P | buy 1 $60P + sell 1 $57P | buy 1 $57P + sell 1 $55P`.
+- **Long (long call):** `Buy $25C → Multileg($25C→$30C) → $30C in holdings` expands to: `buy 4 $25C | sell 4 $25C + buy 4 $30C`.
 
-**chainResolved** — Only the synthetic buy/sell legs from multileg expansion are marked `chainResolved: true`. The origin sell, close transaction (option_assign, option_expire, manual buy), and all non-roll transactions are NOT marked. Assigned Rate subview counts only closed/expired/assigned (buy_to_cover, buy, option_assign, option_expire) and excludes transactions with `customData.chainResolved` (roll legs).
+**chainResolved** — Only the synthetic buy/sell legs from multileg expansion are marked `chainResolved: true`. The origin transaction (sell-to-open or buy-to-open), close transaction (buy-to-cover, sell-to-close, option_assign, option_exercise, option_expire), and all non-roll transactions are NOT marked. Assigned Rate subview counts only closed/expired/assigned (buy_to_cover, buy, option_assign, option_expire) and excludes transactions with `customData.chainResolved` (roll legs).
 
 **Brokerage refresh before rebuild** — `rebuildAccountFull` calls `refreshBrokerageAuthorization` before fetching activities to ensure transaction data is up-to-date (SnapTrade caches transactions and refreshes once daily).
 
