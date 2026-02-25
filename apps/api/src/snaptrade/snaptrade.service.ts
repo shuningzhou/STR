@@ -29,6 +29,7 @@ const ACTIVITY_TYPE_MAP: Record<string, string> = {
   TRANSFER: 'transfer',
   EXTERNAL_ASSET_TRANSFER_IN: 'transfer_in',
   EXTERNAL_ASSET_TRANSFER_OUT: 'transfer_out',
+  OPTIONS_MULTILEG: 'options_multileg',
   SPLIT: 'split',
   ADJUSTMENT: 'adjustment',
 };
@@ -401,6 +402,19 @@ export class SnaptradeService {
     doc.currentHoldings = [] as any;
     doc.currentCash = 0;
 
+    if (doc.authorizationId) {
+      try {
+        await this.snaptrade.connections.refreshBrokerageAuthorization({
+          authorizationId: doc.authorizationId,
+          userId: creds.userId,
+          userSecret: creds.userSecret,
+        });
+        await new Promise((r) => setTimeout(r, 3000));
+      } catch (e) {
+        this.logger.warn(`Failed to refresh brokerage before rebuild: ${e}`);
+      }
+    }
+
     const activities = await this.fetchAllActivities(accountId, creds);
     const existingIds = new Set<string>();
 
@@ -502,6 +516,140 @@ export class SnaptradeService {
     return { added };
   }
 
+  private resolveMultilegChains(
+    doc: SyncedAccountDocument,
+    realTxns: any[],
+    optionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }>,
+  ): void {
+    const optHoldingByUndCP = new Map<string, typeof optionHoldings[0]>();
+    for (const oh of optionHoldings) {
+      const p = this.parseOptionKey(oh.symbol);
+      const cp = (p.option?.callPut ?? '').charAt(0).toUpperCase();
+      if (p.underlying && cp) optHoldingByUndCP.set(`${p.underlying}|${cp}`, oh);
+    }
+
+    const sorted = [...realTxns].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    const processed = new Set<any>();
+
+    for (const entry of sorted) {
+      if (entry.side !== 'options_multileg') continue;
+      if (processed.has(entry)) continue;
+      const optKey = this.txKey(entry);
+      if (!optKey || !optKey.includes('$')) continue;
+
+      const underlying = entry.option?.underlyingSymbol ?? entry.instrumentSymbol ?? '';
+      const callPut = (entry.option?.callPut ?? '').charAt(0).toUpperCase();
+      if (!underlying || !callPut) continue;
+
+      const chain: any[] = [entry];
+      processed.add(entry);
+      let currentOldKey = optKey;
+
+      for (let i = sorted.indexOf(entry) + 1; i < sorted.length; i++) {
+        const tx = sorted[i];
+        if (processed.has(tx)) continue;
+        if (tx.side !== 'options_multileg') continue;
+        const txUnd = tx.option?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
+        const txCP = (tx.option?.callPut ?? '').charAt(0).toUpperCase();
+        if (txUnd !== underlying || txCP !== callPut) continue;
+
+        chain.push(tx);
+        processed.add(tx);
+        currentOldKey = this.txKey(tx);
+      }
+
+      const originKey = currentOldKey;
+      const originSell = realTxns.find(
+        (t) => !processed.has(t) && t.side === 'sell' && this.txKey(t) === originKey,
+      );
+
+      const holdingKey = `${underlying}|${callPut}`;
+      const finalHolding = optHoldingByUndCP.get(holdingKey);
+
+      const qty = originSell?.quantity
+        ?? (finalHolding ? Math.abs(finalHolding.quantity) : 1);
+
+      if (originSell) processed.add(originSell);
+
+      chain.reverse();
+
+      const newTxns: any[] = [];
+
+      const toPlain = (t: any) => (typeof t?.toObject === 'function' ? t.toObject() : { ...t });
+
+      if (originSell) {
+        newTxns.push({
+          ...toPlain(originSell),
+          _chainResolved: true,
+        });
+      }
+
+      let prevKey = originKey;
+      for (const ml of chain) {
+        const mlOldKey = this.txKey(ml);
+        const nextIdx = chain.indexOf(ml) + 1;
+        let newOptKey: string;
+        if (nextIdx < chain.length) {
+          newOptKey = this.txKey(chain[nextIdx]);
+        } else if (finalHolding) {
+          newOptKey = finalHolding.symbol;
+        } else {
+          newOptKey = mlOldKey;
+        }
+
+        const oldParsed = this.parseOptionKey(mlOldKey);
+        const newParsed = this.parseOptionKey(newOptKey);
+
+        newTxns.push({
+          side: 'buy',
+          quantity: qty,
+          price: 0,
+          cashDelta: 0,
+          currency: ml.currency || 'USD',
+          timestamp: ml.timestamp,
+          instrumentSymbol: oldParsed.underlying,
+          option: oldParsed.option,
+          synthetic: false,
+          _chainResolved: true,
+        });
+
+        newTxns.push({
+          side: 'sell',
+          quantity: qty,
+          price: 0,
+          cashDelta: ml.cashDelta ?? 0,
+          currency: ml.currency || 'USD',
+          timestamp: ml.timestamp,
+          instrumentSymbol: newParsed.underlying,
+          option: newParsed.option,
+          synthetic: false,
+          _chainResolved: true,
+        });
+
+        prevKey = newOptKey;
+      }
+
+      const closeSides = ['buy', 'option_assign', 'option_exercise', 'option_expire'];
+      const finalKey = prevKey;
+      const closeTx = realTxns.find(
+        (t) => !processed.has(t) && closeSides.includes(t.side) && this.txKey(t) === finalKey,
+      );
+      if (closeTx) {
+        newTxns.push({ ...toPlain(closeTx), _chainResolved: true });
+        processed.add(closeTx);
+      }
+
+      const toRemove = new Set([originSell, ...chain, closeTx].filter(Boolean));
+      for (let i = doc.adjustedTransactions.length - 1; i >= 0; i--) {
+        if (toRemove.has(doc.adjustedTransactions[i])) {
+          doc.adjustedTransactions.splice(i, 1);
+        }
+      }
+
+      doc.adjustedTransactions.push(...(newTxns as any));
+    }
+  }
+
   private async rebuildAccount(
     doc: SyncedAccountDocument,
     creds: { userId: string; userSecret: string },
@@ -566,6 +714,10 @@ export class SnaptradeService {
       if (oh.symbol && oh.quantity) optionState[oh.symbol] = (optionState[oh.symbol] ?? 0) + oh.quantity;
     }
 
+    this.resolveMultilegChains(doc, realTxns, optionHoldings);
+
+    const resolvedTxns = doc.adjustedTransactions.filter((t) => !t.synthetic);
+
     let stateCash = cashBalance;
 
     const addSides = ['buy', 'option_exercise', 'transfer_in'];
@@ -573,7 +725,7 @@ export class SnaptradeService {
 
     const OPTION_CONTRACT_MULTIPLIER = 100;
 
-    const sorted = [...realTxns].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    const sorted = [...resolvedTxns].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
 
     for (const tx of sorted) {
       const q = tx.quantity ?? 0;

@@ -490,6 +490,21 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 **option_assign / option_exercise / option_expire** — When an option is assigned, exercised, or expired, the option is removed; do not add synthetic option transactions to compensate. For assign/exercise only, the underlying instrument is affected: put assign → shares added; call assign → shares removed; call exercise → shares added; put exercise → shares removed (100 shares per contract). Rebuild must not update optionState when reversing assign/exercise/expire (avoids phantom residuals).
 
+**options_multileg (rolls)** — SnapTrade reports multi-leg option trades as `OPTIONS_MULTILEG` with `units=0`, `price=0`, and only ONE `option_symbol` (the old/closing leg). The `amount` field is the net cash credit/debit. The new/opening leg is absent. Before the standard rebuild reverse-apply, `resolveMultilegChains` traces the full option lifecycle:
+
+1. Iterate raw transactions from latest to earliest, find each `options_multileg`.
+2. Build a chain: trace backward through earlier multiligs for the same underlying + call/put type to find the full roll sequence.
+3. Find the origin: the original sell-to-open matching the earliest old option in the chain.
+4. Find the endpoint: the final holding in current option holdings (same underlying + call/put), or a close transaction (buy/assign/exercise/expire).
+5. Expand each multileg into a buy-to-close (old leg, cashDelta=0) + sell-to-open (new leg, cashDelta=multileg amount). The new leg of each multileg is inferred: next multileg's old option, or the final holding for the last multileg.
+6. Replace the original multileg + origin sell + close in `doc.adjustedTransactions` with the reconstructed chain.
+7. Mark all chain transactions as handled; they are independent from the remaining raw transactions.
+8. After all chains are resolved, run the standard reverse-apply rebuild on the remaining transactions.
+
+Example lifecycle: `Sell $60P → Multileg($60P→$57P) → Multileg($57P→$55P) → $55P in holdings` expands to: `sell 1 $60P | buy 1 $60P + sell 1 $57P | buy 1 $57P + sell 1 $55P`.
+
+**Brokerage refresh before rebuild** — `rebuildAccountFull` calls `refreshBrokerageAuthorization` before fetching activities to ensure transaction data is up-to-date (SnapTrade caches transactions and refreshes once daily).
+
 **Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
 
 **Frontend:** User modal — Connect Brokerage button, connection status, Refresh, disconnect, **Account Transactions** button to view sanitized transactions per brokerage account (with **Rebuild** button per account to re-sync + recompute). AddStrategyModal — Manual/Synced toggle, account + type selection for synced.
