@@ -235,7 +235,12 @@ export class SnaptradeService {
       .lean()
       .exec();
     if (!doc) {
-      return { transactions: [] as any[], rawHoldings: null, derivedHoldings: { positions: [], cash: 0 } };
+      return {
+        rawTransactions: [] as any[],
+        adjustedTransactions: [] as any[],
+        rawHoldings: null,
+        derivedHoldings: { positions: [], cashByCurrency: {} },
+      };
     }
 
     const equityPositions = (doc.currentHoldings ?? []).map((h: any) => ({
@@ -251,17 +256,25 @@ export class SnaptradeService {
       a.symbol.localeCompare(b.symbol),
     );
 
+    const cashByCurrency = doc.currentCashByCurrency && Object.keys(doc.currentCashByCurrency).length > 0
+      ? doc.currentCashByCurrency
+      : (doc.currentCash != null ? { [doc.currency || 'USD']: doc.currentCash } : {});
+
     const rawHoldings = {
       positions: rawPositions,
-      cash: doc.currentCash ?? 0,
+      cashByCurrency,
     };
 
     const derived = this.deriveHoldingsFromTransactions(doc.adjustedTransactions ?? []);
 
     return {
-      transactions: doc.adjustedTransactions ?? [],
+      rawTransactions: doc.rawTransactions ?? [],
+      adjustedTransactions: doc.adjustedTransactions ?? [],
       rawHoldings,
-      derivedHoldings: derived,
+      derivedHoldings: {
+        positions: derived.positions,
+        cashByCurrency,
+      },
     };
   }
 
@@ -327,17 +340,25 @@ export class SnaptradeService {
   }
 
   private deriveHoldingsFromTransactions(txns: any[]): {
-    positions: Array<{ symbol: string; quantity: number }>;
-    cash: number;
+    positions: Array<{ symbol: string; quantity: number; currency?: string }>;
+    cashByCurrency: Record<string, number>;
   } {
     const byKey: Record<string, number> = {};
-    let cash = 0;
+    const currencyByKey: Record<string, string> = {};
+    const cashByCurrency: Record<string, number> = {};
     const OPTION_CONTRACT_MULTIPLIER = 100;
     const addSides = ['buy', 'option_exercise', 'transfer_in'];
     const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
+    const setKey = (k: string, delta: number, ccy: string) => {
+      if (k) {
+        byKey[k] = (byKey[k] ?? 0) + delta;
+        if (!currencyByKey[k]) currencyByKey[k] = ccy;
+      }
+    };
     for (const t of txns) {
       const key = this.txKey(t);
       const q = t.quantity ?? 0;
+      const ccy = t.currency || 'USD';
       const opt = t.option;
       const underlying = opt?.underlyingSymbol ?? t.instrumentSymbol ?? '';
       const callPut = (opt?.callPut ?? '').toLowerCase();
@@ -345,33 +366,30 @@ export class SnaptradeService {
       const isCall = callPut.startsWith('c');
 
       if (t.side === 'option_assign') {
-        // Closes SHORT option position + affects underlying equity
-        if (key && q) byKey[key] = (byKey[key] ?? 0) + q;
+        if (key && q) setKey(key, q, ccy);
         if (underlying && q) {
           const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
-          byKey[underlying] = (byKey[underlying] ?? 0) + (isPut ? shareDelta : -shareDelta);
+          setKey(underlying, isPut ? shareDelta : -shareDelta, ccy);
         }
       } else if (t.side === 'option_exercise') {
-        // Closes LONG option position + affects underlying equity
-        if (key && q) byKey[key] = (byKey[key] ?? 0) - q;
+        if (key && q) setKey(key, -q, ccy);
         if (underlying && q) {
           const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
-          byKey[underlying] = (byKey[underlying] ?? 0) + (isCall ? shareDelta : -shareDelta);
+          setKey(underlying, isCall ? shareDelta : -shareDelta, ccy);
         }
       } else if (t.side === 'option_expire') {
-        // Closes SHORT option position, no equity effect
-        if (key && q) byKey[key] = (byKey[key] ?? 0) + q;
+        if (key && q) setKey(key, q, ccy);
       } else if (key && q) {
-        if (addSides.includes(t.side)) byKey[key] = (byKey[key] ?? 0) + q;
-        else if (subSides.includes(t.side)) byKey[key] = (byKey[key] ?? 0) - q;
+        if (addSides.includes(t.side)) setKey(key, q, ccy);
+        else if (subSides.includes(t.side)) setKey(key, -q, ccy);
       }
-      cash += t.cashDelta ?? 0;
+      cashByCurrency[ccy] = (cashByCurrency[ccy] ?? 0) + (t.cashDelta ?? 0);
     }
     const positions = Object.entries(byKey)
       .filter(([, q]) => Math.abs(q) >= 0.0001)
-      .map(([symbol, quantity]) => ({ symbol, quantity }))
+      .map(([symbol, quantity]) => ({ symbol, quantity, currency: currencyByKey[symbol] || 'USD' }))
       .sort((a, b) => a.symbol.localeCompare(b.symbol));
-    return { positions, cash };
+    return { positions, cashByCurrency };
   }
 
   async rebuildAccountFull(accountId: string, userId: string): Promise<{ rebuilt: boolean; activities: number }> {
@@ -391,6 +409,8 @@ export class SnaptradeService {
         lastSyncedAt: null,
         currentHoldings: [],
         currentCash: 0,
+        currentCashByCurrency: {},
+        rawTransactions: [],
         adjustedTransactions: [],
       });
     }
@@ -398,9 +418,11 @@ export class SnaptradeService {
     const oldTxIds = doc.adjustedTransactions.map((t) => (t as any)._id?.toString()).filter(Boolean);
 
     doc.adjustedTransactions = [] as any;
+    doc.rawTransactions = [] as any;
     doc.rebuiltAt = null;
     doc.currentHoldings = [] as any;
     doc.currentCash = 0;
+    doc.currentCashByCurrency = {} as any;
 
     if (doc.authorizationId) {
       try {
@@ -430,6 +452,7 @@ export class SnaptradeService {
       existingIds.add(activityId);
     }
 
+    doc.rawTransactions = JSON.parse(JSON.stringify(doc.adjustedTransactions));
     await this.rebuildAccount(doc, creds, accountId);
     doc.lastSyncedAt = new Date();
     await doc.save();
@@ -478,6 +501,8 @@ export class SnaptradeService {
         lastSyncedAt: null,
         currentHoldings: [],
         currentCash: 0,
+        currentCashByCurrency: {},
+        rawTransactions: [],
         adjustedTransactions: [],
       });
     }
@@ -506,7 +531,12 @@ export class SnaptradeService {
     }
 
     if (!doc.rebuiltAt) {
+      doc.rawTransactions = JSON.parse(JSON.stringify(doc.adjustedTransactions));
       await this.rebuildAccount(doc, creds, accountId);
+    } else {
+      for (let i = doc.rawTransactions.length; i < doc.adjustedTransactions.length; i++) {
+        doc.rawTransactions.push(JSON.parse(JSON.stringify(doc.adjustedTransactions[i])));
+      }
     }
 
     doc.lastSyncedAt = new Date();
@@ -669,7 +699,7 @@ export class SnaptradeService {
       this.logger.error(`Failed to fetch positions for ${accountId}: ${e}`);
     }
 
-    let cashBalance = 0;
+    const cashByCurrency: Record<string, number> = {};
     try {
       const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
         accountId,
@@ -678,7 +708,9 @@ export class SnaptradeService {
       });
       const balances = balResp.data ?? [];
       for (const b of balances) {
-        cashBalance += (b as any).cash ?? (b as any).amount ?? 0;
+        const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
+        const cash = (b as any).cash ?? (b as any).amount ?? 0;
+        cashByCurrency[ccy] = (cashByCurrency[ccy] ?? 0) + cash;
       }
     } catch (e) {
       this.logger.error(`Failed to fetch balance for ${accountId}: ${e}`);
@@ -717,8 +749,6 @@ export class SnaptradeService {
     this.resolveMultilegChains(doc, realTxns, optionHoldings);
 
     const resolvedTxns = doc.adjustedTransactions.filter((t) => !t.synthetic);
-
-    let stateCash = cashBalance;
 
     const addSides = ['buy', 'option_exercise', 'transfer_in'];
     const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
@@ -770,7 +800,6 @@ export class SnaptradeService {
           else if (subSides.includes(tx.side)) equityState[sym] = (equityState[sym] ?? 0) + q;
         }
       }
-      stateCash -= tx.cashDelta ?? 0;
     }
 
     for (const [sym, qty] of Object.entries(equityState)) {
@@ -797,7 +826,6 @@ export class SnaptradeService {
       const parsed = this.parseOptionKey(optKey);
       const optPrice = optHolding?.averagePrice ?? 0;
       const optCashDelta = synSide === 'buy' ? -(optPrice * Math.abs(qty) * 100) : (optPrice * Math.abs(qty) * 100);
-      stateCash -= optCashDelta;
       doc.adjustedTransactions.push({
         side: synSide,
         quantity: Math.abs(qty),
@@ -811,29 +839,14 @@ export class SnaptradeService {
       } as any);
     }
 
-    if (Math.abs(stateCash) > 0.01) {
-      const cashSide = stateCash > 0 ? 'deposit' : 'withdrawal';
-      doc.adjustedTransactions.push({
-        side: cashSide,
-        quantity: 0,
-        price: 0,
-        cashDelta: stateCash,
-        currency: doc.currency,
-        timestamp: earliestTransferDate,
-        instrumentSymbol: '',
-        option: null,
-        synthetic: true,
-      } as any);
-    }
-
     doc.currentHoldings = holdingsSnapshot as any;
-    doc.currentCash = cashBalance;
+    doc.currentCashByCurrency = cashByCurrency;
     doc.rebuiltAt = new Date();
 
     doc.adjustedTransactions.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
 
     this.logger.log(
-      `Rebuild complete for ${accountId}: ${positions.length} positions, cash=${cashBalance}, ` +
+      `Rebuild complete for ${accountId}: ${positions.length} positions, cashByCurrency=${JSON.stringify(cashByCurrency)}, ` +
       `${doc.adjustedTransactions.filter((t) => t.synthetic).length} synthetic txns`,
     );
   }

@@ -48,6 +48,8 @@ export class SyncedAccount {
   @Prop({ type: Date, default: null }) lastSyncedAt!: Date | null;
   @Prop({ type: [HoldingSnapshot], default: [] }) currentHoldings!: HoldingSnapshot[];
   @Prop({ default: 0 }) currentCash!: number;
+  @Prop({ type: MongooseSchema.Types.Mixed, default: {} }) currentCashByCurrency!: Record<string, number>;
+  @Prop({ type: [AdjustedTransactionSchema], default: [] }) rawTransactions!: AdjustedTransaction[];
   @Prop({ type: [AdjustedTransactionSchema], default: [] }) adjustedTransactions!: AdjustedTransaction[];
 }
 

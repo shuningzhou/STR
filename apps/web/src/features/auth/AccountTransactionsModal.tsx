@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Modal, Button } from '@/components/ui';
+import { Modal, Button, SegmentControl } from '@/components/ui';
 import {
   useSnaptradeConnections,
   useAccountTransactions,
@@ -7,6 +7,8 @@ import {
   type SnaptradeConnection,
   type AdjustedTransaction,
 } from '@/api/hooks';
+
+type CurrencyFilter = 'all' | 'CAD' | 'USD';
 
 interface Props {
   onClose: () => void;
@@ -16,6 +18,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
   const { data: connections = [] } = useSnaptradeConnections();
   const [selectedConnId, setSelectedConnId] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [currencyFilter, setCurrencyFilter] = useState<CurrencyFilter>('all');
 
   const selectedConn = useMemo(
     () => connections.find((c: SnaptradeConnection) => c.authorizationId === selectedConnId),
@@ -27,19 +30,55 @@ export function AccountTransactionsModal({ onClose }: Props) {
   const { data: txData, isLoading } = useAccountTransactions(selectedAccountId);
   const rebuildMut = useRebuildAccount();
 
-  const transactions = txData?.transactions ?? [];
+  const rawTransactions = txData?.rawTransactions ?? [];
+  const adjustedTransactions = txData?.adjustedTransactions ?? [];
   const rawHoldings = txData?.rawHoldings ?? null;
-  const derivedHoldings = txData?.derivedHoldings ?? { positions: [], cash: 0 };
+  const derivedHoldings = txData?.derivedHoldings ?? { positions: [], cashByCurrency: {} };
 
-  const rawTxns = useMemo(
-    () => transactions.filter((t) => !t.synthetic).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
-    [transactions],
-  );
+  const filterByCurrency = useMemo(() => {
+    if (currencyFilter === 'all') return (t: AdjustedTransaction) => true;
+    return (t: AdjustedTransaction) => (t.currency || 'USD') === currencyFilter;
+  }, [currencyFilter]);
 
-  const adjustedTxns = useMemo(
-    () => [...transactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
-    [transactions],
-  );
+  const filterPositionsByCurrency = useMemo(() => {
+    if (currencyFilter === 'all') return () => true;
+    return (p: { currency?: string }) => (p.currency || 'USD') === currencyFilter;
+  }, [currencyFilter]);
+
+  const rawTxns = useMemo(() => {
+    const base = [...rawTransactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return currencyFilter === 'all' ? base : base.filter(filterByCurrency);
+  }, [rawTransactions, currencyFilter, filterByCurrency]);
+
+  const adjustedTxns = useMemo(() => {
+    const base = [...adjustedTransactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return currencyFilter === 'all' ? base : base.filter(filterByCurrency);
+  }, [adjustedTransactions, currencyFilter, filterByCurrency]);
+
+  const filteredRawHoldings = useMemo(() => {
+    if (!rawHoldings) return null;
+    const positions = rawHoldings.positions.filter(filterPositionsByCurrency);
+    const cashByCurrency = rawHoldings.cashByCurrency ?? (rawHoldings.cash != null ? { USD: rawHoldings.cash } : {});
+    const filteredCash =
+      currencyFilter === 'all'
+        ? cashByCurrency
+        : currencyFilter in cashByCurrency
+          ? { [currencyFilter]: cashByCurrency[currencyFilter] }
+          : {};
+    return { positions, cashByCurrency: filteredCash };
+  }, [rawHoldings, currencyFilter, filterPositionsByCurrency]);
+
+  const filteredDerivedHoldings = useMemo(() => {
+    const positions = (derivedHoldings.positions ?? []).filter(filterPositionsByCurrency);
+    const cashByCurrency = derivedHoldings.cashByCurrency ?? {};
+    const filteredCash =
+      currencyFilter === 'all'
+        ? cashByCurrency
+        : currencyFilter in cashByCurrency
+          ? { [currencyFilter]: cashByCurrency[currencyFilter] }
+          : {};
+    return { positions, cashByCurrency: filteredCash };
+  }, [derivedHoldings, currencyFilter, filterPositionsByCurrency]);
 
   const handleRebuild = () => {
     if (!selectedAccountId) return;
@@ -99,6 +138,20 @@ export function AccountTransactionsModal({ onClose }: Props) {
             ))}
           </select>
 
+          {selectedAccountId && (rawTransactions.length > 0 || adjustedTransactions.length > 0) && (
+            <div style={{ width: 140 }}>
+              <SegmentControl<CurrencyFilter>
+                value={currencyFilter}
+                optionsWithLabels={[
+                  { value: 'all', label: 'All' },
+                  { value: 'CAD', label: 'CAD' },
+                  { value: 'USD', label: 'USD' },
+                ]}
+                onChange={(v) => setCurrencyFilter(v)}
+              />
+            </div>
+          )}
+
           {selectedAccountId && (
             <Button
               type="button"
@@ -141,7 +194,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
                   {rawTxns.length}
                 </span>
               </div>
-              <HoldingsSummary holdings={rawHoldings} label="SnapTrade holdings" />
+              <HoldingsSummary holdings={filteredRawHoldings} label="SnapTrade holdings" />
               <TxnTable transactions={rawTxns} showSynthetic={false} />
             </div>
 
@@ -158,7 +211,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
                   {adjustedTxns.length}
                 </span>
               </div>
-              <HoldingsSummary holdings={derivedHoldings} label="Derived from adjusted txns" />
+              <HoldingsSummary holdings={filteredDerivedHoldings} label="Derived from adjusted txns" />
               <TxnTable transactions={adjustedTxns} showSynthetic />
             </div>
           </div>
@@ -179,7 +232,8 @@ interface HoldingsSummaryProps {
       currency?: string;
       isOption?: boolean;
     }>;
-    cash: number;
+    cash?: number;
+    cashByCurrency?: Record<string, number>;
   } | null;
   label: string;
 }
@@ -197,6 +251,7 @@ function HoldingsSummary({ holdings, label }: HoldingsSummaryProps) {
     );
   }
   const sorted = [...holdings.positions].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const cashByCurrency = holdings.cashByCurrency ?? (holdings.cash != null ? { USD: holdings.cash } : {});
   return (
     <div
       className="rounded-[var(--radius-medium)] px-3 py-2 shrink-0"
@@ -227,7 +282,15 @@ function HoldingsSummary({ holdings, label }: HoldingsSummaryProps) {
         ))}
       </ul>
       <div style={{ fontSize: 11, color: 'var(--color-text-primary)', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--color-border)' }}>
-        Cash: <span className="tabular-nums font-medium">${formatNum(holdings.cash)}</span>
+        {Object.keys(cashByCurrency).length === 0 ? (
+          'Cash: —'
+        ) : (
+          Object.entries(cashByCurrency).map(([ccy, amt]) => (
+            <div key={ccy}>
+              Cash ({ccy}): <span className="tabular-nums font-medium">${formatNum(amt)}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -82,11 +82,13 @@ export interface HoldingsPosition {
 
 export interface AccountHoldings {
   positions: HoldingsPosition[];
-  cash: number;
+  cash?: number;
+  cashByCurrency?: Record<string, number>;
 }
 
 export interface AccountTransactionsResponse {
-  transactions: AdjustedTransaction[];
+  rawTransactions: AdjustedTransaction[];
+  adjustedTransactions: AdjustedTransaction[];
   rawHoldings: AccountHoldings | null;
   derivedHoldings: AccountHoldings;
 }

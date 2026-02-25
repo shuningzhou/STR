@@ -285,7 +285,8 @@ sequenceDiagram
 - `authorizationId`, `institutionName`, `currency`
 - `rebuiltAt` (Date | null), `lastSyncedAt` (Date | null)
 - `currentHoldings` (embedded array: symbol, quantity, averagePrice, currency)
-- `currentCash` (number)
+- `currentCash` (number), `currentCashByCurrency` (Record<string, number> — per-currency balance from SnapTrade)
+- `rawTransactions` (embedded array — SnapTrade activities mapped to our format, before rebuild adjustments)
 - `adjustedTransactions` (embedded array of AdjustedTransaction: side, quantity, price, cashDelta, currency, timestamp, instrumentSymbol, option, snaptradeActivityId, synthetic)
 
 ---
@@ -334,7 +335,7 @@ All routes prefixed with `/api`.
 - `DELETE /snaptrade/connections/:authorizationId` -- remove connection
 - `GET /snaptrade/accounts` -- list accounts across all connections
 - `POST /snaptrade/sync/:strategyId` -- sync transactions from selected accounts into strategy (two-step: syncAccount → syncStrategy)
-- `GET /snaptrade/accounts/:accountId/transactions` -- view sanitized adjusted transactions for a brokerage account
+- `GET /snaptrade/accounts/:accountId/transactions` -- returns `rawTransactions` (unmodified SnapTrade data) and `adjustedTransactions` (sanitized) for side-by-side comparison; plus `rawHoldings` and `derivedHoldings` (cash from SnapTrade balance, not derived from transactions)
 - `POST /snaptrade/accounts/:accountId/rebuild` -- rebuild account: re-fetch activities + positions from SnapTrade, recompute synthetic transactions, drop all downstream strategy transactions (they get re-copied on next strategy sync)
 
 **Market Data:**
@@ -482,9 +483,9 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 - **User registration** — `POST /snaptrade/register` stores `snaptradeUserId`, `snaptradeUserSecret` on User doc
 - **Connection portal** — `POST /snaptrade/connect` returns SnapTrade OAuth redirect URL; user links brokerage in embedded iframe (450×600, no top bar)
 - **Connections** — List, refresh (fetches accounts from SnapTrade), delete. Closed and CARD/MSB accounts filtered out
-- **Account sanitization** — `SyncedAccount` (collection `synced_accounts`) stores per-account sanitized transaction history as an embedded `adjustedTransactions` array. On first sync of any brokerage account, a **rebuild** runs automatically: fetches current positions + cash balance from SnapTrade, diffs against raw transaction history, and inserts synthetic transactions (`synthetic: true`) to fill gaps (in-kind transfers, cash discrepancies). Synthetic transactions use real `side` types (`buy`, `sell`, `deposit`, `withdrawal`). After rebuild, replaying all adjusted transactions from earliest to latest produces the exact current holdings + cash.
-- **Manual rebuild** — `POST /snaptrade/accounts/:accountId/rebuild` clears the account's adjusted transactions, re-fetches all activities + positions from SnapTrade, recomputes synthetic transactions, and drops all downstream strategy transactions that originated from this account. Affected strategies get `transactionsVersion` bumped. On next strategy sync or visit, transactions are re-copied from the rebuilt account.
-- **Two-step sync** — (1) `syncAccount`: fetch SnapTrade activities → dedup → append to `SyncedAccount.adjustedTransactions`, rebuild if first time. (2) `syncStrategy`: for each configured account, call `syncAccount`, then copy filtered adjusted transactions to strategy (dedup by `accountTransactionId`).
+- **Account sanitization** — `SyncedAccount` stores `rawTransactions` (SnapTrade activities mapped to our format, before any adjustments) and `adjustedTransactions` (sanitized). On first sync, a **rebuild** runs: fetches positions + cash from SnapTrade, diffs against raw history, inserts synthetic transactions (`synthetic: true`) to fill gaps (in-kind transfers, holdings discrepancies). Synthetic transactions use real `side` types (`buy`, `sell`, `deposit`, `withdrawal`). **Raw vs adjusted** — Users can compare raw (unmodified SnapTrade) and adjusted (our sanitized) transactions side-by-side in the Account Transactions modal to see what adjustments we made.
+- **Manual rebuild** — `POST /snaptrade/accounts/:accountId/rebuild` clears the account's raw and adjusted transactions, re-fetches all activities + positions from SnapTrade, maps activities to `rawTransactions` (before adjustments), runs rebuild (multileg expansion, synthetics, etc.) to produce `adjustedTransactions`, and drops all downstream strategy transactions that originated from this account. Affected strategies get `transactionsVersion` bumped. On next strategy sync or visit, transactions are re-copied from the rebuilt account.
+- **Two-step sync** — (1) `syncAccount`: fetch SnapTrade activities → dedup → map and append to `adjustedTransactions`, append same to `rawTransactions` (raw = mapped before rebuild adjustments). Rebuild if first time. (2) `syncStrategy`: for each configured account, call `syncAccount`, then copy filtered adjusted transactions to strategy (dedup by `accountTransactionId`).
 
 **SnapTrade activity types** — Use original types from SnapTrade. Standard types (BUY, SELL, etc.) are normalized in `ACTIVITY_TYPE_MAP`; brokerage-native types (e.g. `FUNDS_CONVERSION`) pass through as-is (lowercased).
 
@@ -504,6 +505,10 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 Example lifecycle: `Sell $60P → Multileg($60P→$57P) → Multileg($57P→$55P) → $55P in holdings` expands to: `sell 1 $60P | buy 1 $60P + sell 1 $57P | buy 1 $57P + sell 1 $55P`.
 
 **Brokerage refresh before rebuild** — `rebuildAccountFull` calls `refreshBrokerageAuthorization` before fetching activities to ensure transaction data is up-to-date (SnapTrade caches transactions and refreshes once daily).
+
+**Multi-currency and cash** — For margin accounts with multiple currencies (e.g. CAD, USD), treat cash per-currency. Store `currentCashByCurrency: Record<string, number>` from SnapTrade's balance response (each entry has `currency.code` and `cash`). Do not create synthetic deposit/withdrawal transactions; use SnapTrade's current balance directly for display. Deposit/transfer transactions stay as-is; they do not affect holdings. Rebuild focuses on holdings matching only (equity + options).
+
+**Account Transactions modal** — Two columns: **Raw Transactions** (from `rawTransactions` — unmodified SnapTrade data) and **Adjusted Transactions** (from `adjustedTransactions` — sanitized). Users compare to see our adjustments. **Derived holdings cash** — Uses SnapTrade balance (`currentCashByCurrency`) only; we do not compute cash from transactions. Display per-currency cash (e.g. Cash (CAD), Cash (USD)). Segment control: All | CAD | USD to filter transactions and holdings by currency. Support negative balances (margin).
 
 **Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
 
