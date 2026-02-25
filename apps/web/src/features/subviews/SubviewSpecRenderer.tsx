@@ -529,45 +529,104 @@ function ContentRenderer({
         resolveColor('magenta-2') ?? '#F600FF',
         resolveColor('mint-2') ?? '#00FFA4',
       ];
+      const legendPayload = items.map((item, i) => ({
+        label: item.label,
+        value: item.value,
+        color: PIE_PALETTE[i % PIE_PALETTE.length],
+      }));
       inner = (
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, width: '100%', height: '100%' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart margin={{ top: 8, right: 8, bottom: 36, left: 8 }}>
-              <Pie
-                data={items}
-                dataKey="value"
-                nameKey="label"
-                cx="50%"
-                cy="48%"
-                innerRadius="55%"
-                outerRadius="92%"
-                paddingAngle={1}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            contain: 'layout',
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              width: '100%',
+              aspectRatio: '1.4',
+            }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <Pie
+                  data={items}
+                  dataKey="value"
+                  nameKey="label"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="55%"
+                  outerRadius="90%"
+                  paddingAngle={1}
+                  isAnimationActive={false}
+                >
+                  {items.map((_, i) => (
+                    <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} stroke="transparent" />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number, _: unknown, props: { payload?: { label?: string } }) => [`${v}%`, props.payload?.label ?? '']}
+                  contentStyle={{ backgroundColor: 'rgba(19, 19, 19, 0.85)', color: 'white', border: 'none', borderRadius: 4 }}
+                  itemStyle={{ color: 'white' }}
+                  labelStyle={{ color: 'white' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px 20px',
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingTop: 6,
+              paddingBottom: 4,
+            }}
+          >
+            {legendPayload.map((entry, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  minWidth: 0,
+                }}
               >
-                {items.map((_, i) => (
-                  <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} stroke="transparent" />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(v: number, _: unknown, props: { payload?: { label?: string } }) => [`${v}%`, props.payload?.label ?? '']}
-                contentStyle={{ backgroundColor: 'rgba(19, 19, 19, 0.85)', color: 'white', border: 'none', borderRadius: 4 }}
-                itemStyle={{ color: 'white' }}
-                labelStyle={{ color: 'white' }}
-              />
-              <Legend
-                layout="horizontal"
-                align="center"
-                verticalAlign="bottom"
-                wrapperStyle={{ paddingTop: 4 }}
-                formatter={(value, entry) => (
-                  <span style={{ color: 'var(--color-text-primary)', fontSize: 12 }}>
-                    {value} ({entry.payload?.value ?? 0}%)
-                  </span>
-                )}
-                iconType="square"
-                iconSize={10}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    backgroundColor: entry.color,
+                    borderRadius: 2,
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    color: 'var(--color-text-primary)',
+                    fontSize: 12,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {entry.label} ({entry.value}%)
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       );
     } else if (chart.type === 'pie' && items.length === 0) {
