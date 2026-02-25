@@ -118,7 +118,8 @@ def get_option_income_transactions(context, inputs):
                 positions[k]['option'] = opt
                 positions[k]['premium'] = positions[k]['premium'] + (tx.get('cashDelta') or 0)
 
-        elif side == 'buy_to_cover' and opt and opt.get('expiration'):
+        elif side in ('buy_to_cover', 'buy', 'option_assign', 'option_expire') and opt and opt.get('expiration'):
+            # SnapTrade/rebuild: 'buy' for close legs (rolls); 'buy_to_cover' for manual; assign/expire close short
             k = opt_key(opt, sym)
             if k and k in positions:
                 positions[k]['qty'] -= qty

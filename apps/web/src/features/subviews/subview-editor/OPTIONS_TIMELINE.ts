@@ -67,7 +67,8 @@ export const OPTIONS_TIMELINE: SubviewSpec = {
                 positions[k] = positions.get(k, {'qty': 0})
                 positions[k]['qty'] += qty
 
-        elif side == 'buy_to_cover' and opt and opt.get('expiration'):
+        elif side in ('buy_to_cover', 'buy', 'option_assign', 'option_expire') and opt and opt.get('expiration'):
+            # SnapTrade/rebuild: 'buy' for close legs; assign/expire close short
             k = opt_key(opt, sym)
             if k and k in positions:
                 positions[k]['qty'] -= qty

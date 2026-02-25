@@ -42,6 +42,79 @@ import { Pencil, Trash2, Repeat, X } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from 'recharts';
 
+function TimelineEventMarker({
+  left,
+  fillColor,
+  strokeColor,
+  circleSize,
+  dateShort,
+  tooltipText,
+  showTooltip,
+}: {
+  left: number;
+  fillColor: string;
+  strokeColor: string;
+  circleSize: number;
+  dateShort: string;
+  tooltipText: string;
+  showTooltip: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: `${left}%`,
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+      }}
+      onMouseEnter={() => showTooltip && setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {showTooltip && hover && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            marginBottom: 6,
+            padding: '4px 8px',
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'white',
+            backgroundColor: 'rgba(19, 19, 19, 0.9)',
+            borderRadius: 4,
+            whiteSpace: 'nowrap',
+            zIndex: 10,
+            pointerEvents: 'none',
+          }}
+        >
+          {tooltipText}
+        </div>
+      )}
+      <div
+        style={{
+          width: circleSize,
+          height: circleSize,
+          borderRadius: '50%',
+          backgroundColor: fillColor,
+          border: `2px solid ${strokeColor}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 8,
+          fontWeight: 600,
+          color: 'rgba(255,255,255,0.95)',
+        }}
+      >
+        {dateShort}
+      </div>
+    </div>
+  );
+}
+
 /** Custom bar shape: rounds top corners only when this segment is the top of the stack for this datum. */
 function StackedBarShape({
   x,
@@ -903,60 +976,21 @@ function ContentRenderer({
               const left =
                 segIdx >= 0 ? segmentStart + (day / daysInMonth) * (segmentEnd - segmentStart) : ((parseDate(e.date) - rangeStart) / rangeMs) * 100;
               const fillColor = resolveColor(e.color) ?? 'var(--color-chart-2)';
-              const tickerColors = e.tickerColors as Record<string, string> | undefined;
-              const getTickerColor = (t: string) =>
-                resolveColor(tickerColors?.[t] ?? e.tickerColor) ?? fillColor;
               const strokeColor = /^#[0-9a-fA-F]{6}$/.test(fillColor) ? blendHex(fillColor, '#ffffff', 0.4) : fillColor;
               const tickers = e.tickers ?? (e.ticker ? [e.ticker] : []);
               const circleSize = 14;
-              const tickerHeight = Math.max(tickers.length * 14, 1);
-              const gap = 4;
+              const tooltipText = tickers.length > 0 ? `${tickers.join(', ')} (${e.date})` : e.date;
               return (
-                <div
+                <TimelineEventMarker
                   key={`${e.date}-${tickers.join(',')}-${i}`}
-                  style={{
-                    position: 'absolute',
-                    left: `${left}%`,
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      marginBottom: gap,
-                    }}
-                  >
-                    {tickers.map((t) => (
-                      <span key={t} style={{ fontSize: 11, fontWeight: 500, color: getTickerColor(t), lineHeight: 1.2 }}>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                  <div
-                    style={{
-                      width: circleSize,
-                      height: circleSize,
-                      borderRadius: '50%',
-                      backgroundColor: fillColor,
-                      border: `2px solid ${strokeColor}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 8,
-                      fontWeight: 600,
-                      color: 'rgba(255,255,255,0.95)',
-                    }}
-                  >
-                    {e.dateShort ?? e.date.slice(8, 10) ?? e.date}
-                  </div>
-                  <div style={{ height: tickerHeight + gap }} aria-hidden />
-                </div>
+                  left={left}
+                  fillColor={fillColor}
+                  strokeColor={strokeColor}
+                  circleSize={circleSize}
+                  dateShort={e.dateShort ?? e.date.slice(8, 10) ?? e.date}
+                  tooltipText={tooltipText}
+                  showTooltip={tickers.length > 0}
+                />
               );
             })}
             </div>
@@ -1267,20 +1301,21 @@ export function SubviewSpecRenderer({
             const cells = getRowCells(row);
             const rowFlex = getRowFlex(row);
             const hasWeightedCell = cells.some((c) => c.weight != null || (c.flex && ('flex' in c.flex || 'flexGrow' in c.flex)));
-            const hasScalingChart = cells.some((c) =>
+            const hasScalingContent = cells.some((c) =>
               c.content?.some((item) => {
                 if ('Chart' in item) {
                   const t = (item as { Chart: { type?: string } }).Chart?.type;
                   return t === 'line' || t === 'bar' || t === 'timeline' || t === 'pie';
                 }
+                if ('Table' in item) return true;
                 return false;
               })
             );
             const rowBaseStyle: React.CSSProperties = {
               width: '100%',
               minWidth: '100%',
-              flex: hasWeightedCell && hasScalingChart ? 1 : undefined,
-              minHeight: hasWeightedCell && hasScalingChart ? 0 : undefined,
+              flex: hasWeightedCell && hasScalingContent ? 1 : undefined,
+              minHeight: hasWeightedCell && hasScalingContent ? 0 : undefined,
               alignItems: hasWeightedCell ? 'stretch' : 'flex-start',
               ...flexToStyle(rowFlex),
             };
