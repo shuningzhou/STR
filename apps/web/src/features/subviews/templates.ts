@@ -25,6 +25,7 @@ import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
 import { DIVIDEND_TABLE } from './subview-editor/DIVIDEND_TABLE';
 import { DIVIDEND_SUMMARY } from './subview-editor/DIVIDEND_SUMMARY';
 import { DIVIDENDS_TOTAL } from './subview-editor/DIVIDENDS_TOTAL';
+import { INTEREST_PAID_SUBVIEW } from './subview-editor/INTEREST_PAID_SUBVIEW';
 
 /** Subview template definition (Phase 4); spec-based (Phase 5) */
 export interface SubviewTemplate {
@@ -58,6 +59,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'unrealized-gain', name: 'Unrealized Gain', description: 'Unrealized gain: current holdings value minus book value', defaultSize: { w: 175, h: 40 }, categories: ['stock-etf'], spec: UNREALIZED_GAIN as unknown as SubviewSpec },
   { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 250, h: 40 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },
   { id: 'loan-interest', name: 'Loan Interest', description: 'APR and daily interest cost for margin loans', defaultSize: { w: 175, h: 40 }, categories: ['margin'], spec: LOAN_INTEREST_SUBVIEW as unknown as SubviewSpec },
+  { id: 'interest-paid', name: 'Interest Paid', description: 'Total interest paid for the strategy', defaultSize: { w: 175, h: 40 }, categories: ['margin', 'income'], spec: INTEREST_PAID_SUBVIEW as unknown as SubviewSpec },
   { id: 'loan', name: 'Loan', description: 'Current loan amount and loan as % of holdings value', defaultSize: { w: 175, h: 40 }, categories: ['margin'], spec: LOAN_SUBVIEW as unknown as SubviewSpec },
   { id: 'optimized-loan', name: 'Optimized Loan', description: 'Optimal loan based on target amplification with margin health gauge', defaultSize: { w: 380, h: 420 }, categories: ['margin'], spec: OPTIMIZED_LOAN as unknown as SubviewSpec },
   { id: 'chart-table', name: 'Chart & Table', description: 'Table and Chart (pie, line, bar) examples', defaultSize: { w: 800, h: 420 }, categories: ['example'], spec: CHART_TABLE_EXAMPLE as unknown as SubviewSpec },
