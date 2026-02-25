@@ -197,7 +197,24 @@ export function CanvasArea() {
             >
               <Database size={18} strokeWidth={1.5} />
             </button>
-            {isSynced ? (
+            <button
+              type="button"
+              className={floatingButton}
+              style={{
+                color: 'var(--color-text-primary)',
+              }}
+              onClick={handleOpenWallet}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Wallet settings"
+            >
+              <Wallet size={18} strokeWidth={1.5} />
+            </button>
+            {isSynced && (
               <button
                 type="button"
                 className={floatingButton}
@@ -215,24 +232,6 @@ export function CanvasArea() {
                 title={`Sync now${activeStrategy?.lastSyncedAt ? ` (last: ${new Date(activeStrategy.lastSyncedAt).toLocaleDateString()})` : ''}`}
               >
                 <RefreshCw size={18} strokeWidth={1.5} className={syncStrategy.isPending ? 'animate-spin' : ''} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={floatingButton}
-                style={{
-                  color: 'var(--color-text-primary)',
-                }}
-                onClick={handleOpenWallet}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-                title="Wallet settings"
-              >
-                <Wallet size={18} strokeWidth={1.5} />
               </button>
             )}
           </div>

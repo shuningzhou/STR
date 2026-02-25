@@ -32,6 +32,7 @@ const ACTIVITY_TYPE_MAP: Record<string, string> = {
   OPTIONS_MULTILEG: 'options_multileg',
   SPLIT: 'split',
   ADJUSTMENT: 'adjustment',
+  REFUND: 'refund',
 };
 
 @Injectable()
@@ -885,11 +886,13 @@ export class SnaptradeService {
     }
 
     const typeFilter = strategy.snaptradeConfig.transactionTypes;
+    const OPTION_SIDES = ['option_exercise', 'option_assign', 'option_expire', 'options_multileg'];
     if (typeFilter && typeFilter.length > 0) {
       allAdjusted = allAdjusted.filter((tx) => {
         const side = (tx.side ?? '').toLowerCase();
         if (typeFilter.some((t) => t.toLowerCase() === side)) return true;
         if (typeFilter.some((t) => t.toLowerCase() === 'transfer') && (side === 'transfer_in' || side === 'transfer_out')) return true;
+        if (typeFilter.some((t) => t.toLowerCase() === 'option') && OPTION_SIDES.includes(side)) return true;
         return false;
       });
     }
@@ -1030,11 +1033,16 @@ export class SnaptradeService {
 
     const assetType = this.deriveAssetType(activity);
 
+    let cashDelta = (activity as any).amount ?? 0;
+    if (side === 'interest') {
+      cashDelta = -Math.abs(cashDelta);
+    }
+
     return {
       side,
       quantity: Math.abs((activity as any).units ?? 0),
       price: (activity as any).price ?? 0,
-      cashDelta: (activity as any).amount ?? 0,
+      cashDelta,
       currency,
       timestamp: (activity as any).trade_date ?? new Date().toISOString(),
       instrumentSymbol,

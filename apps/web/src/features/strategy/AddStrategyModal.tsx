@@ -8,7 +8,7 @@ import { IconPicker } from '@/components/IconPicker';
 const CURRENCIES = ['USD', 'CAD'] as const;
 const MODES = ['Manual', 'Synced'] as const;
 
-/** All SnapTrade transaction types (normalized values matching backend tx.side) */
+/** All SnapTrade transaction types (normalized values matching backend tx.side). Option = consolidated filter for all option-related sides. */
 const TRANSACTION_TYPES = [
   { value: 'buy', label: 'Buy' },
   { value: 'sell', label: 'Sell' },
@@ -17,16 +17,9 @@ const TRANSACTION_TYPES = [
   { value: 'withdrawal', label: 'Withdrawal' },
   { value: 'fee', label: 'Fee' },
   { value: 'interest', label: 'Interest' },
-  { value: 'tax', label: 'Tax' },
-  { value: 'transfer', label: 'Transfer' },
-  { value: 'transfer_in', label: 'External Transfer In' },
-  { value: 'transfer_out', label: 'External Transfer Out' },
-  { value: 'option_exercise', label: 'Option Exercise' },
-  { value: 'option_assign', label: 'Option Assignment' },
-  { value: 'option_expire', label: 'Option Expiration' },
-  { value: 'options_multileg', label: 'Options Multileg (Rolls)' },
+  { value: 'refund', label: 'Refund' },
+  { value: 'option', label: 'Option' },
   { value: 'split', label: 'Split' },
-  { value: 'adjustment', label: 'Adjustment' },
 ] as const;
 
 const ASSET_TYPES = [
@@ -42,9 +35,7 @@ export function AddStrategyModal() {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'Manual' | 'Synced'>('Manual');
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(
-    TRANSACTION_TYPES.map((t) => t.value),
-  );
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>([]);
 
@@ -109,7 +100,7 @@ export function AddStrategyModal() {
     setError(null);
     setMode('Manual');
     setSelectedAccounts([]);
-    setSelectedTypes(TRANSACTION_TYPES.map((t) => t.value));
+    setSelectedTypes([]);
     setSelectedCurrencies([]);
     setSelectedAssetTypes([]);
   };
@@ -279,7 +270,7 @@ export function AddStrategyModal() {
             <div style={{ marginBottom: 20 }}>
               <Label>Transaction Types</Label>
               <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                Select which transaction types to sync. Empty = all.
+                Select which transaction types to sync. Empty = all. All filters disabled by default.
               </p>
               <div
                 className="flex flex-wrap mt-1"

@@ -117,7 +117,7 @@ export function WalletSettingsModal() {
   useEffect(() => {
     if (strategy) {
       setLoanInterest(String(strategy.loanInterest ?? ''));
-      setMarginRequirement(String(strategy.marginRequirement ?? ''));
+      setMarginRequirement(String(strategy.marginRequirement ?? 30));
       setCollateralSecurities(String(strategy.collateralSecurities ?? ''));
       setCollateralCash(String(strategy.collateralCash ?? ''));
       setCollateralRequirement(String(strategy.collateralRequirement ?? ''));
@@ -213,7 +213,7 @@ export function WalletSettingsModal() {
                 type="number"
                 value={marginRequirement}
                 onChange={(e) => setMarginRequirement(e.target.value)}
-                placeholder="0"
+                placeholder="30"
                 style={inputStyle}
               />
               <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>%</span>

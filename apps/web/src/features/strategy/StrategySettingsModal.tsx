@@ -17,17 +17,13 @@ const TRANSACTION_TYPES = [
   { value: 'withdrawal', label: 'Withdrawal' },
   { value: 'fee', label: 'Fee' },
   { value: 'interest', label: 'Interest' },
-  { value: 'tax', label: 'Tax' },
-  { value: 'transfer', label: 'Transfer' },
-  { value: 'transfer_in', label: 'External Transfer In' },
-  { value: 'transfer_out', label: 'External Transfer Out' },
-  { value: 'option_exercise', label: 'Option Exercise' },
-  { value: 'option_assign', label: 'Option Assignment' },
-  { value: 'option_expire', label: 'Option Expiration' },
-  { value: 'options_multileg', label: 'Options Multileg (Rolls)' },
+  { value: 'refund', label: 'Refund' },
+  { value: 'option', label: 'Option' },
   { value: 'split', label: 'Split' },
-  { value: 'adjustment', label: 'Adjustment' },
 ] as const;
+
+const LEGACY_OPTION_TYPES = ['option_exercise', 'option_assign', 'option_expire', 'options_multileg'];
+const REMOVED_TYPES = ['transfer', 'transfer_in', 'transfer_out', 'tax', 'adjustment'];
 
 const ASSET_TYPES = [
   { value: 'stock', label: 'Stock' },
@@ -105,12 +101,16 @@ export function StrategySettingsModal() {
       const cfg = strategy.snaptradeConfig;
       if (cfg) {
         setSelectedAccounts(cfg.accountIds ?? []);
-        setSelectedTypes(cfg.transactionTypes?.length ? cfg.transactionTypes : TRANSACTION_TYPES.map((t) => t.value));
+        const types = cfg.transactionTypes ?? [];
+        const filtered = types.filter((t) => !LEGACY_OPTION_TYPES.includes(t) && !REMOVED_TYPES.includes(t));
+        const hasOption = types.some((t) => t === 'option' || LEGACY_OPTION_TYPES.includes(t));
+        const normalized = hasOption ? [...filtered, 'option'] : filtered;
+        setSelectedTypes(normalized);
         setSelectedCurrencies(cfg.currencies ?? []);
         setSelectedAssetTypes(cfg.assetTypes ?? []);
       } else {
         setSelectedAccounts([]);
-        setSelectedTypes(TRANSACTION_TYPES.map((t) => t.value));
+        setSelectedTypes([]);
         setSelectedCurrencies([]);
         setSelectedAssetTypes([]);
       }
