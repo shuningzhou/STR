@@ -45,6 +45,8 @@ export class StrategyInputConfig {
 export class SnaptradeConfig {
   @Prop({ type: [String], default: [] }) accountIds!: string[];
   @Prop({ type: [String], default: [] }) transactionTypes!: string[];
+  @Prop({ type: [String], default: [] }) currencies!: string[];
+  @Prop({ type: [String], default: [] }) assetTypes!: string[];
 }
 
 /* ── Strategy ─────────────────────────────────────── */

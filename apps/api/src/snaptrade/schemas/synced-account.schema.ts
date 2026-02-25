@@ -31,6 +31,8 @@ export class AdjustedTransaction {
   @Prop({ type: AdjustedOptionData, default: null }) option!: AdjustedOptionData | null;
   @Prop() snaptradeActivityId?: string;
   @Prop({ default: false }) synthetic!: boolean;
+  /** Asset type: 'stock' | 'etf' | 'option' — derived from SnapTrade symbol.type or option_symbol */
+  @Prop({ default: 'stock' }) assetType!: string;
 }
 
 export const AdjustedTransactionSchema = SchemaFactory.createForClass(AdjustedTransaction);

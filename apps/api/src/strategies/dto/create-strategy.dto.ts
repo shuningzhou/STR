@@ -4,6 +4,8 @@ import { Type } from 'class-transformer';
 class SnaptradeConfigDto {
   @IsArray() @IsString({ each: true }) accountIds!: string[];
   @IsArray() @IsString({ each: true }) transactionTypes!: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) currencies?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) assetTypes?: string[];
 }
 
 export class CreateStrategyDto {

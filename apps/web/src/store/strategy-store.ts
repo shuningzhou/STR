@@ -86,7 +86,7 @@ export interface Strategy {
   transactions?: StrategyTransaction[];
   subviews: Subview[];
   mode?: 'manual' | 'synced';
-  snaptradeConfig?: { accountIds: string[]; transactionTypes: string[] };
+  snaptradeConfig?: { accountIds: string[]; transactionTypes: string[]; currencies?: string[]; assetTypes?: string[] };
   lastSyncedAt?: string;
 }
 

@@ -640,6 +640,7 @@ export class SnaptradeService {
           instrumentSymbol: oldParsed.underlying,
           option: oldParsed.option,
           synthetic: false,
+          assetType: 'option',
           _chainResolved: true,
         });
 
@@ -653,6 +654,7 @@ export class SnaptradeService {
           instrumentSymbol: newParsed.underlying,
           option: newParsed.option,
           synthetic: false,
+          assetType: 'option',
           _chainResolved: true,
         });
 
@@ -816,6 +818,7 @@ export class SnaptradeService {
         instrumentSymbol: sym,
         option: null,
         synthetic: true,
+        assetType: 'stock',
       } as any);
     }
 
@@ -836,6 +839,7 @@ export class SnaptradeService {
         instrumentSymbol: parsed.underlying,
         option: parsed.option,
         synthetic: true,
+        assetType: 'option',
       } as any);
     }
 
@@ -883,9 +887,26 @@ export class SnaptradeService {
     const typeFilter = strategy.snaptradeConfig.transactionTypes;
     if (typeFilter && typeFilter.length > 0) {
       allAdjusted = allAdjusted.filter((tx) => {
-        if (typeFilter.includes(tx.side)) return true;
-        if (typeFilter.includes('transfer') && (tx.side === 'transfer_in' || tx.side === 'transfer_out')) return true;
+        const side = (tx.side ?? '').toLowerCase();
+        if (typeFilter.some((t) => t.toLowerCase() === side)) return true;
+        if (typeFilter.some((t) => t.toLowerCase() === 'transfer') && (side === 'transfer_in' || side === 'transfer_out')) return true;
         return false;
+      });
+    }
+
+    const currencyFilter = strategy.snaptradeConfig.currencies;
+    if (currencyFilter && currencyFilter.length > 0) {
+      allAdjusted = allAdjusted.filter((tx) => {
+        const ccy = (tx.currency ?? 'USD').toUpperCase();
+        return currencyFilter.some((c) => c.toUpperCase() === ccy);
+      });
+    }
+
+    const assetTypeFilter = strategy.snaptradeConfig.assetTypes;
+    if (assetTypeFilter && assetTypeFilter.length > 0) {
+      allAdjusted = allAdjusted.filter((tx) => {
+        const at = (tx.assetType ?? (tx.option ? 'option' : 'stock')).toLowerCase();
+        return assetTypeFilter.some((a) => a.toLowerCase() === at);
       });
     }
 
@@ -965,6 +986,15 @@ export class SnaptradeService {
     return activities;
   }
 
+  private deriveAssetType(activity: any): string {
+    const optionObj = (activity as any).option_symbol;
+    if (optionObj) return 'option';
+    const sym = (activity as any).symbol;
+    const typeCode = (sym?.type?.code ?? sym?.type ?? '').toString().toLowerCase();
+    if (typeCode === 'et' || typeCode === 'etf') return 'etf';
+    return 'stock';
+  }
+
   private mapActivity(activity: any): {
     side: string;
     quantity: number;
@@ -974,6 +1004,7 @@ export class SnaptradeService {
     timestamp: string;
     instrumentSymbol: string;
     option: any;
+    assetType: string;
   } {
     const rawType = ((activity as any).type ?? '').toUpperCase();
     const side = ACTIVITY_TYPE_MAP[rawType] ?? (rawType ? rawType.toLowerCase() : 'adjustment');
@@ -997,6 +1028,8 @@ export class SnaptradeService {
       };
     }
 
+    const assetType = this.deriveAssetType(activity);
+
     return {
       side,
       quantity: Math.abs((activity as any).units ?? 0),
@@ -1006,6 +1039,7 @@ export class SnaptradeService {
       timestamp: (activity as any).trade_date ?? new Date().toISOString(),
       instrumentSymbol,
       option,
+      assetType,
     };
   }
 

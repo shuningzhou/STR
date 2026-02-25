@@ -16,7 +16,7 @@ export async function createStrategy(dto: {
   marginAccountEnabled?: boolean;
   collateralEnabled?: boolean;
   mode?: 'manual' | 'synced';
-  snaptradeConfig?: { accountIds: string[]; transactionTypes: string[] };
+  snaptradeConfig?: { accountIds: string[]; transactionTypes: string[]; currencies?: string[]; assetTypes?: string[] };
 }): Promise<Strategy> {
   const raw = await apiFetch<Record<string, unknown>>('/strategies', {
     method: 'POST',
