@@ -7,6 +7,7 @@ import { UpdateStrategyDto } from './dto/update-strategy.dto';
 import { AddSubviewDto, UpdateSubviewDto, BatchUpdateSubviewPositionsDto, SaveCacheDto } from './dto/subview.dto';
 import { Wallet, WalletDocument } from '../wallets/wallet.schema';
 import { Transaction, TransactionDocument } from '../transactions/transaction.schema';
+import { SnaptradeService } from '../snaptrade/snaptrade.service';
 
 @Injectable()
 export class StrategiesService {
@@ -14,6 +15,7 @@ export class StrategiesService {
     @InjectModel(Strategy.name) private strategyModel: Model<StrategyDocument>,
     @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
     @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
+    private snaptradeService: SnaptradeService,
   ) {}
 
   async findAll(userId: string) {
@@ -61,6 +63,18 @@ export class StrategiesService {
       .lean()
       .exec();
     if (!doc) throw new NotFoundException('Strategy not found');
+
+    if (dto.snaptradeConfig != null && doc.mode === 'synced') {
+      const deleted = await this.transactionModel.deleteMany({
+        strategyId: id,
+        accountTransactionId: { $exists: true, $ne: null },
+      });
+      if (deleted.deletedCount > 0) {
+        await this.strategyModel.updateOne({ _id: id, userId }, { $inc: { transactionsVersion: 1 } });
+      }
+      await this.snaptradeService.syncStrategy(id, userId);
+    }
+
     return doc;
   }
 

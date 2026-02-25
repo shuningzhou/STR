@@ -3,11 +3,37 @@ import { Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import type { StrategyInputConfig } from '@/store/strategy-store';
 import { IconPicker } from '@/components/IconPicker';
 import { useStrategyStore } from '@/store/strategy-store';
-import { useStrategies, useUpdateStrategy, useDeleteStrategy, useMoveStrategy } from '@/api/hooks';
+import { useStrategies, useUpdateStrategy, useDeleteStrategy, useMoveStrategy, useSnaptradeAccounts } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
 
 const CURRENCIES = ['USD', 'CAD'] as const;
+
+const TRANSACTION_TYPES = [
+  { value: 'buy', label: 'Buy' },
+  { value: 'sell', label: 'Sell' },
+  { value: 'dividend', label: 'Dividend' },
+  { value: 'deposit', label: 'Deposit' },
+  { value: 'withdrawal', label: 'Withdrawal' },
+  { value: 'fee', label: 'Fee' },
+  { value: 'interest', label: 'Interest' },
+  { value: 'tax', label: 'Tax' },
+  { value: 'transfer', label: 'Transfer' },
+  { value: 'transfer_in', label: 'External Transfer In' },
+  { value: 'transfer_out', label: 'External Transfer Out' },
+  { value: 'option_exercise', label: 'Option Exercise' },
+  { value: 'option_assign', label: 'Option Assignment' },
+  { value: 'option_expire', label: 'Option Expiration' },
+  { value: 'options_multileg', label: 'Options Multileg (Rolls)' },
+  { value: 'split', label: 'Split' },
+  { value: 'adjustment', label: 'Adjustment' },
+] as const;
+
+const ASSET_TYPES = [
+  { value: 'stock', label: 'Stock' },
+  { value: 'etf', label: 'ETF' },
+  { value: 'option', label: 'Options' },
+] as const;
 
 const INPUT_TYPES = [
   { value: 'time_range', label: 'Time range' },
@@ -50,8 +76,13 @@ export function StrategySettingsModal() {
   const [collateralEnabled, setCollateralEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
+  const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>([]);
 
   const { data: strategies = [] } = useStrategies();
+  const { data: snapAccounts = [] } = useSnaptradeAccounts();
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const updateStrategyMut = useUpdateStrategy();
   const deleteStrategyMut = useDeleteStrategy();
@@ -60,6 +91,7 @@ export function StrategySettingsModal() {
   const { strategySettingsModalOpen, setStrategySettingsModalOpen } = useUIStore();
 
   const strategy = strategies.find((s) => s.id === activeStrategyId);
+  const isSynced = strategy?.mode === 'synced';
 
   const [icon, setIcon] = useState<string | undefined>('');
 
@@ -70,6 +102,18 @@ export function StrategySettingsModal() {
       setMarginAccountEnabled(strategy.marginAccountEnabled ?? false);
       setCollateralEnabled(strategy.collateralEnabled ?? false);
       setIcon(strategy.icon ?? '');
+      const cfg = strategy.snaptradeConfig;
+      if (cfg) {
+        setSelectedAccounts(cfg.accountIds ?? []);
+        setSelectedTypes(cfg.transactionTypes?.length ? cfg.transactionTypes : TRANSACTION_TYPES.map((t) => t.value));
+        setSelectedCurrencies(cfg.currencies ?? []);
+        setSelectedAssetTypes(cfg.assetTypes ?? []);
+      } else {
+        setSelectedAccounts([]);
+        setSelectedTypes(TRANSACTION_TYPES.map((t) => t.value));
+        setSelectedCurrencies([]);
+        setSelectedAssetTypes([]);
+      }
     }
     setDeleteConfirm(false);
     setError(null);
@@ -84,18 +128,31 @@ export function StrategySettingsModal() {
         setError('Name is required');
         return;
       }
+      if (isSynced && selectedAccounts.length === 0) {
+        setError('Select at least one brokerage account');
+        return;
+      }
       setError(null);
-      updateStrategyMut.mutate({
+      const dto: Record<string, unknown> = {
         id: strategy.id,
         name: trimmed,
         baseCurrency,
         icon: icon || undefined,
         marginAccountEnabled,
         collateralEnabled,
-      });
+      };
+      if (isSynced) {
+        (dto as any).snaptradeConfig = {
+          accountIds: selectedAccounts,
+          transactionTypes: selectedTypes,
+          currencies: selectedCurrencies,
+          assetTypes: selectedAssetTypes,
+        };
+      }
+      updateStrategyMut.mutate(dto);
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, updateStrategyMut, setStrategySettingsModalOpen]
+    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, updateStrategyMut, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -213,7 +270,7 @@ export function StrategySettingsModal() {
   const strategyInputs = strategy.inputs ?? [];
 
   return (
-    <Modal title="Strategy settings" onClose={handleClose} className="w-[520px] max-w-[95vw]">
+    <Modal title="Strategy settings" onClose={handleClose} size={isSynced ? '2xl' : 'default'} className={!isSynced ? 'w-[520px] max-w-[95vw]' : undefined}>
       <form onSubmit={handleSubmit}>
         {/* Name and Icon on same row */}
         <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
@@ -281,6 +338,177 @@ export function StrategySettingsModal() {
             )}
           </div>
         </div>
+
+        {/* Synced strategy: broker accounts + filters */}
+        {isSynced && (
+          <>
+            <div style={{ marginBottom: 20 }}>
+              <Label>Brokerage Accounts</Label>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
+                Select which accounts to sync transactions from.
+              </p>
+              {snapAccounts.length === 0 ? (
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 13, marginTop: 8 }}>
+                  No connected accounts. Connect a brokerage in Account settings first.
+                </p>
+              ) : (
+                <div
+                  className="mt-1 overflow-auto"
+                  style={{
+                    maxHeight: 240,
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-medium)',
+                    fontSize: 'var(--font-size-body)',
+                  }}
+                >
+                  <table className="w-full border-collapse" style={{ tableLayout: 'auto', minWidth: 600 }}>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                      <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
+                        <th style={{ width: 36, padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left' }} />
+                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Institution</th>
+                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Name</th>
+                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Currency</th>
+                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {snapAccounts.map((acct) => {
+                        const checked = selectedAccounts.includes(acct.accountId);
+                        return (
+                          <tr
+                            key={acct.accountId}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedAccounts((prev) => prev.includes(acct.accountId) ? prev.filter((id) => id !== acct.accountId) : [...prev, acct.accountId])}
+                            onKeyDown={(e) => e.key === 'Enter' && setSelectedAccounts((prev) => prev.includes(acct.accountId) ? prev.filter((id) => id !== acct.accountId) : [...prev, acct.accountId])}
+                            style={{
+                              cursor: 'pointer',
+                              backgroundColor: checked ? 'var(--color-bg-hover)' : 'transparent',
+                              borderBottom: '1px solid var(--color-table-border)',
+                            }}
+                          >
+                            <td style={{ padding: 6, width: 36, verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => setSelectedAccounts((prev) => prev.includes(acct.accountId) ? prev.filter((id) => id !== acct.accountId) : [...prev, acct.accountId])}
+                                onClick={(e) => e.stopPropagation()}
+                                className="accent-[var(--color-active)]"
+                              />
+                            </td>
+                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.institutionName || '—'}</td>
+                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.name || '—'}</td>
+                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.currency || '—'}</td>
+                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.type || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <Label>Transaction Types</Label>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
+                Select which transaction types to sync. Empty = all.
+              </p>
+              <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
+                {TRANSACTION_TYPES.map((t) => {
+                  const checked = selectedTypes.includes(t.value);
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setSelectedTypes((prev) => prev.includes(t.value) ? prev.filter((x) => x !== t.value) : [...prev, t.value])}
+                      className="font-medium transition-colors cursor-pointer shrink-0"
+                      style={{
+                        minHeight: 'var(--control-height)',
+                        paddingLeft: 'var(--space-gap)',
+                        paddingRight: 'var(--space-gap)',
+                        fontSize: 'var(--font-size-body)',
+                        borderRadius: 'var(--radius-medium)',
+                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
+                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
+                      }}
+                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
+                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <Label>Currency Filter</Label>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
+                Only sync transactions in these currencies. Empty = all.
+              </p>
+              <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
+                {CURRENCIES.map((ccy) => {
+                  const checked = selectedCurrencies.includes(ccy);
+                  return (
+                    <button
+                      key={ccy}
+                      type="button"
+                      onClick={() => setSelectedCurrencies((prev) => prev.includes(ccy) ? prev.filter((c) => c !== ccy) : [...prev, ccy])}
+                      className="font-medium transition-colors cursor-pointer shrink-0"
+                      style={{
+                        minHeight: 'var(--control-height)',
+                        paddingLeft: 'var(--space-gap)',
+                        paddingRight: 'var(--space-gap)',
+                        fontSize: 'var(--font-size-body)',
+                        borderRadius: 'var(--radius-medium)',
+                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
+                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
+                      }}
+                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
+                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
+                    >
+                      {ccy}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <Label>Asset Type Filter</Label>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
+                Only sync these asset types. Empty = all.
+              </p>
+              <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
+                {ASSET_TYPES.map((at) => {
+                  const checked = selectedAssetTypes.includes(at.value);
+                  return (
+                    <button
+                      key={at.value}
+                      type="button"
+                      onClick={() => setSelectedAssetTypes((prev) => prev.includes(at.value) ? prev.filter((a) => a !== at.value) : [...prev, at.value])}
+                      className="font-medium transition-colors cursor-pointer shrink-0"
+                      style={{
+                        minHeight: 'var(--control-height)',
+                        paddingLeft: 'var(--space-gap)',
+                        paddingRight: 'var(--space-gap)',
+                        fontSize: 'var(--font-size-body)',
+                        borderRadius: 'var(--radius-medium)',
+                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
+                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
+                      }}
+                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
+                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
+                    >
+                      {at.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Strategy order */}
         {strategies.length > 1 && (
