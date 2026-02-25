@@ -29,7 +29,7 @@ const ASSET_TYPES = [
 
 const OPTION_STRATEGIES = [
   { value: 'all', label: 'All options' },
-  { value: 'income_only', label: 'Covered calls & Secured puts only' },
+  { value: 'income_only', label: 'Covered calls & Secured puts' },
   { value: 'calls_puts', label: 'Long calls & puts' },
 ] as const;
 
@@ -145,55 +145,12 @@ export function AddStrategyModal() {
   if (!addStrategyModalOpen) return null;
 
   return (
-    <Modal title="Create strategy" onClose={handleClose} size={isSynced ? 'lg' : 'default'}>
+    <Modal title="Create strategy" onClose={handleClose} size={isSynced ? '2xl' : 'default'}>
       <form onSubmit={handleSubmit}>
-        {/* Mode selector */}
-        <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
-          <Label inline>Type</Label>
-          <div style={{ width: 180 }}>
-            <SegmentControl value={mode} options={MODES} onChange={(m) => setMode(m)} />
-          </div>
-        </div>
-
-        {/* Name and Icon on same row */}
-        <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
-          <div className="flex-1 min-w-0">
-            <Label htmlFor="strategy-name">Name</Label>
-            <div className="mt-1">
-              <Input
-                id="strategy-name"
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setError(null);
-                }}
-                placeholder={isSynced ? 'e.g. My Questrade TFSA' : 'e.g. Growth Portfolio'}
-                autoFocus
-                error={error ?? undefined}
-              />
-            </div>
-          </div>
-          <div style={{ minWidth: 160 }}>
-            <IconPicker value={icon} onChange={(v) => setIcon(v)} label="Icon" placeholder="Default" showColorPicker={false} defaultIcon="LayoutDashboard" />
-          </div>
-        </div>
-
-        {/* Base currency */}
-        <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
-          <Label htmlFor="base-currency" inline>Base currency</Label>
-          <div style={{ width: 150 }}>
-            <SegmentControl
-              value={baseCurrency}
-              options={CURRENCIES}
-              onChange={(c) => setBaseCurrency(c)}
-            />
-          </div>
-        </div>
-
-        {/* Synced-specific: account picker + type filter */}
-        {isSynced && (
-          <>
+        {isSynced ? (
+          <div className="flex flex-row-reverse gap-6 min-h-0" style={{ minHeight: 360 }}>
+            {/* Right: Brokerage accounts + filters - flex to fill remaining space */}
+            <div className="flex-1 min-w-0 flex flex-col overflow-auto">
             <div style={{ marginBottom: 20 }}>
               <Label>Brokerage Accounts</Label>
               {snapAccounts.length === 0 ? (
@@ -207,7 +164,7 @@ export function AddStrategyModal() {
                 <div
                   className="mt-1 overflow-auto"
                   style={{
-                    maxHeight: 480,
+                    maxHeight: 240,
                     border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-medium)',
                     fontSize: 'var(--font-size-body)',
@@ -395,23 +352,127 @@ export function AddStrategyModal() {
                 </div>
               )}
             </div>
+            </div>
+
+            {/* Left: Type, Name, Icon, Base currency - fixed width */}
+            <div className="flex-shrink-0 flex flex-col overflow-auto" style={{ width: 420, borderRight: '1px solid var(--color-border)', paddingRight: 24 }}>
+              <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
+                <Label inline>Type</Label>
+                <div style={{ width: 180 }}>
+                  <SegmentControl value={mode} options={MODES} onChange={(m) => setMode(m)} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="strategy-name">Name</Label>
+                  <div className="mt-1">
+                    <Input
+                      id="strategy-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setError(null);
+                      }}
+                      placeholder="e.g. My Questrade TFSA"
+                      autoFocus
+                      error={error ?? undefined}
+                    />
+                  </div>
+                </div>
+                <div style={{ minWidth: 160 }}>
+                  <IconPicker value={icon} onChange={(v) => setIcon(v)} label="Icon" placeholder="Default" showColorPicker={false} defaultIcon="LayoutDashboard" />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
+                <Label htmlFor="base-currency" inline>Base currency</Label>
+                <div style={{ width: 150 }}>
+                  <SegmentControl
+                    value={baseCurrency}
+                    options={CURRENCIES}
+                    onChange={(c) => setBaseCurrency(c)}
+                  />
+                </div>
+              </div>
+
+              {/* Footer - inside right column when synced */}
+              <div className="flex gap-3" style={{ marginTop: 'auto', marginBottom: 0 }}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleClose}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" className="flex-1">
+                  Create
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
+              <Label inline>Type</Label>
+              <div style={{ width: 180 }}>
+                <SegmentControl value={mode} options={MODES} onChange={(m) => setMode(m)} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="strategy-name">Name</Label>
+                <div className="mt-1">
+                  <Input
+                    id="strategy-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="e.g. Growth Portfolio"
+                    autoFocus
+                    error={error ?? undefined}
+                  />
+                </div>
+              </div>
+              <div style={{ minWidth: 160 }}>
+                <IconPicker value={icon} onChange={(v) => setIcon(v)} label="Icon" placeholder="Default" showColorPicker={false} defaultIcon="LayoutDashboard" />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
+              <Label htmlFor="base-currency" inline>Base currency</Label>
+              <div style={{ width: 150 }}>
+                <SegmentControl
+                  value={baseCurrency}
+                  options={CURRENCIES}
+                  onChange={(c) => setBaseCurrency(c)}
+                />
+              </div>
+            </div>
           </>
         )}
 
-        {/* Footer */}
-        <div className="flex gap-3" style={{ marginTop: 20 }}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleClose}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" className="flex-1">
-            Create
-          </Button>
-        </div>
+        {!isSynced && (
+          <div className="flex gap-3" style={{ marginTop: 20 }}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleClose}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" className="flex-1">
+              Create
+            </Button>
+          </div>
+        )}
       </form>
     </Modal>
   );
