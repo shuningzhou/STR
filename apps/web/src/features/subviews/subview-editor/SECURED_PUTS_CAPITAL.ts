@@ -72,7 +72,8 @@ export const SECURED_PUTS_CAPITAL: SubviewSpec = {
                 positions[k] = positions.get(k, {'qty': 0})
                 positions[k]['qty'] += qty
 
-        elif side == 'buy_to_cover' and opt and opt.get('expiration'):
+        elif side in ('buy_to_cover', 'buy', 'option_assign', 'option_expire') and opt and opt.get('expiration'):
+            # SnapTrade/rebuild: 'buy' for close legs; assign/expire close short
             cp = (opt.get('callPut') or 'call').lower()
             if cp != 'put':
                 continue
@@ -83,12 +84,15 @@ export const SECURED_PUTS_CAPITAL: SubviewSpec = {
                     del positions[k]
 
     total = 0.0
+    breakdown_lines = []
     for (sym, exp, strike, cp), pos in positions.items():
         if pos['qty'] <= 0:
             continue
-        total += float(strike) * 100 * pos['qty']
+        cap = float(strike) * 100 * pos['qty']
+        total += cap
+        breakdown_lines.append("\{0\} \$\{1\} × \{2\} = \$\{3:,.2f\}".format(sym, strike, pos['qty'], cap))
 
-    return round(total, 2)
+    return {"value": round(total, 2), "breakdown": "\\n".join(breakdown_lines) if breakdown_lines else None}
 `,
   functions: ['get_secured_puts_capital'],
 };

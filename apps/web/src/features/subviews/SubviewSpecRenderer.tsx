@@ -42,6 +42,35 @@ import { Pencil, Trash2, Repeat, X } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from 'recharts';
 
+function NumberWithTooltip({
+  display,
+  tooltipText,
+  contentColor,
+  textColor,
+  n,
+}: {
+  display: string;
+  tooltipText: string;
+  contentColor?: string;
+  textColor?: string;
+  n: { size?: string; bold?: boolean; italic?: boolean };
+}) {
+  const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
+  return (
+    <span
+      title={tooltipText}
+      style={{
+        color: contentColor ?? textColor ?? 'var(--color-text-primary)',
+        fontSize: size,
+        fontWeight: n.bold ? 600 : 400,
+        fontStyle: n.italic ? 'italic' : undefined,
+      }}
+    >
+      {display}
+    </span>
+  );
+}
+
 function TimelineEventMarker({
   left,
   fillColor,
@@ -380,35 +409,45 @@ function ContentRenderer({
   if ('number' in item) {
     const val = item.number.value;
     const raw =
-      typeof val === 'string' && val.startsWith('py:') ? (resolved[val] as string | number) ?? '…' : val;
+      typeof val === 'string' && val.startsWith('py:') ? (resolved[val] as string | number | { value: number; breakdown?: string }) ?? '…' : val;
     const n = item.number;
     const decimals = n.decimals ?? 2;
     const format = n.format;
     const currency = (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency ?? 'USD';
     let display: string;
-    const num = typeof raw === 'number' ? raw : parseFloat(String(raw));
+    let tooltipText: string | undefined;
+    const numVal = raw != null && typeof raw === 'object' && 'value' in raw ? (raw as { value: number }).value : (typeof raw === 'number' ? raw : parseFloat(String(raw)));
+    if (raw != null && typeof raw === 'object' && 'breakdown' in raw && (raw as { breakdown?: string }).breakdown) {
+      tooltipText = (raw as { breakdown: string }).breakdown;
+    }
+    // #region agent log
+    if (typeof val === 'string' && val.includes('get_secured_puts_capital')) {
+      fetch('http://127.0.0.1:7242/ingest/f6089de6-3196-4874-9a53-38b22acc1f05',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'57ee67'},body:JSON.stringify({sessionId:'57ee67',location:'SubviewSpecRenderer.tsx:number',message:'SecuredPuts raw/tooltip',data:{rawType:typeof raw,rawKeys:raw!=null&&typeof raw==='object'?Object.keys(raw):null,hasBreakdown:raw!=null&&typeof raw==='object'&&'breakdown' in raw,tooltipLen:tooltipText?.length??0,tooltipPreview:tooltipText?.slice(0,80)},hypothesisId:'H1',timestamp:Date.now()})}).catch(()=>{});
+    }
+    // #endregion
+    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal));
     if (format != null && !Number.isNaN(num)) {
       const fixed = num.toFixed(decimals);
       display = format === '$' ? `${fixed} ${currency}` : `${fixed}%`;
     } else {
-      display = String(raw);
+      display = String(numVal);
     }
     const size = n.size ? (FONT_SIZES[n.size] ?? 'var(--font-size-body)') : 'var(--font-size-body)';
     const textAlign = (n.alignment as React.CSSProperties['textAlign']) ?? 'center';
     const contentColor = resolveContentColor((n as { color?: string }).color);
-    const inner = (
-      <div style={{ minWidth: 0, flex: '0 0 auto', textAlign }}>
-        <span
-          style={{
-            color: contentColor ?? textColor ?? 'var(--color-text-primary)',
-            fontSize: size,
-            fontWeight: n.bold ? 600 : 400,
-            fontStyle: n.italic ? 'italic' : undefined,
-          }}
-        >
-          {display}
-        </span>
-      </div>
+    const inner = tooltipText ? (
+      <NumberWithTooltip display={display} tooltipText={tooltipText} contentColor={contentColor} textColor={textColor} n={n} />
+    ) : (
+      <span
+        style={{
+          color: contentColor ?? textColor ?? 'var(--color-text-primary)',
+          fontSize: size,
+          fontWeight: n.bold ? 600 : 400,
+          fontStyle: n.italic ? 'italic' : undefined,
+        }}
+      >
+        {display}
+      </span>
     );
     return n.padding != null ? (
       <div style={paddingToStyle(n.padding)}>{inner}</div>
@@ -1248,7 +1287,16 @@ export function SubviewSpecRenderer({
         const result = await runPythonFunction(pythonCode, fn, context, mergedInputs);
         if (result.success) {
           const v = result.value;
-          next[ref] = typeof v === 'string' || typeof v === 'number' ? v : String(v);
+          // #region agent log
+          if (fn === 'get_secured_puts_capital') {
+            fetch('http://127.0.0.1:7242/ingest/f6089de6-3196-4874-9a53-38b22acc1f05',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'57ee67'},body:JSON.stringify({sessionId:'57ee67',location:'SubviewSpecRenderer.tsx:pyRefs',message:'Python result get_secured_puts_capital',data:{vType:typeof v,vKeys:v!=null&&typeof v==='object'?Object.keys(v):null,hasBreakdown:v!=null&&typeof v==='object'&&'breakdown' in v,breakdownVal: v!=null&&typeof v==='object'&&'breakdown' in v?(v as {breakdown?:unknown}).breakdown:undefined},hypothesisId:'H2',timestamp:Date.now()})}).catch(()=>{});
+          }
+          // #endregion
+          if (v != null && typeof v === 'object' && 'value' in v) {
+            next[ref] = v;
+          } else {
+            next[ref] = typeof v === 'string' || typeof v === 'number' ? v : String(v);
+          }
         } else {
           next[ref] = `Error: ${result.error}`;
         }
