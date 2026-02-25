@@ -515,6 +515,7 @@ export class SnaptradeService {
     );
 
     const activities = await this.fetchAllActivities(accountId, creds);
+    const newMapped: any[] = [];
     let added = 0;
 
     for (const activity of activities) {
@@ -522,7 +523,7 @@ export class SnaptradeService {
       if (!activityId || existingIds.has(activityId)) continue;
 
       const mapped = this.mapActivity(activity);
-      doc.adjustedTransactions.push({
+      newMapped.push({
         ...mapped,
         snaptradeActivityId: activityId,
         synthetic: false,
@@ -532,11 +533,74 @@ export class SnaptradeService {
     }
 
     if (!doc.rebuiltAt) {
+      for (const t of newMapped) doc.adjustedTransactions.push(t);
       doc.rawTransactions = JSON.parse(JSON.stringify(doc.adjustedTransactions));
       await this.rebuildAccount(doc, creds, accountId);
     } else {
-      for (let i = doc.rawTransactions.length; i < doc.adjustedTransactions.length; i++) {
-        doc.rawTransactions.push(JSON.parse(JSON.stringify(doc.adjustedTransactions[i])));
+      for (const t of newMapped) doc.rawTransactions.push(JSON.parse(JSON.stringify(t)));
+
+      if (newMapped.length > 0) {
+        const oldDerived = this.deriveHoldingsFromTransactions(doc.adjustedTransactions);
+        const oldOptionHoldings = oldDerived.positions
+          .filter((p) => p.symbol?.includes('$'))
+          .map((p) => ({ symbol: p.symbol, quantity: p.quantity }));
+
+        let newOptionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }> = [];
+        try {
+          newOptionHoldings = await this.fetchOptionHoldings(accountId, userId);
+        } catch (e) {
+          this.logger.warn(`Failed to fetch option holdings during incremental sync for ${accountId}: ${e}`);
+        }
+
+        const expanded = this.expandMultilegsIncremental(
+          newMapped,
+          oldOptionHoldings,
+          newOptionHoldings,
+        );
+
+        for (const t of expanded) doc.adjustedTransactions.push(t);
+
+        const positions: any[] = [];
+        try {
+          const posResp = await this.snaptrade.accountInformation.getUserAccountPositions({
+            accountId,
+            userId: creds.userId,
+            userSecret: creds.userSecret,
+          });
+          positions.push(...(posResp.data ?? []));
+        } catch (e) {
+          this.logger.warn(`Failed to fetch positions during incremental sync for ${accountId}: ${e}`);
+        }
+
+        const holdingsSnapshot: Array<{ symbol: string; quantity: number; averagePrice: number; currency: string }> = [];
+        for (const pos of positions) {
+          const symbol = this.extractSymbolStr(pos);
+          if (!symbol) continue;
+          const currentQty = ((pos as any).units ?? 0) + ((pos as any).fractional_units ?? 0);
+          const avgPrice = (pos as any).average_purchase_price ?? 0;
+          const posCurrency = this.extractCurrencyStr(pos, doc.currency);
+          holdingsSnapshot.push({ symbol, quantity: currentQty, averagePrice: avgPrice, currency: posCurrency });
+        }
+
+        const cashByCurrency: Record<string, number> = {};
+        try {
+          const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
+            accountId,
+            userId: creds.userId,
+            userSecret: creds.userSecret,
+          });
+          const balances = balResp.data ?? [];
+          for (const b of balances) {
+            const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
+            const cash = (b as any).cash ?? (b as any).amount ?? 0;
+            cashByCurrency[ccy] = (cashByCurrency[ccy] ?? 0) + cash;
+          }
+        } catch (e) {
+          this.logger.warn(`Failed to fetch balance during incremental sync for ${accountId}: ${e}`);
+        }
+
+        doc.currentHoldings = holdingsSnapshot as any;
+        doc.currentCashByCurrency = cashByCurrency;
       }
     }
 
@@ -545,6 +609,184 @@ export class SnaptradeService {
 
     this.logger.log(`syncAccount ${accountId}: ${added} new activities, rebuilt=${!!doc.rebuiltAt}`);
     return { added };
+  }
+
+  /**
+   * Expands options_multileg transactions in a batch of new activities (incremental sync).
+   * Uses old and new option holdings for origin/endpoint when not in the activity batch.
+   */
+  private expandMultilegsIncremental(
+    newActivities: any[],
+    oldOptionHoldings: Array<{ symbol: string; quantity: number }>,
+    newOptionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }>,
+  ): any[] {
+    const newOptByUndCP = new Map<string, (typeof newOptionHoldings)[0]>();
+    for (const oh of newOptionHoldings) {
+      const p = this.parseOptionKey(oh.symbol);
+      const cp = (p.option?.callPut ?? '').charAt(0).toUpperCase();
+      if (p.underlying && cp) newOptByUndCP.set(`${p.underlying}|${cp}`, oh);
+    }
+
+    const oldOptByKey = new Map<string, number>();
+    for (const oh of oldOptionHoldings) {
+      if (oh.symbol?.includes('$')) oldOptByKey.set(oh.symbol, oh.quantity);
+    }
+
+    const sorted = [...newActivities].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    const processed = new Set<any>();
+    const nonMultileg: any[] = [];
+    const expandedAll: any[] = [];
+
+    for (const entry of sorted) {
+      if (entry.side !== 'options_multileg') {
+        if (!processed.has(entry)) nonMultileg.push(entry);
+        continue;
+      }
+      if (processed.has(entry)) continue;
+      const optKey = this.txKey(entry);
+      if (!optKey || !optKey.includes('$')) continue;
+
+      const underlying = entry.option?.underlyingSymbol ?? entry.instrumentSymbol ?? '';
+      const callPut = (entry.option?.callPut ?? '').charAt(0).toUpperCase();
+      if (!underlying || !callPut) continue;
+
+      const chain: any[] = [entry];
+      processed.add(entry);
+      let currentOldKey = optKey;
+
+      for (let i = sorted.indexOf(entry) + 1; i < sorted.length; i++) {
+        const tx = sorted[i];
+        if (processed.has(tx)) continue;
+        if (tx.side !== 'options_multileg') continue;
+        const txUnd = tx.option?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
+        const txCP = (tx.option?.callPut ?? '').charAt(0).toUpperCase();
+        if (txUnd !== underlying || txCP !== callPut) continue;
+        chain.push(tx);
+        processed.add(tx);
+        currentOldKey = this.txKey(tx);
+      }
+
+      const originKey = currentOldKey;
+      const originSell = newActivities.find(
+        (t) => !processed.has(t) && t.side === 'sell' && this.txKey(t) === originKey,
+      );
+      const originBuy = newActivities.find(
+        (t) => !processed.has(t) && t.side === 'buy' && this.txKey(t) === originKey,
+      );
+
+      const holdingKey = `${underlying}|${callPut}`;
+      const finalHolding = newOptByUndCP.get(holdingKey);
+      const oldQty = oldOptByKey.get(originKey);
+
+      const isLongRoll = !!originBuy || (!originSell && (oldQty ?? 0) > 0);
+      const originTx = originSell ?? originBuy;
+      const qty =
+        originTx?.quantity ??
+        (finalHolding ? Math.abs(finalHolding.quantity) : oldQty != null ? Math.abs(oldQty) : 1);
+
+      if (originSell) processed.add(originSell);
+      if (originBuy) processed.add(originBuy);
+
+      const toPlain = (t: any) => (typeof t?.toObject === 'function' ? t.toObject() : { ...t });
+      chain.reverse();
+
+      const expanded: any[] = [];
+      if (originTx) expanded.push(toPlain(originTx));
+
+      let prevKey = originKey;
+      for (const ml of chain) {
+        const mlOldKey = this.txKey(ml);
+        const nextIdx = chain.indexOf(ml) + 1;
+        let newOptKey: string;
+        if (nextIdx < chain.length) {
+          newOptKey = this.txKey(chain[nextIdx]);
+        } else if (finalHolding) {
+          newOptKey = finalHolding.symbol;
+        } else {
+          newOptKey = mlOldKey;
+        }
+
+        const oldParsed = this.parseOptionKey(mlOldKey);
+        const newParsed = this.parseOptionKey(newOptKey);
+        const mlActivityId = ml.snaptradeActivityId;
+
+        if (isLongRoll) {
+          expanded.push({
+            side: 'sell',
+            quantity: qty,
+            price: 0,
+            cashDelta: ml.cashDelta ?? 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: oldParsed.underlying,
+            option: oldParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
+          });
+          expanded.push({
+            side: 'buy',
+            quantity: qty,
+            price: 0,
+            cashDelta: 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: newParsed.underlying,
+            option: newParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
+          });
+        } else {
+          expanded.push({
+            side: 'buy',
+            quantity: qty,
+            price: 0,
+            cashDelta: 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: oldParsed.underlying,
+            option: oldParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
+          });
+          expanded.push({
+            side: 'sell',
+            quantity: qty,
+            price: 0,
+            cashDelta: ml.cashDelta ?? 0,
+            currency: ml.currency || 'USD',
+            timestamp: ml.timestamp,
+            instrumentSymbol: newParsed.underlying,
+            option: newParsed.option,
+            synthetic: false,
+            assetType: 'option',
+            chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
+          });
+        }
+        prevKey = newOptKey;
+      }
+
+      const closeSides = isLongRoll
+        ? ['sell', 'option_exercise', 'option_expire']
+        : ['buy', 'option_assign', 'option_exercise', 'option_expire'];
+      const closeTx = newActivities.find(
+        (t) => !processed.has(t) && closeSides.includes(t.side) && this.txKey(t) === prevKey,
+      );
+      if (closeTx) {
+        expanded.push(toPlain(closeTx));
+        processed.add(closeTx);
+      }
+
+      expandedAll.push(...expanded);
+    }
+
+    return [...nonMultileg, ...expandedAll].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }
 
   private resolveMultilegChains(
@@ -634,6 +876,7 @@ export class SnaptradeService {
         const oldParsed = this.parseOptionKey(mlOldKey);
         const newParsed = this.parseOptionKey(newOptKey);
 
+        const mlActivityId = ml.snaptradeActivityId;
         if (isLongRoll) {
           newTxns.push({
             side: 'sell',
@@ -647,6 +890,7 @@ export class SnaptradeService {
             synthetic: false,
             assetType: 'option',
             chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
           });
           newTxns.push({
             side: 'buy',
@@ -660,6 +904,7 @@ export class SnaptradeService {
             synthetic: false,
             assetType: 'option',
             chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
           });
         } else {
           newTxns.push({
@@ -674,6 +919,7 @@ export class SnaptradeService {
             synthetic: false,
             assetType: 'option',
             chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
           });
           newTxns.push({
             side: 'sell',
@@ -687,6 +933,7 @@ export class SnaptradeService {
             synthetic: false,
             assetType: 'option',
             chainResolved: true,
+            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
           });
         }
 

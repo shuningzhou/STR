@@ -570,6 +570,17 @@ export function useRebuildAccount() {
   });
 }
 
+export function useSyncAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: snaptradeApi.snaptradeSyncAccount,
+    onSuccess: (_data, accountId) => {
+      qc.invalidateQueries({ queryKey: snaptradeKeys.accountTransactions(accountId) });
+      qc.invalidateQueries({ queryKey: queryKeys.strategies });
+    },
+  });
+}
+
 export {
   type SnaptradeAccount,
   type SnaptradeConnection,

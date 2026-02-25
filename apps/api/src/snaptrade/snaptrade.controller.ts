@@ -47,6 +47,11 @@ export class SnaptradeController {
     return this.service.rebuildAccountFull(accountId, (req.user as AuthUser).id);
   }
 
+  @Post('accounts/:accountId/sync')
+  syncAccount(@Param('accountId') accountId: string, @Req() req: Request) {
+    return this.service.syncAccount(accountId, (req.user as AuthUser).id);
+  }
+
   @Post('sync/:strategyId')
   syncStrategy(@Param('strategyId') strategyId: string, @Req() req: Request) {
     return this.service.syncStrategy(strategyId, (req.user as AuthUser).id);

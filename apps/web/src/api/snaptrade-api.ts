@@ -100,3 +100,7 @@ export async function snaptradeGetAccountTransactions(accountId: string): Promis
 export async function snaptradeRebuildAccount(accountId: string): Promise<{ rebuilt: boolean; activities: number }> {
   return apiFetch(`/snaptrade/accounts/${accountId}/rebuild`, { method: 'POST' });
 }
+
+export async function snaptradeSyncAccount(accountId: string): Promise<{ added: number }> {
+  return apiFetch(`/snaptrade/accounts/${accountId}/sync`, { method: 'POST' });
+}

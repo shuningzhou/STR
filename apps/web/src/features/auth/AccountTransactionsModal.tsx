@@ -4,6 +4,7 @@ import {
   useSnaptradeConnections,
   useAccountTransactions,
   useRebuildAccount,
+  useSyncAccount,
   type SnaptradeConnection,
   type AdjustedTransaction,
 } from '@/api/hooks';
@@ -29,6 +30,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
 
   const { data: txData, isLoading } = useAccountTransactions(selectedAccountId);
   const rebuildMut = useRebuildAccount();
+  const syncMut = useSyncAccount();
 
   const rawTransactions = txData?.rawTransactions ?? [];
   const adjustedTransactions = txData?.adjustedTransactions ?? [];
@@ -83,6 +85,11 @@ export function AccountTransactionsModal({ onClose }: Props) {
   const handleRebuild = () => {
     if (!selectedAccountId) return;
     rebuildMut.mutate(selectedAccountId);
+  };
+
+  const handleIncrementalSync = () => {
+    if (!selectedAccountId) return;
+    syncMut.mutate(selectedAccountId);
   };
 
   const hasData = rawTxns.length > 0 || adjustedTxns.length > 0;
@@ -153,16 +160,28 @@ export function AccountTransactionsModal({ onClose }: Props) {
           )}
 
           {selectedAccountId && (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleRebuild}
-              disabled={rebuildMut.isPending}
-              className="shrink-0 min-w-[140px] px-6"
-            >
-              {rebuildMut.isPending ? 'Sanitizing...' : 'Sanitize'}
-            </Button>
+            <div className="flex shrink-0" style={{ gap: 'var(--space-gap)' }}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={handleIncrementalSync}
+                disabled={syncMut.isPending || rebuildMut.isPending}
+                className="min-w-[140px] px-4"
+              >
+                {syncMut.isPending ? 'Syncing...' : 'Incremental Sync'}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={handleRebuild}
+                disabled={rebuildMut.isPending || syncMut.isPending}
+                className="min-w-[160px] px-4"
+              >
+                {rebuildMut.isPending ? 'Rebuilding...' : 'Rebuild from scratch'}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -177,7 +196,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
           </p>
         ) : !hasData ? (
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-body)', padding: '24px 0' }}>
-            No transactions found. Click Sanitize to fetch and sanitize transactions from SnapTrade.
+            No transactions found. Click Rebuild from scratch to fetch and process transactions from SnapTrade.
           </p>
         ) : (
           <div className="grid grid-cols-2 flex-1 min-h-0" style={{ gap: 16 }}>
@@ -246,7 +265,7 @@ function HoldingsSummary({ holdings, label }: HoldingsSummaryProps) {
         style={{ backgroundColor: 'var(--color-bg-input)', border: '1px solid var(--color-border)' }}
       >
         <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No data (run Sanitize first)</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No data (run Rebuild from scratch first)</div>
       </div>
     );
   }
