@@ -545,8 +545,9 @@ export function useSyncStrategy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: snaptradeApi.snaptradeSyncStrategy,
-    onSuccess: () => {
+    onSuccess: (_data, strategyId) => {
       qc.invalidateQueries({ queryKey: queryKeys.strategies });
+      qc.invalidateQueries({ queryKey: queryKeys.transactions(strategyId) });
     },
   });
 }
@@ -566,6 +567,7 @@ export function useRebuildAccount() {
     onSuccess: (_data, accountId) => {
       qc.invalidateQueries({ queryKey: snaptradeKeys.accountTransactions(accountId) });
       qc.invalidateQueries({ queryKey: queryKeys.strategies });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }
@@ -577,6 +579,7 @@ export function useSyncAccount() {
     onSuccess: (_data, accountId) => {
       qc.invalidateQueries({ queryKey: snaptradeKeys.accountTransactions(accountId) });
       qc.invalidateQueries({ queryKey: queryKeys.strategies });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }

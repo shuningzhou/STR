@@ -464,10 +464,23 @@ export class SnaptradeService {
         .lean()
         .exec();
 
+      const oldTxIdsForQuery = [
+        ...oldTxIds,
+        ...oldTxIds
+          .map((id) => {
+            try {
+              return new Types.ObjectId(id);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean),
+      ];
+
       for (const strategy of strategies) {
         const deleted = await this.txModel.deleteMany({
           strategyId: strategy._id.toString(),
-          accountTransactionId: { $in: oldTxIds },
+          accountTransactionId: { $in: oldTxIdsForQuery },
         });
         if (deleted.deletedCount > 0) {
           await this.strategyModel.updateOne(
@@ -1207,14 +1220,13 @@ export class SnaptradeService {
       });
     }
 
+    const existingRaw = await this.txModel
+      .find({ strategyId, accountTransactionId: { $exists: true, $ne: null } })
+      .select('accountTransactionId')
+      .lean()
+      .exec();
     const existingAcctTxIds = new Set(
-      (
-        await this.txModel
-          .find({ strategyId, accountTransactionId: { $exists: true, $ne: null } })
-          .select('accountTransactionId')
-          .lean()
-          .exec()
-      ).map((t) => t.accountTransactionId),
+      existingRaw.map((t) => (t.accountTransactionId != null ? String(t.accountTransactionId) : '')),
     );
 
     let synced = 0;
