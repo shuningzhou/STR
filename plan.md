@@ -499,10 +499,12 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 4. Find the endpoint: the final holding in current option holdings (same underlying + call/put), or a close transaction (buy/assign/exercise/expire).
 5. Expand each multileg into a buy-to-close (old leg, cashDelta=0) + sell-to-open (new leg, cashDelta=multileg amount). The new leg of each multileg is inferred: next multileg's old option, or the final holding for the last multileg.
 6. Replace the original multileg + origin sell + close in `doc.adjustedTransactions` with the reconstructed chain.
-7. Mark all chain transactions as handled; they are independent from the remaining raw transactions.
+7. Mark only the synthetic buy/sell legs with `chainResolved: true` (for Assigned Rate exclusion). Origin sell and close transaction stay unmarked.
 8. After all chains are resolved, run the standard reverse-apply rebuild on the remaining transactions.
 
 Example lifecycle: `Sell $60P → Multileg($60P→$57P) → Multileg($57P→$55P) → $55P in holdings` expands to: `sell 1 $60P | buy 1 $60P + sell 1 $57P | buy 1 $57P + sell 1 $55P`.
+
+**chainResolved** — Only the synthetic buy/sell legs from multileg expansion are marked `chainResolved: true`. The origin sell, close transaction (option_assign, option_expire, manual buy), and all non-roll transactions are NOT marked. Assigned Rate subview counts only closed/expired/assigned (buy_to_cover, buy, option_assign, option_expire) and excludes transactions with `customData.chainResolved` (roll legs).
 
 **Brokerage refresh before rebuild** — `rebuildAccountFull` calls `refreshBrokerageAuthorization` before fetching activities to ensure transaction data is up-to-date (SnapTrade caches transactions and refreshes once daily).
 

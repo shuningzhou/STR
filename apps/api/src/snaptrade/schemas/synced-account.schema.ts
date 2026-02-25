@@ -33,6 +33,8 @@ export class AdjustedTransaction {
   @Prop({ default: false }) synthetic!: boolean;
   /** Asset type: 'stock' | 'etf' | 'option' — derived from SnapTrade symbol.type or option_symbol */
   @Prop({ default: 'stock' }) assetType!: string;
+  /** True for synthetic buy/sell from resolveMultilegChains (roll legs). Excluded from Assigned Rate. Real closes (option_assign, option_expire, buy_to_cover, manual buy) are NOT marked. */
+  @Prop({ default: false }) chainResolved?: boolean;
 }
 
 export const AdjustedTransactionSchema = SchemaFactory.createForClass(AdjustedTransaction);

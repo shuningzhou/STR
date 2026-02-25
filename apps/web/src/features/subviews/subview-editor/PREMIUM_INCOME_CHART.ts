@@ -1,6 +1,8 @@
 /**
  * Official read-only subview: Stacked bar chart of premium income over time.
  * Shows Covered Call (green) and Secured Put (blue) premiums by daily/weekly/monthly/annually.
+ * Includes: sell (premium received), buy_to_cover/buy (manual close, cash negative), options_multileg (rolls, cash +/-).
+ * Excludes chainResolved buy legs (roll close leg has cashDelta on the sell leg).
  */
 import type { SubviewSpec } from '@str/shared';
 
@@ -33,6 +35,13 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
       topbar: 1,
       topbarShowTitle: false,
     },
+    includeManualCloses: {
+      type: 'checkbox',
+      title: 'Include manual closes',
+      default: true,
+      topbar: 2,
+      topbarShowTitle: true,
+    },
   },
   layout: [
     [
@@ -61,6 +70,7 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
     txs = context.get('transactions') or []
     period = (inputs.get('period') or 'daily').lower()
     chart_offset = int(inputs.get('chartOffset') or 0)
+    include_manual_closes = inputs.get('includeManualCloses') not in (False, 0, 'false', '0')
     global_inputs = inputs.get('global') or {}
     global_config = inputs.get('globalInputConfig') or []
     ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
@@ -159,10 +169,10 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
     all_keys = bucket_keys()
     all_keys = sorted(set(all_keys))
 
-    # Aggregate premium by bucket
+    # Aggregate premium by bucket — split into received (positive) and close (negative) when including manual closes
     def default_bucket():
-        return {'Covered Call': 0.0, 'Secured Put': 0.0, '_label': ''}
-    agg = defaultdict(lambda: {'Covered Call': 0.0, 'Secured Put': 0.0, '_label': ''})
+        return {'Covered Call': 0.0, 'Secured Put': 0.0, 'Close': 0.0, '_label': ''}
+    agg = defaultdict(lambda: {'Covered Call': 0.0, 'Secured Put': 0.0, 'Close': 0.0, '_label': ''})
     for k in all_keys:
         agg[k]  # ensure key exists
     for k in all_keys:
@@ -195,10 +205,15 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
         if range_end and date_str > range_end:
             continue
 
-        side = (tx.get('side') or '').lower()
-        if side not in ('sell', 'buy_to_cover'):
+        side = (tx.get('side') or tx.get('type') or '').lower()
+        if side not in ('sell', 'buy_to_cover', 'buy', 'options_multileg'):
             continue
-        # cashDelta = wallet impact: positive when premium received (sell), negative when cost paid (buy_to_cover). Sum = net premium income for the day.
+        # Skip roll legs (chainResolved buy) - their cashDelta is on the sell leg. Include manual buy (cash negative).
+        if side == 'buy' and (tx.get('customData') or {}).get('chainResolved'):
+            continue
+        # Optionally exclude manual closes (buy_to_cover, buy) when checkbox unchecked.
+        if not include_manual_closes and side in ('buy_to_cover', 'buy'):
+            continue
         premium = float(tx.get('cashDelta') or 0)
 
         try:
@@ -216,7 +231,10 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
         else:
             key = date_str[:4]
         if key in agg:
-            agg[key][category] += premium
+            if include_manual_closes and side in ('buy_to_cover', 'buy'):
+                agg[key]['Close'] += premium
+            else:
+                agg[key][category] += premium
 
     # Slice: offset 0 = today (last 10), +1 = older, -1 = newer (future). start_idx = total - 10 - offset*10
     total = len(all_keys)
@@ -292,16 +310,24 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
     covered_call_data = [round(agg[k]['Covered Call'], 2) if k in agg else 0 for k in keys_slice]
     secured_put_data = [round(agg[k]['Secured Put'], 2) if k in agg else 0 for k in keys_slice]
 
+    series = [
+        {'name': 'Covered Call', 'data': covered_call_data},
+        {'name': 'Secured Put', 'data': secured_put_data},
+    ]
+    colors = {
+        'Covered Call': 'green-1',
+        'Secured Put': 'blue-1',
+    }
+
+    if include_manual_closes:
+        close_data = [round(agg[k]['Close'], 2) if k in agg else 0 for k in keys_slice]
+        series.append({'name': 'Close', 'data': close_data})
+        colors['Close'] = 'red-1'
+
     return {
         'labels': labels,
-        'series': [
-            {'name': 'Covered Call', 'data': covered_call_data},
-            {'name': 'Secured Put', 'data': secured_put_data},
-        ],
-        'colors': {
-            'Covered Call': 'green-1',
-            'Secured Put': 'blue-1',
-        },
+        'series': series,
+        'colors': colors,
     }
 `,
   functions: ['get_premium_income_chart'],

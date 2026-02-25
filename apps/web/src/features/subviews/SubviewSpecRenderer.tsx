@@ -144,7 +144,7 @@ function TimelineEventMarker({
   );
 }
 
-/** Custom bar shape: rounds top corners only when this segment is the top of the stack for this datum. */
+/** Custom bar shape: rounds top corners for the topmost positive segment, bottom corners for the bottommost negative segment. */
 function StackedBarShape({
   x,
   y,
@@ -155,6 +155,7 @@ function StackedBarShape({
   barSeries,
   seriesIndex,
   radius = 4,
+  xOffset = 0,
 }: {
   x?: number;
   y?: number;
@@ -165,13 +166,30 @@ function StackedBarShape({
   barSeries: { name: string }[];
   seriesIndex: number;
   radius?: number;
+  xOffset?: number;
 }) {
-  if (x == null || y == null || width == null || height == null || height <= 0) return null;
-  const isTop =
-    payload &&
-    barSeries
-      .slice(seriesIndex + 1)
-      .every((s) => !(Number(payload[s.name]) || 0));
+  if (x == null || y == null || width == null || height == null || height === 0) return null;
+  const val = payload ? Number(payload[barSeries[seriesIndex]?.name]) || 0 : 0;
+  const isNegative = val < 0;
+  const xAdj = isNegative ? x + xOffset : x;
+
+  if (isNegative) {
+    const isBottom = payload && barSeries
+      .slice(0, seriesIndex)
+      .every((s) => !((Number(payload[s.name]) || 0) < 0));
+    const absH = Math.abs(height);
+    if (!isBottom) {
+      return <rect x={xAdj} y={y + height} width={width} height={absH} fill={fill ?? 'var(--color-chart-1)'} />;
+    }
+    const r = Math.min(radius, width / 2, absH / 2);
+    const bx = xAdj, by = y + height, bw = width, bh = absH;
+    const path = `M ${bx},${by} L ${bx + bw},${by} L ${bx + bw},${by + bh - r} Q ${bx + bw},${by + bh} ${bx + bw - r},${by + bh} L ${bx + r},${by + bh} Q ${bx},${by + bh} ${bx},${by + bh - r} L ${bx},${by} Z`;
+    return <path d={path} fill={fill ?? 'var(--color-chart-1)'} />;
+  }
+
+  const isTop = payload && barSeries
+    .slice(seriesIndex + 1)
+    .every((s) => !((Number(payload[s.name]) || 0) > 0));
   if (!isTop) {
     return <rect x={x} y={y} width={width} height={height} fill={fill ?? 'var(--color-chart-1)'} />;
   }
@@ -420,11 +438,6 @@ function ContentRenderer({
     if (raw != null && typeof raw === 'object' && 'breakdown' in raw && (raw as { breakdown?: string }).breakdown) {
       tooltipText = (raw as { breakdown: string }).breakdown;
     }
-    // #region agent log
-    if (typeof val === 'string' && val.includes('get_secured_puts_capital')) {
-      fetch('http://127.0.0.1:7242/ingest/f6089de6-3196-4874-9a53-38b22acc1f05',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'57ee67'},body:JSON.stringify({sessionId:'57ee67',location:'SubviewSpecRenderer.tsx:number',message:'SecuredPuts raw/tooltip',data:{rawType:typeof raw,rawKeys:raw!=null&&typeof raw==='object'?Object.keys(raw):null,hasBreakdown:raw!=null&&typeof raw==='object'&&'breakdown' in raw,tooltipLen:tooltipText?.length??0,tooltipPreview:tooltipText?.slice(0,80)},hypothesisId:'H1',timestamp:Date.now()})}).catch(()=>{});
-    }
-    // #endregion
     const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal));
     if (format != null && !Number.isNaN(num)) {
       const fixed = num.toFixed(decimals);
@@ -828,9 +841,12 @@ function ContentRenderer({
         return row;
       });
       const CHART_BAR_COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)'];
+      const posBarXByLabel: Record<string, number> = {};
       const BarTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name?: string; value?: number; fill?: string }[]; label?: string }) => {
         if (!active || !payload?.length) return null;
-        const total = payload.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+        const posTotal = payload.filter((p) => (Number(p.value) || 0) > 0).reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+        const negTotal = payload.filter((p) => (Number(p.value) || 0) < 0).reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+        const netTotal = posTotal + negTotal;
         return (
           <div
             style={{
@@ -843,10 +859,14 @@ function ContentRenderer({
             }}
           >
             <div style={{ color: 'white' }}>{label}</div>
-            {payload.map((p) => (Number(p.value) || 0) > 0 && (
-              <div key={p.name ?? ''} style={{ color: 'white' }}>{p.name}: ${Number(p.value).toLocaleString()}</div>
+            {payload.map((p) => (Number(p.value) || 0) !== 0 && (
+              <div key={p.name ?? ''} style={{ color: p.fill ?? 'white' }}>{p.name}: ${Number(p.value).toLocaleString()}</div>
             ))}
-            <div style={{ color: 'white' }}>Total: ${total.toLocaleString()}</div>
+            {negTotal < 0 ? (
+              <div style={{ color: 'white' }}>Net: ${netTotal.toLocaleString()}</div>
+            ) : (
+              <div style={{ color: 'white' }}>Total: ${posTotal.toLocaleString()}</div>
+            )}
           </div>
         );
       };
@@ -854,7 +874,7 @@ function ContentRenderer({
         <div className="w-full flex-1 min-h-0" style={{ position: 'relative', minHeight: 80 }}>
           <div style={{ position: 'absolute', inset: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 24, right: 5, left: 5, bottom: 5 }} isAnimationActive={false}>
+              <BarChart data={barData} margin={{ top: 24, right: 24, left: 5, bottom: 5 }} barGap="-100%" isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${Number(v).toLocaleString()}`} />
@@ -863,29 +883,59 @@ function ContentRenderer({
                 {barSeries.map((s, i) => {
                   const seriesColor = resolveColor((dataColors as Record<string, string>)?.[s.name]) ?? CHART_BAR_COLORS[i % CHART_BAR_COLORS.length];
                   const hoverFill = /^#[0-9a-fA-F]{6}$/.test(seriesColor) ? blendHex(seriesColor, '#ffffff', 0.2) : seriesColor;
-                  const isTopBar = i === barSeries.length - 1;
+                  const isLastPositiveSeries = s.name === 'Secured Put';
+                  const isCloseSeries = s.name === 'Close';
+                  const isNegativeSeries = s.name === 'Close';
                   return (
                     <Bar
                       key={s.name}
                       dataKey={s.name}
-                      stackId="stack"
+                      stackId={isNegativeSeries ? 'negative' : 'positive'}
                       fill={seriesColor}
                       name={s.name}
                       isAnimationActive={false}
                       activeBar={{ fill: hoverFill }}
-                      shape={(props) => (
-                        <StackedBarShape {...props} barSeries={barSeries} seriesIndex={i} payload={(props as { payload?: Record<string, unknown> }).payload} />
-                      )}
+                      shape={(props) => {
+                        const p = props as { x?: number; payload?: Record<string, unknown> };
+                        const lbl = String(p.payload?.label ?? '');
+                        if (!isCloseSeries && p.x != null) {
+                          posBarXByLabel[lbl] = p.x;
+                        }
+                        const dynOffset = isCloseSeries && p.x != null && posBarXByLabel[lbl] != null
+                          ? posBarXByLabel[lbl] - p.x
+                          : 0;
+                        return (
+                          <StackedBarShape
+                            {...props}
+                            barSeries={barSeries}
+                            seriesIndex={i}
+                            payload={p.payload}
+                            xOffset={dynOffset}
+                          />
+                        );
+                      }}
                     >
-                      {isTopBar && (
+                      {isLastPositiveSeries && (
                         <LabelList
                           position="top"
                           valueAccessor={(entry) => {
                             const payload = (entry as { payload?: Record<string, unknown> }).payload;
-                            const total = barSeries.reduce((sum, ser) => sum + (Number(payload?.[ser.name]) || 0), 0);
+                            const total = barSeries.reduce((sum, ser) => sum + Math.max(0, Number(payload?.[ser.name]) || 0), 0);
                             return total > 0 ? `$${total.toLocaleString()}` : '';
                           }}
                           fill={resolveColor('yellow-2') ?? 'var(--color-chart-1)'}
+                          style={{ fontSize: 12, fontWeight: 500 }}
+                        />
+                      )}
+                      {isCloseSeries && (
+                        <LabelList
+                          position="bottom"
+                          valueAccessor={(entry) => {
+                            const payload = (entry as { payload?: Record<string, unknown> }).payload;
+                            const total = barSeries.reduce((sum, ser) => sum + Math.min(0, Number(payload?.[ser.name]) || 0), 0);
+                            return total < 0 ? `-$${Math.abs(total).toLocaleString()}` : '';
+                          }}
+                          fill={resolveColor('red-1') ?? 'var(--color-negative)'}
                           style={{ fontSize: 12, fontWeight: 500 }}
                         />
                       )}
@@ -1287,11 +1337,6 @@ export function SubviewSpecRenderer({
         const result = await runPythonFunction(pythonCode, fn, context, mergedInputs);
         if (result.success) {
           const v = result.value;
-          // #region agent log
-          if (fn === 'get_secured_puts_capital') {
-            fetch('http://127.0.0.1:7242/ingest/f6089de6-3196-4874-9a53-38b22acc1f05',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'57ee67'},body:JSON.stringify({sessionId:'57ee67',location:'SubviewSpecRenderer.tsx:pyRefs',message:'Python result get_secured_puts_capital',data:{vType:typeof v,vKeys:v!=null&&typeof v==='object'?Object.keys(v):null,hasBreakdown:v!=null&&typeof v==='object'&&'breakdown' in v,breakdownVal: v!=null&&typeof v==='object'&&'breakdown' in v?(v as {breakdown?:unknown}).breakdown:undefined},hypothesisId:'H2',timestamp:Date.now()})}).catch(()=>{});
-          }
-          // #endregion
           if (v != null && typeof v === 'object' && 'value' in v) {
             next[ref] = v;
           } else {

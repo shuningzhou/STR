@@ -609,10 +609,7 @@ export class SnaptradeService {
       const toPlain = (t: any) => (typeof t?.toObject === 'function' ? t.toObject() : { ...t });
 
       if (originSell) {
-        newTxns.push({
-          ...toPlain(originSell),
-          _chainResolved: true,
-        });
+        newTxns.push(toPlain(originSell));
       }
 
       let prevKey = originKey;
@@ -642,7 +639,7 @@ export class SnaptradeService {
           option: oldParsed.option,
           synthetic: false,
           assetType: 'option',
-          _chainResolved: true,
+          chainResolved: true,
         });
 
         newTxns.push({
@@ -656,7 +653,7 @@ export class SnaptradeService {
           option: newParsed.option,
           synthetic: false,
           assetType: 'option',
-          _chainResolved: true,
+          chainResolved: true,
         });
 
         prevKey = newOptKey;
@@ -668,7 +665,7 @@ export class SnaptradeService {
         (t) => !processed.has(t) && closeSides.includes(t.side) && this.txKey(t) === finalKey,
       );
       if (closeTx) {
-        newTxns.push({ ...toPlain(closeTx), _chainResolved: true });
+        newTxns.push(toPlain(closeTx));
         processed.add(closeTx);
       }
 
@@ -937,7 +934,7 @@ export class SnaptradeService {
         currency: tx.currency ?? '',
         timestamp: tx.timestamp ?? new Date().toISOString(),
         instrumentSymbol: tx.instrumentSymbol ?? '',
-        customData: {},
+        customData: (tx as any).chainResolved ? { chainResolved: true } : {},
         option: tx.option ?? null,
         source: 'snaptrade',
         accountTransactionId: txId,

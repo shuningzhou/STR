@@ -73,7 +73,7 @@ export const SECURED_PUTS_COUNT: SubviewSpec = {
                 positions[k] = positions.get(k, {'qty': 0})
                 positions[k]['qty'] += qty
 
-        elif side == 'buy_to_cover' and opt and opt.get('expiration'):
+        elif side in ('buy_to_cover', 'buy', 'option_assign', 'option_expire') and opt and opt.get('expiration'):
             cp = (opt.get('callPut') or 'call').lower()
             if cp != 'put':
                 continue
@@ -84,13 +84,16 @@ export const SECURED_PUTS_COUNT: SubviewSpec = {
                     del positions[k]
 
     total = 0
+    breakdown_lines = []
     for (sym, exp, strike, cp), pos in positions.items():
         if pos['qty'] <= 0:
             continue
         if exp and exp >= today:
-            total += pos['qty']
+            q = pos['qty']
+            total += q
+            breakdown_lines.append("\{0\} \$\{1\} × \{2\}".format(sym, strike, q))
 
-    return total
+    return {"value": total, "breakdown": "\\n".join(breakdown_lines) if breakdown_lines else None}
 `,
   functions: ['get_secured_puts_count'],
 };
