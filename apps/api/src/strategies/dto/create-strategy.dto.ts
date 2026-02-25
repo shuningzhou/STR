@@ -6,6 +6,7 @@ class SnaptradeConfigDto {
   @IsArray() @IsString({ each: true }) transactionTypes!: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) currencies?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) assetTypes?: string[];
+  @IsOptional() @IsIn(['all', 'income_only', 'calls_puts']) optionStrategy?: string;
 }
 
 export class CreateStrategyDto {

@@ -18,17 +18,22 @@ const TRANSACTION_TYPES = [
   { value: 'fee', label: 'Fee' },
   { value: 'interest', label: 'Interest' },
   { value: 'refund', label: 'Refund' },
-  { value: 'option', label: 'Option' },
   { value: 'split', label: 'Split' },
 ] as const;
 
 const LEGACY_OPTION_TYPES = ['option_exercise', 'option_assign', 'option_expire', 'options_multileg'];
-const REMOVED_TYPES = ['transfer', 'transfer_in', 'transfer_out', 'tax', 'adjustment'];
+const REMOVED_TYPES = ['transfer', 'transfer_in', 'transfer_out', 'tax', 'adjustment', 'option'];
 
 const ASSET_TYPES = [
   { value: 'stock', label: 'Stock' },
   { value: 'etf', label: 'ETF' },
   { value: 'option', label: 'Options' },
+] as const;
+
+const OPTION_STRATEGIES = [
+  { value: 'all', label: 'All options' },
+  { value: 'income_only', label: 'Covered calls & Secured puts only' },
+  { value: 'calls_puts', label: 'Long calls & puts' },
 ] as const;
 
 const INPUT_TYPES = [
@@ -76,6 +81,7 @@ export function StrategySettingsModal() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>([]);
+  const [optionStrategy, setOptionStrategy] = useState<'all' | 'income_only' | 'calls_puts'>('all');
 
   const { data: strategies = [] } = useStrategies();
   const { data: snapAccounts = [] } = useSnaptradeAccounts();
@@ -102,17 +108,17 @@ export function StrategySettingsModal() {
       if (cfg) {
         setSelectedAccounts(cfg.accountIds ?? []);
         const types = cfg.transactionTypes ?? [];
-        const filtered = types.filter((t) => !LEGACY_OPTION_TYPES.includes(t) && !REMOVED_TYPES.includes(t));
-        const hasOption = types.some((t) => t === 'option' || LEGACY_OPTION_TYPES.includes(t));
-        const normalized = hasOption ? [...filtered, 'option'] : filtered;
+        const normalized = types.filter((t) => !LEGACY_OPTION_TYPES.includes(t) && !REMOVED_TYPES.includes(t));
         setSelectedTypes(normalized);
         setSelectedCurrencies(cfg.currencies ?? []);
         setSelectedAssetTypes(cfg.assetTypes ?? []);
+        setOptionStrategy((cfg.optionStrategy as 'all' | 'income_only' | 'calls_puts') ?? 'all');
       } else {
         setSelectedAccounts([]);
         setSelectedTypes([]);
         setSelectedCurrencies([]);
         setSelectedAssetTypes([]);
+        setOptionStrategy('all');
       }
     }
     setDeleteConfirm(false);
@@ -147,12 +153,13 @@ export function StrategySettingsModal() {
           transactionTypes: selectedTypes,
           currencies: selectedCurrencies,
           assetTypes: selectedAssetTypes,
+          optionStrategy,
         };
       }
       updateStrategyMut.mutate(dto);
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, updateStrategyMut, setStrategySettingsModalOpen]
+    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, optionStrategy, updateStrategyMut, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -270,7 +277,7 @@ export function StrategySettingsModal() {
   const strategyInputs = strategy.inputs ?? [];
 
   return (
-    <Modal title="Strategy settings" onClose={handleClose} size={isSynced ? '2xl' : 'default'} className={!isSynced ? 'w-[520px] max-w-[95vw]' : undefined}>
+    <Modal title="Strategy settings" onClose={handleClose} size={isSynced ? 'lg' : 'default'} className={!isSynced ? 'w-[520px] max-w-[95vw]' : undefined}>
       <form onSubmit={handleSubmit}>
         {/* Name and Icon on same row */}
         <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
@@ -361,7 +368,7 @@ export function StrategySettingsModal() {
                     fontSize: 'var(--font-size-body)',
                   }}
                 >
-                  <table className="w-full border-collapse" style={{ tableLayout: 'auto', minWidth: 600 }}>
+                  <table className="w-full border-collapse" style={{ tableLayout: 'auto', minWidth: 400 }}>
                     <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                       <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
                         <th style={{ width: 36, padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left' }} />
@@ -369,6 +376,7 @@ export function StrategySettingsModal() {
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Name</th>
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Currency</th>
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Type</th>
+                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'right', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Balance</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -400,6 +408,9 @@ export function StrategySettingsModal() {
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.name || '—'}</td>
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.currency || '—'}</td>
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.type || '—'}</td>
+                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              {acct.balanceAmount != null ? acct.balanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                            </td>
                           </tr>
                         );
                       })}
@@ -475,37 +486,48 @@ export function StrategySettingsModal() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <Label>Asset Type Filter</Label>
-              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                Only sync these asset types. Empty = all.
-              </p>
-              <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
-                {ASSET_TYPES.map((at) => {
-                  const checked = selectedAssetTypes.includes(at.value);
-                  return (
-                    <button
-                      key={at.value}
-                      type="button"
-                      onClick={() => setSelectedAssetTypes((prev) => prev.includes(at.value) ? prev.filter((a) => a !== at.value) : [...prev, at.value])}
-                      className="font-medium transition-colors cursor-pointer shrink-0"
-                      style={{
-                        minHeight: 'var(--control-height)',
-                        paddingLeft: 'var(--space-gap)',
-                        paddingRight: 'var(--space-gap)',
-                        fontSize: 'var(--font-size-body)',
-                        borderRadius: 'var(--radius-medium)',
-                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
-                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
-                      }}
-                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
-                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
-                    >
-                      {at.label}
-                    </button>
-                  );
-                })}
+            <div className="flex flex-wrap items-start gap-6" style={{ marginBottom: 20 }}>
+              <div className="shrink-0">
+                <Label>Asset Type Filter</Label>
+                <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
+                  {ASSET_TYPES.map((at) => {
+                    const checked = selectedAssetTypes.includes(at.value);
+                    return (
+                      <button
+                        key={at.value}
+                        type="button"
+                        onClick={() => setSelectedAssetTypes((prev) => prev.includes(at.value) ? prev.filter((a) => a !== at.value) : [...prev, at.value])}
+                        className="font-medium transition-colors cursor-pointer shrink-0"
+                        style={{
+                          minHeight: 'var(--control-height)',
+                          paddingLeft: 'var(--space-gap)',
+                          paddingRight: 'var(--space-gap)',
+                          fontSize: 'var(--font-size-body)',
+                          borderRadius: 'var(--radius-medium)',
+                          backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
+                          color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
+                        }}
+                        onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
+                        onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
+                      >
+                        {at.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+              {selectedAssetTypes.includes('option') && (
+                <div className="flex-1 min-w-[240px] flex flex-col items-stretch" style={{ maxWidth: '100%' }}>
+                  <Label>Option Strategy Filter</Label>
+                  <SegmentControl
+                    className="mt-1 w-full"
+                    optionsWithLabels={OPTION_STRATEGIES}
+                    value={optionStrategy}
+                    onChange={(v) => setOptionStrategy(v as 'all' | 'income_only' | 'calls_puts')}
+                    flexWeights={[1, 2, 1]}
+                  />
+                </div>
+              )}
             </div>
           </>
         )}

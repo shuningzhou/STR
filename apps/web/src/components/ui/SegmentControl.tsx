@@ -11,6 +11,8 @@ interface SegmentControlPropsBase<T extends string> {
   className?: string;
   /** When true, reduces height for top bar / compact layouts */
   compact?: boolean;
+  /** Optional flex weights per segment (e.g. [1, 2, 1] for unequal widths). Default: equal. */
+  flexWeights?: number[];
 }
 
 type SegmentControlProps<T extends string> =
@@ -24,6 +26,7 @@ export function SegmentControl<T extends string>({
   onChange,
   className,
   compact = false,
+  flexWeights,
 }: SegmentControlProps<T>) {
   const items = optionsWithLabels
     ? optionsWithLabels.map((o) => ({ value: o.value, label: o.label }))
@@ -38,18 +41,20 @@ export function SegmentControl<T extends string>({
         padding: compact ? 2 : 4,
       }}
     >
-      {items.map(({ value: optValue, label }) => {
+      {items.map(({ value: optValue, label }, i) => {
         const isSelected = value === optValue;
+        const flex = flexWeights && flexWeights[i] != null ? flexWeights[i] : 1;
         return (
           <button
             key={optValue}
             type="button"
             onClick={() => onChange(optValue)}
             className={cn(
-              'flex-1 flex items-center justify-center font-medium transition-colors rounded-[4px]',
+              'flex items-center justify-center font-medium transition-colors rounded-[4px] whitespace-nowrap',
               compact ? 'min-h-[20px] text-[11px]' : 'min-h-[calc(var(--control-height)-8px)] text-[13px]'
             )}
             style={{
+              flex,
               backgroundColor: isSelected ? 'var(--color-active)' : 'transparent',
               color: isSelected ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
             }}

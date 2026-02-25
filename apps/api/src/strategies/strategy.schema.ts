@@ -47,6 +47,8 @@ export class SnaptradeConfig {
   @Prop({ type: [String], default: [] }) transactionTypes!: string[];
   @Prop({ type: [String], default: [] }) currencies!: string[];
   @Prop({ type: [String], default: [] }) assetTypes!: string[];
+  /** When assetTypes includes 'option': 'all' = all options; 'income_only' = CC & SP only; 'calls_puts' = normal calls & puts only (exclude CC/SP) */
+  @Prop({ default: 'all', enum: ['all', 'income_only', 'calls_puts'] }) optionStrategy!: string;
 }
 
 /* ── Strategy ─────────────────────────────────────── */

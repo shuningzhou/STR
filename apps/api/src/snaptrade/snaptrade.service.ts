@@ -883,13 +883,16 @@ export class SnaptradeService {
     }
 
     const typeFilter = strategy.snaptradeConfig.transactionTypes;
+    const assetTypeFilter = strategy.snaptradeConfig.assetTypes;
     const OPTION_SIDES = ['option_exercise', 'option_assign', 'option_expire', 'options_multileg'];
+    const isOptionTx = (tx: any) => (tx.assetType ?? (tx.option ? 'option' : '')).toLowerCase() === 'option';
+    const wantsOptions = assetTypeFilter?.some((a) => a.toLowerCase() === 'option');
     if (typeFilter && typeFilter.length > 0) {
       allAdjusted = allAdjusted.filter((tx) => {
         const side = (tx.side ?? '').toLowerCase();
         if (typeFilter.some((t) => t.toLowerCase() === side)) return true;
         if (typeFilter.some((t) => t.toLowerCase() === 'transfer') && (side === 'transfer_in' || side === 'transfer_out')) return true;
-        if (typeFilter.some((t) => t.toLowerCase() === 'option') && OPTION_SIDES.includes(side)) return true;
+        if (OPTION_SIDES.includes(side) && isOptionTx(tx) && wantsOptions) return true;
         return false;
       });
     }
@@ -902,11 +905,22 @@ export class SnaptradeService {
       });
     }
 
-    const assetTypeFilter = strategy.snaptradeConfig.assetTypes;
     if (assetTypeFilter && assetTypeFilter.length > 0) {
       allAdjusted = allAdjusted.filter((tx) => {
         const at = (tx.assetType ?? (tx.option ? 'option' : 'stock')).toLowerCase();
         return assetTypeFilter.some((a) => a.toLowerCase() === at);
+      });
+    }
+
+    const optionStrategy = (strategy.snaptradeConfig?.optionStrategy ?? 'all') as string;
+    if (optionStrategy === 'income_only' || optionStrategy === 'calls_puts') {
+      const optionTxs = allAdjusted.filter((tx) => isOptionTx(tx));
+      const incomeTxIds = this.filterToIncomeOptions(optionTxs);
+      allAdjusted = allAdjusted.filter((tx) => {
+        if (!isOptionTx(tx)) return true;
+        const id = (tx as any)._id?.toString?.() ?? (tx as any)._id;
+        const isIncome = id != null && incomeTxIds.has(String(id));
+        return optionStrategy === 'income_only' ? isIncome : !isIncome;
       });
     }
 
@@ -959,6 +973,42 @@ export class SnaptradeService {
   }
 
   /* ── Helpers ──────────────────────────────────── */
+
+  /** Returns Set of tx _id for option txs that are covered call or secured put (income strategies). */
+  private filterToIncomeOptions(optionTxs: Array<{ _id?: string; side?: string; option?: any; instrumentSymbol?: string; quantity?: number; customData?: any }>): Set<string> {
+    const optKey = (tx: any) => {
+      const opt = tx.option;
+      if (!opt?.expiration) return null;
+      const sym = tx.instrumentSymbol ?? '';
+      const exp = (opt.expiration ?? '').slice(0, 10);
+      const strike = opt.strike ?? 0;
+      const cp = ((opt.callPut ?? 'call') + '').toLowerCase();
+      return cp === 'call' || cp === 'put' ? `${sym}|${exp}|${strike}|${cp}` : null;
+    };
+    const positions: Record<string, number> = {};
+    const OPTION_CLOSE_SIDES = ['buy_to_cover', 'buy', 'option_assign', 'option_expire'];
+    const keepIds = new Set<string>();
+    const sorted = [...optionTxs].sort((a, b) => ((a as any).timestamp ?? '').localeCompare((b as any).timestamp ?? ''));
+    for (const tx of sorted) {
+      const id = (tx as any)._id?.toString();
+      const side = (String((tx as any).side ?? '')).toLowerCase();
+      const qty = Math.abs(Number(tx.quantity ?? 0));
+      const k = optKey(tx);
+      if (!k) continue;
+      if (side === 'buy' && (tx.customData ?? (tx as any).customData)?.chainResolved) continue;
+      if (side === 'sell') {
+        positions[k] = (positions[k] ?? 0) + qty;
+        if (id) keepIds.add(id);
+      } else if (OPTION_CLOSE_SIDES.includes(side) && k in positions && positions[k] > 0) {
+        positions[k] -= qty;
+        if (positions[k] <= 0) delete positions[k];
+        if (id) keepIds.add(id);
+      } else if (side === 'options_multileg') {
+        if (id) keepIds.add(id);
+      }
+    }
+    return keepIds;
+  }
 
   private async fetchAllActivities(
     accountId: string,

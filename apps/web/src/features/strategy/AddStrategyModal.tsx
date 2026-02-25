@@ -8,7 +8,7 @@ import { IconPicker } from '@/components/IconPicker';
 const CURRENCIES = ['USD', 'CAD'] as const;
 const MODES = ['Manual', 'Synced'] as const;
 
-/** All SnapTrade transaction types (normalized values matching backend tx.side). Option = consolidated filter for all option-related sides. */
+/** SnapTrade transaction types (tx.side). Option filtering is via Asset Type Filter. */
 const TRANSACTION_TYPES = [
   { value: 'buy', label: 'Buy' },
   { value: 'sell', label: 'Sell' },
@@ -18,7 +18,6 @@ const TRANSACTION_TYPES = [
   { value: 'fee', label: 'Fee' },
   { value: 'interest', label: 'Interest' },
   { value: 'refund', label: 'Refund' },
-  { value: 'option', label: 'Option' },
   { value: 'split', label: 'Split' },
 ] as const;
 
@@ -26,6 +25,12 @@ const ASSET_TYPES = [
   { value: 'stock', label: 'Stock' },
   { value: 'etf', label: 'ETF' },
   { value: 'option', label: 'Options' },
+] as const;
+
+const OPTION_STRATEGIES = [
+  { value: 'all', label: 'All options' },
+  { value: 'income_only', label: 'Covered calls & Secured puts only' },
+  { value: 'calls_puts', label: 'Long calls & puts' },
 ] as const;
 
 export function AddStrategyModal() {
@@ -38,6 +43,7 @@ export function AddStrategyModal() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>([]);
+  const [optionStrategy, setOptionStrategy] = useState<'all' | 'income_only' | 'calls_puts'>('all');
 
   const createStrategy = useCreateStrategy();
   const syncStrategy = useSyncStrategy();
@@ -73,6 +79,7 @@ export function AddStrategyModal() {
                 transactionTypes: selectedTypes,
                 currencies: selectedCurrencies,
                 assetTypes: selectedAssetTypes,
+                optionStrategy,
               },
             }
           : {}),
@@ -90,7 +97,7 @@ export function AddStrategyModal() {
       resetForm();
       setAddStrategyModalOpen(false);
     },
-    [createStrategy, syncStrategy, setActiveStrategy, baseCurrency, icon, name, setAddStrategyModalOpen, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes],
+    [createStrategy, syncStrategy, setActiveStrategy, baseCurrency, icon, name, setAddStrategyModalOpen, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, optionStrategy],
   );
 
   const resetForm = () => {
@@ -103,6 +110,7 @@ export function AddStrategyModal() {
     setSelectedTypes([]);
     setSelectedCurrencies([]);
     setSelectedAssetTypes([]);
+    setOptionStrategy('all');
   };
 
   const handleClose = useCallback(() => {
@@ -137,7 +145,7 @@ export function AddStrategyModal() {
   if (!addStrategyModalOpen) return null;
 
   return (
-    <Modal title="Create strategy" onClose={handleClose} size={isSynced ? '2xl' : 'default'}>
+    <Modal title="Create strategy" onClose={handleClose} size={isSynced ? 'lg' : 'default'}>
       <form onSubmit={handleSubmit}>
         {/* Mode selector */}
         <div style={{ marginBottom: 20 }} className="flex items-center gap-3">
@@ -205,21 +213,15 @@ export function AddStrategyModal() {
                     fontSize: 'var(--font-size-body)',
                   }}
                 >
-                  <table className="w-full border-collapse" style={{ tableLayout: 'auto', minWidth: 1000 }}>
+                  <table className="w-full border-collapse" style={{ tableLayout: 'auto', minWidth: 400 }}>
                     <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                       <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
                         <th style={{ width: 36, padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }} />
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Institution</th>
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Name</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Number</th>
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Currency</th>
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Type</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Raw Type</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Status</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Meta Status</th>
                         <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'right', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Balance</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Paper</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Created</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -249,15 +251,11 @@ export function AddStrategyModal() {
                             </td>
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.institutionName || '—'}</td>
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.name || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.number || '—'}</td>
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.currency || '—'}</td>
                             <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.type || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.rawType || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.status || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.metaStatus || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', textAlign: 'right' }}>{acct.balanceAmount != null ? acct.balanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.isPaper != null ? (acct.isPaper ? 'Yes' : 'No') : '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.createdDate ? acct.createdDate.slice(0, 10) : '—'}</td>
+                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              {acct.balanceAmount != null ? acct.balanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                            </td>
                           </tr>
                         );
                       })}
@@ -347,44 +345,55 @@ export function AddStrategyModal() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <Label>Asset Type Filter</Label>
-              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                Only sync these asset types. Empty = all.
-              </p>
-              <div
-                className="flex flex-wrap mt-1"
-                style={{ gap: 'var(--space-gap)' }}
-              >
-                {ASSET_TYPES.map((at) => {
-                  const checked = selectedAssetTypes.includes(at.value);
-                  return (
-                    <button
-                      key={at.value}
-                      type="button"
-                      onClick={() => toggleAssetType(at.value)}
-                      className="font-medium transition-colors cursor-pointer shrink-0"
-                      style={{
-                        minHeight: 'var(--control-height)',
-                        paddingLeft: 'var(--space-gap)',
-                        paddingRight: 'var(--space-gap)',
-                        fontSize: 'var(--font-size-body)',
-                        borderRadius: 'var(--radius-medium)',
-                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
-                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)';
-                      }}
-                    >
-                      {at.label}
-                    </button>
-                  );
-                })}
+            <div className="flex flex-wrap items-start gap-6" style={{ marginBottom: 20 }}>
+              <div className="shrink-0">
+                <Label>Asset Type Filter</Label>
+                <div
+                  className="flex flex-wrap mt-1"
+                  style={{ gap: 'var(--space-gap)' }}
+                >
+                  {ASSET_TYPES.map((at) => {
+                    const checked = selectedAssetTypes.includes(at.value);
+                    return (
+                      <button
+                        key={at.value}
+                        type="button"
+                        onClick={() => toggleAssetType(at.value)}
+                        className="font-medium transition-colors cursor-pointer shrink-0"
+                        style={{
+                          minHeight: 'var(--control-height)',
+                          paddingLeft: 'var(--space-gap)',
+                          paddingRight: 'var(--space-gap)',
+                          fontSize: 'var(--font-size-body)',
+                          borderRadius: 'var(--radius-medium)',
+                          backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
+                          color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)';
+                        }}
+                      >
+                        {at.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+              {selectedAssetTypes.includes('option') && (
+                <div className="flex-1 min-w-[240px] flex flex-col items-stretch" style={{ maxWidth: '100%' }}>
+                  <Label>Option Strategy Filter</Label>
+                  <SegmentControl
+                    className="mt-1 w-full"
+                    optionsWithLabels={OPTION_STRATEGIES}
+                    value={optionStrategy}
+                    onChange={(v) => setOptionStrategy(v as 'all' | 'income_only' | 'calls_puts')}
+                    flexWeights={[1, 2, 1]}
+                  />
+                </div>
+              )}
             </div>
           </>
         )}

@@ -1,8 +1,9 @@
 /**
  * Official read-only subview: Stacked bar chart of premium income over time.
  * Shows Covered Call (green) and Secured Put (blue) premiums by daily/weekly/monthly/annually.
- * Includes: sell (premium received), buy_to_cover/buy (manual close, cash negative), options_multileg (rolls, cash +/-).
- * Excludes chainResolved buy legs (roll close leg has cashDelta on the sell leg).
+ * Includes: sell (premium received), buy_to_cover/buy (manual close of short positions only, cash negative), options_multileg (rolls, cash +/-).
+ * Close: only counts buy/buy_to_cover when it reduces an existing short position (prior sell of that option).
+ * Excludes: normal call/put openings (buy with no prior sell), chainResolved buy legs (roll close leg).
  */
 import type { SubviewSpec } from '@str/shared';
 
@@ -169,7 +170,9 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
     all_keys = bucket_keys()
     all_keys = sorted(set(all_keys))
 
-    # Aggregate premium by bucket — split into received (positive) and close (negative) when including manual closes
+    # Aggregate premium by bucket — split into received (positive) and close (negative) when including manual closes.
+    # Close: only count buy/buy_to_cover when it reduces an existing short position (covered call or secured put).
+    # Exclude: buy of call (normal call opening), buy of put (long put opening) — no prior sell of that option.
     def default_bucket():
         return {'Covered Call': 0.0, 'Secured Put': 0.0, 'Close': 0.0, '_label': ''}
     agg = defaultdict(lambda: {'Covered Call': 0.0, 'Secured Put': 0.0, 'Close': 0.0, '_label': ''})
@@ -185,7 +188,19 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
         else:
             agg[k]['_label'] = k
 
-    for tx in txs:
+    def opt_key(opt, sym):
+        if not opt or not hasattr(opt, 'get'):
+            return None
+        exp = (opt.get('expiration') or '')[:10]
+        strike = opt.get('strike', 0)
+        cp = (opt.get('callPut') or 'call').lower()
+        return (sym, exp, strike, cp)
+
+    # Track short option positions (sell opens, buy/buy_to_cover closes). Process txs chronologically.
+    positions = {}
+    txs_sorted = sorted(txs, key=lambda t: t.get('timestamp', ''))
+
+    for tx in txs_sorted:
         sym = tx.get('instrumentSymbol') or ''
         if ticker != 'all' and sym != ticker:
             continue
@@ -206,15 +221,14 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
             continue
 
         side = (tx.get('side') or tx.get('type') or '').lower()
-        if side not in ('sell', 'buy_to_cover', 'buy', 'options_multileg'):
+        if side not in ('sell', 'buy_to_cover', 'buy', 'options_multileg', 'option_assign', 'option_expire'):
             continue
         # Skip roll legs (chainResolved buy) - their cashDelta is on the sell leg. Include manual buy (cash negative).
         if side == 'buy' and (tx.get('customData') or {}).get('chainResolved'):
             continue
-        # Optionally exclude manual closes (buy_to_cover, buy) when checkbox unchecked.
-        if not include_manual_closes and side in ('buy_to_cover', 'buy'):
-            continue
         premium = float(tx.get('cashDelta') or 0)
+        qty = int(tx.get('quantity') or 0)
+        k = opt_key(opt, sym)
 
         try:
             dt = datetime.strptime(date_str, '%Y-%m-%d')
@@ -230,11 +244,30 @@ export const PREMIUM_INCOME_CHART: SubviewSpec = {
             key = date_str[:7]
         else:
             key = date_str[:4]
-        if key in agg:
-            if include_manual_closes and side in ('buy_to_cover', 'buy'):
-                agg[key]['Close'] += premium
-            else:
-                agg[key][category] += premium
+        if key not in agg:
+            continue
+
+        if side == 'sell' and k:
+            positions[k] = positions.get(k, 0) + qty
+            agg[key][category] += premium
+        elif side in ('buy_to_cover', 'buy') and k:
+            # Only count as Close when it reduces an existing short position (covered call or secured put close).
+            # buy of call with no prior sell = normal call (opening long) -> exclude.
+            # buy of put with no prior sell = long put opening -> exclude.
+            if k in positions and positions[k] > 0:
+                positions[k] -= qty
+                if positions[k] <= 0:
+                    del positions[k]
+                if include_manual_closes:
+                    agg[key]['Close'] += premium
+        elif side in ('option_assign', 'option_expire') and k:
+            # Update positions (assign/expire close short) but do not add to Close (not manual).
+            if k in positions and positions[k] > 0:
+                positions[k] -= qty
+                if positions[k] <= 0:
+                    del positions[k]
+        elif side == 'options_multileg':
+            agg[key][category] += premium
 
     # Slice: offset 0 = today (last 10), +1 = older, -1 = newer (future). start_idx = total - 10 - offset*10
     total = len(all_keys)

@@ -44,6 +44,7 @@ export class StrategiesService {
             transactionTypes: dto.snaptradeConfig.transactionTypes,
             currencies: dto.snaptradeConfig.currencies ?? [],
             assetTypes: dto.snaptradeConfig.assetTypes ?? [],
+            optionStrategy: dto.snaptradeConfig.optionStrategy ?? 'all',
           }
         : undefined,
     });
