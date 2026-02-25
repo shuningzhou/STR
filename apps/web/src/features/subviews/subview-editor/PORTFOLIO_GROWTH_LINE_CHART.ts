@@ -59,7 +59,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
     """Return line chart data: { items: [{ label, value, depositWithdraw?, loan?, holdingsValue? }, ...] }.
     Portfolio = holdings - loan + wallet (net equity at each date).
     Plots at every trading day (from priceHistory), not just transaction dates — reflects daily price moves.
-    Uses EOD prices; forward-fills missing dates; currentPrices for today.
+    Uses EOD prices for historical dates; currentPrices for the last point (today) so chart holdings matches Holdings Value card.
     """
     txs = context.get('transactions') or []
     wallet = context.get('wallet') or {}
@@ -138,6 +138,13 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
             return float(cp)
         return 0.0
 
+    def price_for_last_point(sym):
+        """Use current prices for last point so chart holdings matches Holdings Value card."""
+        cp = current_prices.get(sym) if isinstance(current_prices, dict) else None
+        if cp is not None:
+            return float(cp)
+        return price_for(sym, today)
+
     stock_txs_sorted = sorted(stock_txs, key=date_of)
     cash_only_sides = {'deposit', 'withdrawal', 'withdraw', 'interest', 'fee'}
 
@@ -176,12 +183,14 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
             tx_idx += 1
 
         mv = 0.0
+        is_last_point = (date_str == today)
         for inst_id, row in agg.items():
             q = row['quantity']
             if q <= 0:
                 continue
             sym = row['symbol']
-            mv += q * float(price_for(sym, date_str))
+            p = float(price_for_last_point(sym)) if is_last_point else float(price_for(sym, date_str))
+            mv += q * p
 
         item = {'label': date_str, 'value': round(cash + mv, 2)}
         if show_dw:
@@ -216,7 +225,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
             if q <= 0:
                 continue
             sym = row['symbol']
-            p = price_for(sym, today)
+            p = price_for_last_point(sym)
             if p == 0 and trading_dates:
                 p = price_for(sym, trading_dates[-1])
             mv += q * float(p)
