@@ -228,7 +228,7 @@ export class SnaptradeService {
     return { deleted: true };
   }
 
-  /* ── Account-level sync & rebuild ─────────────── */
+  /* ── Account-level sync ──────────────────────── */
 
   async getAccountTransactions(accountId: string, userId: string) {
     const doc = await this.syncedAccountModel
@@ -237,45 +237,33 @@ export class SnaptradeService {
       .exec();
     if (!doc) {
       return {
-        rawTransactions: [] as any[],
-        adjustedTransactions: [] as any[],
+        transactions: [] as any[],
         rawHoldings: null,
-        derivedHoldings: { positions: [], cashByCurrency: {} },
       };
     }
 
-    const equityPositions = (doc.currentHoldings ?? []).map((h: any) => ({
-      symbol: h.symbol,
-      quantity: h.quantity ?? 0,
-      averagePrice: h.averagePrice ?? 0,
-      currency: h.currency ?? '',
-      isOption: false,
-    }));
-
-    const optionPositions = await this.fetchOptionHoldings(accountId, userId);
-    const rawPositions = [...equityPositions, ...optionPositions].sort((a, b) =>
-      a.symbol.localeCompare(b.symbol),
-    );
-
-    const cashByCurrency = doc.currentCashByCurrency && Object.keys(doc.currentCashByCurrency).length > 0
-      ? doc.currentCashByCurrency
-      : (doc.currentCash != null ? { [doc.currency || 'USD']: doc.currentCash } : {});
+    const cashByCurrency =
+      doc.currentCashByCurrency && Object.keys(doc.currentCashByCurrency).length > 0
+        ? doc.currentCashByCurrency
+        : doc.currentCash != null
+          ? { [doc.currency || 'USD']: doc.currentCash }
+          : {};
 
     const rawHoldings = {
-      positions: rawPositions,
+      positions: (doc.currentHoldings ?? []).map((h: any) => ({
+        symbol: h.symbol,
+        quantity: h.quantity ?? 0,
+        averagePrice: h.averagePrice ?? 0,
+        currency: h.currency ?? '',
+        category: h.category ?? 'stock_etf',
+        isOption: !['stock', 'etf', 'stock_etf'].includes(h.category ?? 'stock_etf'),
+      })),
       cashByCurrency,
     };
 
-    const derived = this.deriveHoldingsFromTransactions(doc.adjustedTransactions ?? []);
-
     return {
-      rawTransactions: doc.rawTransactions ?? [],
-      adjustedTransactions: doc.adjustedTransactions ?? [],
+      transactions: doc.transactions ?? [],
       rawHoldings,
-      derivedHoldings: {
-        positions: derived.positions,
-        cashByCurrency,
-      },
     };
   }
 
@@ -317,6 +305,56 @@ export class SnaptradeService {
     }
   }
 
+  private async fetchOrders(
+    accountId: string,
+    creds: { userId: string; userSecret: string },
+    days = 365,
+  ): Promise<any[]> {
+    try {
+      const resp = await this.snaptrade.accountInformation.getUserAccountOrders({
+        accountId,
+        userId: creds.userId,
+        userSecret: creds.userSecret,
+        state: 'all',
+        days,
+      });
+      return resp.data ?? [];
+    } catch (e) {
+      this.logger.warn(`Failed to fetch orders for ${accountId}: ${e}`);
+      return [];
+    }
+  }
+
+  private async fetchActivitiesWithDateRange(
+    accountId: string,
+    creds: { userId: string; userSecret: string },
+    startDate: string,
+    endDate: string,
+  ): Promise<any[]> {
+    const activities: any[] = [];
+    const limit = 1000;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const resp = await this.snaptrade.accountInformation.getAccountActivities({
+        accountId,
+        userId: creds.userId,
+        userSecret: creds.userSecret,
+        startDate,
+        endDate,
+        limit,
+        offset,
+      });
+      const page = resp.data?.data ?? [];
+      activities.push(...page);
+      hasMore = page.length >= limit;
+      offset += limit;
+    }
+
+    return activities;
+  }
+
   private txKey(t: any): string {
     const opt = t.option;
     if (opt && opt.strike != null && opt.callPut) {
@@ -340,60 +378,206 @@ export class SnaptradeService {
     };
   }
 
-  private deriveHoldingsFromTransactions(txns: any[]): {
-    positions: Array<{ symbol: string; quantity: number; currency?: string }>;
-    cashByCurrency: Record<string, number>;
-  } {
-    const byKey: Record<string, number> = {};
-    const currencyByKey: Record<string, string> = {};
-    const cashByCurrency: Record<string, number> = {};
-    const OPTION_CONTRACT_MULTIPLIER = 100;
-    const addSides = ['buy', 'option_exercise', 'transfer_in'];
-    const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
-    const setKey = (k: string, delta: number, ccy: string) => {
-      if (k) {
-        byKey[k] = (byKey[k] ?? 0) + delta;
-        if (!currencyByKey[k]) currencyByKey[k] = ccy;
-      }
+  private buildOptionLegFromOption(opt: any, underlyingSymbol: string): { expiration: string; strike: number; callPut: string; underlyingSymbol: string } | null {
+    if (!opt || opt.strike == null || !opt.callPut) return null;
+    return {
+      expiration: (opt.expiration ?? '').slice(0, 10),
+      strike: opt.strike ?? 0,
+      callPut: (opt.callPut ?? '').toLowerCase(),
+      underlyingSymbol,
     };
-    for (const t of txns) {
-      const key = this.txKey(t);
-      const q = t.quantity ?? 0;
-      const ccy = t.currency || 'USD';
-      const opt = t.option;
-      const underlying = opt?.underlyingSymbol ?? t.instrumentSymbol ?? '';
-      const callPut = (opt?.callPut ?? '').toLowerCase();
-      const isPut = callPut.startsWith('p');
-      const isCall = callPut.startsWith('c');
-
-      if (t.side === 'option_assign') {
-        if (key && q) setKey(key, q, ccy);
-        if (underlying && q) {
-          const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
-          setKey(underlying, isPut ? shareDelta : -shareDelta, ccy);
-        }
-      } else if (t.side === 'option_exercise') {
-        if (key && q) setKey(key, -q, ccy);
-        if (underlying && q) {
-          const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
-          setKey(underlying, isCall ? shareDelta : -shareDelta, ccy);
-        }
-      } else if (t.side === 'option_expire') {
-        if (key && q) setKey(key, q, ccy);
-      } else if (key && q) {
-        if (addSides.includes(t.side)) setKey(key, q, ccy);
-        else if (subSides.includes(t.side)) setKey(key, -q, ccy);
-      }
-      cashByCurrency[ccy] = (cashByCurrency[ccy] ?? 0) + (t.cashDelta ?? 0);
-    }
-    const positions = Object.entries(byKey)
-      .filter(([, q]) => Math.abs(q) >= 0.0001)
-      .map(([symbol, quantity]) => ({ symbol, quantity, currency: currencyByKey[symbol] || 'USD' }))
-      .sort((a, b) => a.symbol.localeCompare(b.symbol));
-    return { positions, cashByCurrency };
   }
 
-  async rebuildAccountFull(accountId: string, userId: string): Promise<{ rebuilt: boolean; activities: number }> {
+  private matchRollsToOrders(
+    txns: any[],
+    orders: any[],
+  ): void {
+    for (const tx of txns) {
+      if (tx.side !== 'options_multileg' || !tx.option) continue;
+      const closeLeg = this.buildOptionLegFromOption(
+        tx.option,
+        tx.option?.underlyingSymbol ?? tx.instrumentSymbol ?? '',
+      );
+      if (!closeLeg) continue;
+
+      const ts = (tx.timestamp ?? '').slice(0, 10);
+      const underlying = closeLeg.underlyingSymbol;
+      const callPut = closeLeg.callPut?.charAt(0)?.toUpperCase();
+
+      for (const ord of orders) {
+        const ordDate = ((ord as any).time_executed ?? (ord as any).time_placed ?? '').slice(0, 10);
+        if (ordDate !== ts) continue;
+        const optSym = (ord as any).option_symbol;
+        if (!optSym) continue;
+        const ordUnd = typeof optSym.underlying_symbol === 'string'
+          ? optSym.underlying_symbol
+          : optSym.underlying_symbol?.symbol ?? optSym.underlying_symbol?.raw_symbol ?? '';
+        const ordCP = (optSym.option_type ?? '').charAt(0).toUpperCase();
+        if (ordUnd !== underlying || ordCP !== callPut) continue;
+
+        const ordExp = (optSym.expiration_date ?? '').slice(0, 10);
+        const ordStrike = optSym.strike_price ?? 0;
+        if (ordExp === closeLeg.expiration && ordStrike === closeLeg.strike) continue;
+
+        const openLeg = this.buildOptionLegFromOption(
+          {
+            expiration: ordExp,
+            strike: ordStrike,
+            callPut: optSym.option_type ?? '',
+            underlyingSymbol: ordUnd,
+          },
+          ordUnd,
+        );
+        if (openLeg) {
+          tx.customData = tx.customData ?? {};
+          tx.customData.closeLeg = closeLeg;
+          tx.customData.openLeg = openLeg;
+        }
+        break;
+      }
+      if (!tx.customData?.closeLeg) {
+        tx.customData = tx.customData ?? {};
+        tx.customData.closeLeg = closeLeg;
+      }
+    }
+  }
+
+  private buildOptionChains(txns: any[]): void {
+    const sorted = [...txns].sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''));
+    const optionTxns = sorted.filter((t) => (t.assetType ?? '') === 'option' || t.option);
+    const processed = new Set<any>();
+
+    for (const tx of optionTxns) {
+      if (processed.has(tx)) continue;
+      const underlying = tx.option?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
+      const callPut = (tx.option?.callPut ?? '').charAt(0).toUpperCase();
+      if (!underlying || !callPut) continue;
+
+      const chain: any[] = [];
+      let currentKey = this.txKey(tx);
+
+      for (const t of optionTxns) {
+        if (processed.has(t)) continue;
+        const tUnd = t.option?.underlyingSymbol ?? t.instrumentSymbol ?? '';
+        const tCP = (t.option?.callPut ?? '').charAt(0).toUpperCase();
+        if (tUnd !== underlying || tCP !== callPut) continue;
+
+        if (t.side === 'options_multileg') {
+          if (this.txKey(t) === currentKey || chain.length === 0) {
+            chain.push(t);
+            processed.add(t);
+            currentKey = (t.customData?.openLeg
+              ? `${(t.customData.openLeg as any).underlyingSymbol} $${(t.customData.openLeg as any).strike} ${((t.customData.openLeg as any).callPut ?? '').charAt(0).toUpperCase()} ${(t.customData.openLeg as any).expiration}`
+              : currentKey);
+          }
+        } else if (t.side === 'sell' || t.side === 'buy') {
+          const k = this.txKey(t);
+          if (chain.length === 0 || k === currentKey) {
+            chain.push(t);
+            processed.add(t);
+            if (t.side === 'sell') currentKey = k;
+            else if (t.side === 'buy') currentKey = '';
+          }
+        } else if (['option_assign', 'option_exercise', 'option_expire'].includes(t.side)) {
+          const k = this.txKey(t);
+          if (k === currentKey || chain.length > 0) {
+            chain.push(t);
+            processed.add(t);
+            currentKey = '';
+          }
+        }
+      }
+
+      if (chain.length === 0) continue;
+
+      chain.sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''));
+      const origin = chain[0];
+      const originSide = (origin.side ?? '').toLowerCase();
+      const originCallPut = (origin.option?.callPut ?? '').toLowerCase();
+      let chainType: 'call' | 'covered_call' | 'put' | 'secured_put' = 'call';
+      if (originCallPut.startsWith('p')) {
+        chainType = originSide === 'sell' ? 'secured_put' : 'put';
+      } else {
+        chainType = originSide === 'sell' ? 'covered_call' : 'call';
+      }
+
+      const chainId = new Types.ObjectId().toString();
+      for (const t of chain) {
+        t.customData = t.customData ?? {};
+        t.customData.chainId = chainId;
+
+        if ((t.assetType ?? '') !== 'option' && !t.option) continue;
+        if (t.side === 'options_multileg') {
+          t.category = `${chainType}_roll`;
+        } else if (t.side === 'sell' || t.side === 'buy') {
+          const isOpen = (t.side === 'sell' && chainType.startsWith('covered')) || (t.side === 'sell' && chainType.startsWith('secured')) || (t.side === 'buy' && (chainType === 'call' || chainType === 'put'));
+          t.category = isOpen ? `${chainType}_open` : `${chainType}_close`;
+        } else if (['option_assign', 'option_exercise', 'option_expire'].includes(t.side)) {
+          t.category = `${chainType}_close`;
+        }
+      }
+    }
+
+    for (const tx of txns) {
+      if (!tx.category) {
+        const at = tx.assetType ?? 'stock';
+        tx.category = (at === 'stock' || at === 'etf') ? 'stock_etf' : at;
+      }
+    }
+  }
+
+  private async buildCurrentHoldingsWithCategory(
+    accountId: string,
+    userId: string,
+    currency: string,
+  ): Promise<Array<{ symbol: string; quantity: number; averagePrice: number; currency: string; category: string }>> {
+    const holdings: Array<{ symbol: string; quantity: number; averagePrice: number; currency: string; category: string }> = [];
+    const creds = await this.getSnapCreds(userId);
+
+    const positions: any[] = [];
+    try {
+      const posResp = await this.snaptrade.accountInformation.getUserAccountPositions({
+        accountId,
+        userId: creds.userId,
+        userSecret: creds.userSecret,
+      });
+      positions.push(...(posResp.data ?? []));
+    } catch (e) {
+      this.logger.warn(`Failed to fetch positions for ${accountId}: ${e}`);
+    }
+
+    for (const pos of positions) {
+      const symbol = this.extractSymbolStr(pos);
+      if (!symbol) continue;
+      const qty = ((pos as any).units ?? 0) + ((pos as any).fractional_units ?? 0);
+      const avgPrice = (pos as any).average_purchase_price ?? 0;
+      const posCurrency = this.extractCurrencyStr(pos, currency);
+      const typeCode = ((pos as any).symbol?.type?.code ?? (pos as any).symbol?.type ?? '').toString().toLowerCase();
+      const category = typeCode === 'et' || typeCode === 'etf' ? 'stock_etf' : 'stock_etf';
+      holdings.push({ symbol, quantity: qty, averagePrice: avgPrice, currency: posCurrency, category });
+    }
+
+    const optionHoldings = await this.fetchOptionHoldings(accountId, userId);
+    for (const oh of optionHoldings) {
+      const callPut = (oh.symbol?.match(/\s([CP])\s/) ?? [])[1] ?? '';
+      const isCall = callPut.toUpperCase() === 'C';
+      const qty = oh.quantity ?? 0;
+      const category = qty > 0
+        ? (isCall ? 'call' : 'put')
+        : (isCall ? 'covered_call' : 'secured_put');
+      holdings.push({
+        symbol: oh.symbol,
+        quantity: oh.quantity,
+        averagePrice: oh.averagePrice ?? 0,
+        currency: oh.currency ?? 'USD',
+        category,
+      });
+    }
+
+    return holdings.sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }
+
+  async syncAccount(accountId: string, userId: string): Promise<{ synced: number; syncedTransactions?: boolean }> {
     const creds = await this.getSnapCreds(userId);
     const userObjId = new Types.ObjectId(userId);
 
@@ -406,24 +590,14 @@ export class SnaptradeService {
         authorizationId: acctInfo?.authorizationId ?? '',
         institutionName: acctInfo?.institutionName ?? '',
         currency: acctInfo?.currency ?? '',
-        rebuiltAt: null,
         lastSyncedAt: null,
         currentHoldings: [],
         currentCash: 0,
         currentCashByCurrency: {},
-        rawTransactions: [],
-        adjustedTransactions: [],
+        transactions: [],
+        transactionsSyncStartDate: null,
       });
     }
-
-    const oldTxIds = doc.adjustedTransactions.map((t) => (t as any)._id?.toString()).filter(Boolean);
-
-    doc.adjustedTransactions = [] as any;
-    doc.rawTransactions = [] as any;
-    doc.rebuiltAt = null;
-    doc.currentHoldings = [] as any;
-    doc.currentCash = 0;
-    doc.currentCashByCurrency = {} as any;
 
     if (doc.authorizationId) {
       try {
@@ -434,720 +608,92 @@ export class SnaptradeService {
         });
         await new Promise((r) => setTimeout(r, 3000));
       } catch (e) {
-        this.logger.warn(`Failed to refresh brokerage before rebuild: ${e}`);
+        this.logger.warn(`Failed to refresh brokerage before sync: ${e}`);
       }
     }
 
-    const activities = await this.fetchAllActivities(accountId, creds);
-    const existingIds = new Set<string>();
+    const orders = await this.fetchOrders(accountId, creds, 365);
+    let syncedTransactions = false;
 
-    for (const activity of activities) {
-      const activityId = (activity as any).id;
-      if (!activityId || existingIds.has(activityId)) continue;
-      const mapped = this.mapActivity(activity);
-      doc.adjustedTransactions.push({
-        ...mapped,
-        snaptradeActivityId: activityId,
-        synthetic: false,
-      } as any);
-      existingIds.add(activityId);
-    }
-
-    doc.rawTransactions = JSON.parse(JSON.stringify(doc.adjustedTransactions));
-    await this.rebuildAccount(doc, creds, accountId);
-    doc.lastSyncedAt = new Date();
-    await doc.save();
-
-    if (oldTxIds.length > 0) {
-      const strategies = await this.strategyModel
-        .find({ 'snaptradeConfig.accountIds': accountId, userId: userObjId })
-        .lean()
-        .exec();
-
-      const oldTxIdsForQuery = [
-        ...oldTxIds,
-        ...oldTxIds
-          .map((id) => {
-            try {
-              return new Types.ObjectId(id);
-            } catch {
-              return null;
-            }
-          })
-          .filter(Boolean),
-      ];
-
-      for (const strategy of strategies) {
-        const deleted = await this.txModel.deleteMany({
-          strategyId: strategy._id.toString(),
-          accountTransactionId: { $in: oldTxIdsForQuery },
+    if (orders.length === 0) {
+      const holdings = await this.buildCurrentHoldingsWithCategory(accountId, userId, doc.currency);
+      doc.currentHoldings = holdings as any;
+      const cashByCurrency: Record<string, number> = {};
+      try {
+        const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
+          accountId,
+          userId: creds.userId,
+          userSecret: creds.userSecret,
         });
-        if (deleted.deletedCount > 0) {
-          await this.strategyModel.updateOne(
-            { _id: strategy._id },
-            { $inc: { transactionsVersion: 1 } },
-          );
-          this.logger.log(
-            `Dropped ${deleted.deletedCount} strategy txns from strategy ${strategy._id} for account ${accountId}`,
-          );
+        for (const b of balResp.data ?? []) {
+          const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
+          cashByCurrency[ccy] = ((b as any).cash ?? (b as any).amount ?? 0);
         }
+      } catch (e) {
+        this.logger.warn(`Failed to fetch balance for ${accountId}: ${e}`);
       }
-    }
-
-    this.logger.log(`rebuildAccountFull ${accountId}: ${activities.length} activities, rebuild complete`);
-    return { rebuilt: true, activities: activities.length };
-  }
-
-  async syncAccount(accountId: string, userId: string): Promise<{ added: number }> {
-    const creds = await this.getSnapCreds(userId);
-    const userObjId = new Types.ObjectId(userId);
-
-    let doc = await this.syncedAccountModel.findOne({ userId: userObjId, accountId }).exec();
-    if (!doc) {
-      const acctInfo = await this.findAccountInfo(userId, accountId);
-      doc = new this.syncedAccountModel({
-        userId: userObjId,
-        accountId,
-        authorizationId: acctInfo?.authorizationId ?? '',
-        institutionName: acctInfo?.institutionName ?? '',
-        currency: acctInfo?.currency ?? '',
-        rebuiltAt: null,
-        lastSyncedAt: null,
-        currentHoldings: [],
-        currentCash: 0,
-        currentCashByCurrency: {},
-        rawTransactions: [],
-        adjustedTransactions: [],
-      });
-    }
-
-    const existingIds = new Set(
-      doc.adjustedTransactions
-        .filter((t) => t.snaptradeActivityId)
-        .map((t) => t.snaptradeActivityId),
-    );
-
-    const activities = await this.fetchAllActivities(accountId, creds);
-    const newMapped: any[] = [];
-    let added = 0;
-
-    for (const activity of activities) {
-      const activityId = (activity as any).id;
-      if (!activityId || existingIds.has(activityId)) continue;
-
-      const mapped = this.mapActivity(activity);
-      newMapped.push({
-        ...mapped,
-        snaptradeActivityId: activityId,
-        synthetic: false,
-      } as any);
-      existingIds.add(activityId);
-      added++;
-    }
-
-    if (!doc.rebuiltAt) {
-      for (const t of newMapped) doc.adjustedTransactions.push(t);
-      doc.rawTransactions = JSON.parse(JSON.stringify(doc.adjustedTransactions));
-      await this.rebuildAccount(doc, creds, accountId);
+      doc.currentCashByCurrency = cashByCurrency;
+      doc.transactions = [] as any;
+      doc.transactionsSyncStartDate = null;
+      this.logger.log(`syncAccount ${accountId}: no orders, holdings only`);
     } else {
-      for (const t of newMapped) doc.rawTransactions.push(JSON.parse(JSON.stringify(t)));
+      const orderDates = orders
+        .map((o) => ((o as any).time_executed ?? (o as any).time_placed ?? '').slice(0, 10))
+        .filter(Boolean);
+      const earliestDate = orderDates.length > 0 ? orderDates.reduce((a, b) => (a < b ? a : b)) : new Date().toISOString().slice(0, 10);
+      const endDate = new Date().toISOString().slice(0, 10);
 
-      if (newMapped.length > 0) {
-        const oldDerived = this.deriveHoldingsFromTransactions(doc.adjustedTransactions);
-        const oldOptionHoldings = oldDerived.positions
-          .filter((p) => p.symbol?.includes('$'))
-          .map((p) => ({ symbol: p.symbol, quantity: p.quantity }));
+      const activities = await this.fetchActivitiesWithDateRange(accountId, creds, earliestDate, endDate);
+      const transactions: any[] = [];
+      const existingIds = new Set<string>();
 
-        let newOptionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }> = [];
-        try {
-          newOptionHoldings = await this.fetchOptionHoldings(accountId, userId);
-        } catch (e) {
-          this.logger.warn(`Failed to fetch option holdings during incremental sync for ${accountId}: ${e}`);
-        }
-
-        const expanded = this.expandMultilegsIncremental(
-          newMapped,
-          oldOptionHoldings,
-          newOptionHoldings,
-        );
-
-        for (const t of expanded) doc.adjustedTransactions.push(t);
-
-        const positions: any[] = [];
-        try {
-          const posResp = await this.snaptrade.accountInformation.getUserAccountPositions({
-            accountId,
-            userId: creds.userId,
-            userSecret: creds.userSecret,
-          });
-          positions.push(...(posResp.data ?? []));
-        } catch (e) {
-          this.logger.warn(`Failed to fetch positions during incremental sync for ${accountId}: ${e}`);
-        }
-
-        const holdingsSnapshot: Array<{ symbol: string; quantity: number; averagePrice: number; currency: string }> = [];
-        for (const pos of positions) {
-          const symbol = this.extractSymbolStr(pos);
-          if (!symbol) continue;
-          const currentQty = ((pos as any).units ?? 0) + ((pos as any).fractional_units ?? 0);
-          const avgPrice = (pos as any).average_purchase_price ?? 0;
-          const posCurrency = this.extractCurrencyStr(pos, doc.currency);
-          holdingsSnapshot.push({ symbol, quantity: currentQty, averagePrice: avgPrice, currency: posCurrency });
-        }
-
-        const cashByCurrency: Record<string, number> = {};
-        try {
-          const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
-            accountId,
-            userId: creds.userId,
-            userSecret: creds.userSecret,
-          });
-          const balances = balResp.data ?? [];
-          for (const b of balances) {
-            const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
-            const cash = (b as any).cash ?? (b as any).amount ?? 0;
-            cashByCurrency[ccy] = (cashByCurrency[ccy] ?? 0) + cash;
-          }
-        } catch (e) {
-          this.logger.warn(`Failed to fetch balance during incremental sync for ${accountId}: ${e}`);
-        }
-
-        doc.currentHoldings = holdingsSnapshot as any;
-        doc.currentCashByCurrency = cashByCurrency;
+      for (const activity of activities) {
+        const activityId = (activity as any).id;
+        if (!activityId || existingIds.has(activityId)) continue;
+        const mapped = this.mapActivity(activity);
+        const tx = {
+          ...mapped,
+          snaptradeActivityId: activityId,
+          category: (['stock', 'etf'].includes(mapped.assetType ?? '') ? 'stock_etf' : (mapped.assetType ?? 'stock_etf')) as string,
+          customData: {} as Record<string, unknown>,
+        };
+        transactions.push(tx);
+        existingIds.add(activityId);
       }
+
+      this.matchRollsToOrders(transactions, orders);
+      this.buildOptionChains(transactions);
+
+      const holdings = await this.buildCurrentHoldingsWithCategory(accountId, userId, doc.currency);
+      doc.currentHoldings = holdings as any;
+
+      const cashByCurrency: Record<string, number> = {};
+      try {
+        const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
+          accountId,
+          userId: creds.userId,
+          userSecret: creds.userSecret,
+        });
+        for (const b of balResp.data ?? []) {
+          const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
+          cashByCurrency[ccy] = ((b as any).cash ?? (b as any).amount ?? 0);
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to fetch balance for ${accountId}: ${e}`);
+      }
+      doc.currentCashByCurrency = cashByCurrency;
+      doc.transactions = transactions as any;
+      doc.transactionsSyncStartDate = new Date(earliestDate);
+      syncedTransactions = true;
+      this.logger.log(`syncAccount ${accountId}: ${transactions.length} transactions from ${earliestDate}`);
     }
 
     doc.lastSyncedAt = new Date();
     await doc.save();
 
-    this.logger.log(`syncAccount ${accountId}: ${added} new activities, rebuilt=${!!doc.rebuiltAt}`);
-    return { added };
+    return { synced: doc.transactions?.length ?? 0, syncedTransactions };
   }
 
-  /**
-   * Expands options_multileg transactions in a batch of new activities (incremental sync).
-   * Uses old and new option holdings for origin/endpoint when not in the activity batch.
-   */
-  private expandMultilegsIncremental(
-    newActivities: any[],
-    oldOptionHoldings: Array<{ symbol: string; quantity: number }>,
-    newOptionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }>,
-  ): any[] {
-    const newOptByUndCP = new Map<string, (typeof newOptionHoldings)[0]>();
-    for (const oh of newOptionHoldings) {
-      const p = this.parseOptionKey(oh.symbol);
-      const cp = (p.option?.callPut ?? '').charAt(0).toUpperCase();
-      if (p.underlying && cp) newOptByUndCP.set(`${p.underlying}|${cp}`, oh);
-    }
-
-    const oldOptByKey = new Map<string, number>();
-    for (const oh of oldOptionHoldings) {
-      if (oh.symbol?.includes('$')) oldOptByKey.set(oh.symbol, oh.quantity);
-    }
-
-    const sorted = [...newActivities].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-    const processed = new Set<any>();
-    const nonMultileg: any[] = [];
-    const expandedAll: any[] = [];
-
-    for (const entry of sorted) {
-      if (entry.side !== 'options_multileg') {
-        if (!processed.has(entry)) nonMultileg.push(entry);
-        continue;
-      }
-      if (processed.has(entry)) continue;
-      const optKey = this.txKey(entry);
-      if (!optKey || !optKey.includes('$')) continue;
-
-      const underlying = entry.option?.underlyingSymbol ?? entry.instrumentSymbol ?? '';
-      const callPut = (entry.option?.callPut ?? '').charAt(0).toUpperCase();
-      if (!underlying || !callPut) continue;
-
-      const chain: any[] = [entry];
-      processed.add(entry);
-      let currentOldKey = optKey;
-
-      for (let i = sorted.indexOf(entry) + 1; i < sorted.length; i++) {
-        const tx = sorted[i];
-        if (processed.has(tx)) continue;
-        if (tx.side !== 'options_multileg') continue;
-        const txUnd = tx.option?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
-        const txCP = (tx.option?.callPut ?? '').charAt(0).toUpperCase();
-        if (txUnd !== underlying || txCP !== callPut) continue;
-        chain.push(tx);
-        processed.add(tx);
-        currentOldKey = this.txKey(tx);
-      }
-
-      const originKey = currentOldKey;
-      const originSell = newActivities.find(
-        (t) => !processed.has(t) && t.side === 'sell' && this.txKey(t) === originKey,
-      );
-      const originBuy = newActivities.find(
-        (t) => !processed.has(t) && t.side === 'buy' && this.txKey(t) === originKey,
-      );
-
-      const holdingKey = `${underlying}|${callPut}`;
-      const finalHolding = newOptByUndCP.get(holdingKey);
-      const oldQty = oldOptByKey.get(originKey);
-
-      const isLongRoll = !!originBuy || (!originSell && (oldQty ?? 0) > 0);
-      const originTx = originSell ?? originBuy;
-      const qty =
-        originTx?.quantity ??
-        (finalHolding ? Math.abs(finalHolding.quantity) : oldQty != null ? Math.abs(oldQty) : 1);
-
-      if (originSell) processed.add(originSell);
-      if (originBuy) processed.add(originBuy);
-
-      const toPlain = (t: any) => (typeof t?.toObject === 'function' ? t.toObject() : { ...t });
-      chain.reverse();
-
-      const expanded: any[] = [];
-      if (originTx) expanded.push(toPlain(originTx));
-
-      let prevKey = originKey;
-      for (const ml of chain) {
-        const mlOldKey = this.txKey(ml);
-        const nextIdx = chain.indexOf(ml) + 1;
-        let newOptKey: string;
-        if (nextIdx < chain.length) {
-          newOptKey = this.txKey(chain[nextIdx]);
-        } else if (finalHolding) {
-          newOptKey = finalHolding.symbol;
-        } else {
-          newOptKey = mlOldKey;
-        }
-
-        const oldParsed = this.parseOptionKey(mlOldKey);
-        const newParsed = this.parseOptionKey(newOptKey);
-        const mlActivityId = ml.snaptradeActivityId;
-
-        if (isLongRoll) {
-          expanded.push({
-            side: 'sell',
-            quantity: qty,
-            price: 0,
-            cashDelta: ml.cashDelta ?? 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: oldParsed.underlying,
-            option: oldParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-          expanded.push({
-            side: 'buy',
-            quantity: qty,
-            price: 0,
-            cashDelta: 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: newParsed.underlying,
-            option: newParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-        } else {
-          expanded.push({
-            side: 'buy',
-            quantity: qty,
-            price: 0,
-            cashDelta: 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: oldParsed.underlying,
-            option: oldParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-          expanded.push({
-            side: 'sell',
-            quantity: qty,
-            price: 0,
-            cashDelta: ml.cashDelta ?? 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: newParsed.underlying,
-            option: newParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-        }
-        prevKey = newOptKey;
-      }
-
-      const closeSides = isLongRoll
-        ? ['sell', 'option_exercise', 'option_expire']
-        : ['buy', 'option_assign', 'option_exercise', 'option_expire'];
-      const closeTx = newActivities.find(
-        (t) => !processed.has(t) && closeSides.includes(t.side) && this.txKey(t) === prevKey,
-      );
-      if (closeTx) {
-        expanded.push(toPlain(closeTx));
-        processed.add(closeTx);
-      }
-
-      expandedAll.push(...expanded);
-    }
-
-    return [...nonMultileg, ...expandedAll].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  }
-
-  private resolveMultilegChains(
-    doc: SyncedAccountDocument,
-    realTxns: any[],
-    optionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }>,
-  ): void {
-    const optHoldingByUndCP = new Map<string, typeof optionHoldings[0]>();
-    for (const oh of optionHoldings) {
-      const p = this.parseOptionKey(oh.symbol);
-      const cp = (p.option?.callPut ?? '').charAt(0).toUpperCase();
-      if (p.underlying && cp) optHoldingByUndCP.set(`${p.underlying}|${cp}`, oh);
-    }
-
-    const sorted = [...realTxns].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-    const processed = new Set<any>();
-
-    for (const entry of sorted) {
-      if (entry.side !== 'options_multileg') continue;
-      if (processed.has(entry)) continue;
-      const optKey = this.txKey(entry);
-      if (!optKey || !optKey.includes('$')) continue;
-
-      const underlying = entry.option?.underlyingSymbol ?? entry.instrumentSymbol ?? '';
-      const callPut = (entry.option?.callPut ?? '').charAt(0).toUpperCase();
-      if (!underlying || !callPut) continue;
-
-      const chain: any[] = [entry];
-      processed.add(entry);
-      let currentOldKey = optKey;
-
-      for (let i = sorted.indexOf(entry) + 1; i < sorted.length; i++) {
-        const tx = sorted[i];
-        if (processed.has(tx)) continue;
-        if (tx.side !== 'options_multileg') continue;
-        const txUnd = tx.option?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
-        const txCP = (tx.option?.callPut ?? '').charAt(0).toUpperCase();
-        if (txUnd !== underlying || txCP !== callPut) continue;
-
-        chain.push(tx);
-        processed.add(tx);
-        currentOldKey = this.txKey(tx);
-      }
-
-      const originKey = currentOldKey;
-      const originSell = realTxns.find(
-        (t) => !processed.has(t) && t.side === 'sell' && this.txKey(t) === originKey,
-      );
-      const originBuy = realTxns.find(
-        (t) => !processed.has(t) && t.side === 'buy' && this.txKey(t) === originKey,
-      );
-
-      const holdingKey = `${underlying}|${callPut}`;
-      const finalHolding = optHoldingByUndCP.get(holdingKey);
-
-      const isLongRoll = !!originBuy && !originSell;
-      const originTx = originSell ?? originBuy;
-      const qty = originTx?.quantity
-        ?? (finalHolding ? Math.abs(finalHolding.quantity) : 1);
-
-      if (originSell) processed.add(originSell);
-      if (originBuy) processed.add(originBuy);
-
-      chain.reverse();
-
-      const newTxns: any[] = [];
-
-      const toPlain = (t: any) => (typeof t?.toObject === 'function' ? t.toObject() : { ...t });
-
-      if (originTx) {
-        newTxns.push(toPlain(originTx));
-      }
-
-      let prevKey = originKey;
-      for (const ml of chain) {
-        const mlOldKey = this.txKey(ml);
-        const nextIdx = chain.indexOf(ml) + 1;
-        let newOptKey: string;
-        if (nextIdx < chain.length) {
-          newOptKey = this.txKey(chain[nextIdx]);
-        } else if (finalHolding) {
-          newOptKey = finalHolding.symbol;
-        } else {
-          newOptKey = mlOldKey;
-        }
-
-        const oldParsed = this.parseOptionKey(mlOldKey);
-        const newParsed = this.parseOptionKey(newOptKey);
-
-        const mlActivityId = ml.snaptradeActivityId;
-        if (isLongRoll) {
-          newTxns.push({
-            side: 'sell',
-            quantity: qty,
-            price: 0,
-            cashDelta: ml.cashDelta ?? 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: oldParsed.underlying,
-            option: oldParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-          newTxns.push({
-            side: 'buy',
-            quantity: qty,
-            price: 0,
-            cashDelta: 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: newParsed.underlying,
-            option: newParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-        } else {
-          newTxns.push({
-            side: 'buy',
-            quantity: qty,
-            price: 0,
-            cashDelta: 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: oldParsed.underlying,
-            option: oldParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-          newTxns.push({
-            side: 'sell',
-            quantity: qty,
-            price: 0,
-            cashDelta: ml.cashDelta ?? 0,
-            currency: ml.currency || 'USD',
-            timestamp: ml.timestamp,
-            instrumentSymbol: newParsed.underlying,
-            option: newParsed.option,
-            synthetic: false,
-            assetType: 'option',
-            chainResolved: true,
-            ...(mlActivityId && { snaptradeActivityId: mlActivityId }),
-          });
-        }
-
-        prevKey = newOptKey;
-      }
-
-      const closeSides = isLongRoll
-        ? ['sell', 'option_exercise', 'option_expire']
-        : ['buy', 'option_assign', 'option_exercise', 'option_expire'];
-      const finalKey = prevKey;
-      const closeTx = realTxns.find(
-        (t) => !processed.has(t) && closeSides.includes(t.side) && this.txKey(t) === finalKey,
-      );
-      if (closeTx) {
-        newTxns.push(toPlain(closeTx));
-        processed.add(closeTx);
-      }
-
-      const toRemove = new Set([originTx, ...chain, closeTx].filter(Boolean));
-      for (let i = doc.adjustedTransactions.length - 1; i >= 0; i--) {
-        if (toRemove.has(doc.adjustedTransactions[i])) {
-          doc.adjustedTransactions.splice(i, 1);
-        }
-      }
-
-      doc.adjustedTransactions.push(...(newTxns as any));
-    }
-  }
-
-  private async rebuildAccount(
-    doc: SyncedAccountDocument,
-    creds: { userId: string; userSecret: string },
-    accountId: string,
-  ): Promise<void> {
-    this.logger.log(`Rebuilding account ${accountId}...`);
-
-    let positions: any[] = [];
-    try {
-      const posResp = await this.snaptrade.accountInformation.getUserAccountPositions({
-        accountId,
-        userId: creds.userId,
-        userSecret: creds.userSecret,
-      });
-      positions = posResp.data ?? [];
-    } catch (e) {
-      this.logger.error(`Failed to fetch positions for ${accountId}: ${e}`);
-    }
-
-    const cashByCurrency: Record<string, number> = {};
-    try {
-      const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
-        accountId,
-        userId: creds.userId,
-        userSecret: creds.userSecret,
-      });
-      const balances = balResp.data ?? [];
-      for (const b of balances) {
-        const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
-        const cash = (b as any).cash ?? (b as any).amount ?? 0;
-        cashByCurrency[ccy] = (cashByCurrency[ccy] ?? 0) + cash;
-      }
-    } catch (e) {
-      this.logger.error(`Failed to fetch balance for ${accountId}: ${e}`);
-    }
-
-    const realTxns = doc.adjustedTransactions.filter((t) => !t.synthetic);
-
-    const earliestTransferDate = this.findEarliestTransferDate(realTxns);
-
-    const holdingsSnapshot: Array<{ symbol: string; quantity: number; averagePrice: number; currency: string }> = [];
-    for (const pos of positions) {
-      const symbol = this.extractSymbolStr(pos);
-      if (!symbol) continue;
-      const currentQty = ((pos as any).units ?? 0) + ((pos as any).fractional_units ?? 0);
-      const avgPrice = (pos as any).average_purchase_price ?? 0;
-      const posCurrency = this.extractCurrencyStr(pos, doc.currency);
-      holdingsSnapshot.push({ symbol, quantity: currentQty, averagePrice: avgPrice, currency: posCurrency });
-    }
-
-    const equityState: Record<string, number> = {};
-    for (const h of holdingsSnapshot) {
-      equityState[h.symbol] = (equityState[h.symbol] ?? 0) + h.quantity;
-    }
-
-    let optionHoldings: Array<{ symbol: string; quantity: number; averagePrice?: number; currency?: string }> = [];
-    try {
-      optionHoldings = await this.fetchOptionHoldings(accountId, doc.userId.toString());
-    } catch (e) {
-      this.logger.warn(`Failed to fetch option holdings during rebuild for ${accountId}: ${e}`);
-    }
-    const optionState: Record<string, number> = {};
-    for (const oh of optionHoldings) {
-      if (oh.symbol && oh.quantity) optionState[oh.symbol] = (optionState[oh.symbol] ?? 0) + oh.quantity;
-    }
-
-    this.resolveMultilegChains(doc, realTxns, optionHoldings);
-
-    const resolvedTxns = doc.adjustedTransactions.filter((t) => !t.synthetic);
-
-    const addSides = ['buy', 'option_exercise', 'transfer_in'];
-    const subSides = ['sell', 'option_assign', 'option_expire', 'transfer_out'];
-
-    const OPTION_CONTRACT_MULTIPLIER = 100;
-
-    const sorted = [...resolvedTxns].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-
-    for (const tx of sorted) {
-      const q = tx.quantity ?? 0;
-      const isOption = tx.option && tx.option.strike != null;
-      const opt = tx.option;
-      const underlying = opt?.underlyingSymbol ?? tx.instrumentSymbol ?? '';
-      const callPut = (opt?.callPut ?? '').toLowerCase();
-      const isPut = callPut.startsWith('p');
-      const isCall = callPut.startsWith('c');
-
-      if (isOption) {
-        const optKey = this.txKey(tx);
-        if (tx.side === 'option_assign') {
-          // Assign closes a SHORT option position. Forward: option += q. Reverse: option -= q.
-          if (optKey && q) optionState[optKey] = (optionState[optKey] ?? 0) - q;
-          // Equity: short call assigned → deliver shares; short put assigned → receive shares.
-          if (underlying && q) {
-            const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
-            equityState[underlying] = (equityState[underlying] ?? 0) + (isPut ? -shareDelta : shareDelta);
-          }
-        } else if (tx.side === 'option_exercise') {
-          // Exercise closes a LONG option position. Forward: option -= q. Reverse: option += q.
-          if (optKey && q) optionState[optKey] = (optionState[optKey] ?? 0) + q;
-          // Equity: long call exercised → receive shares; long put exercised → deliver shares.
-          if (underlying && q) {
-            const shareDelta = q * OPTION_CONTRACT_MULTIPLIER;
-            equityState[underlying] = (equityState[underlying] ?? 0) + (isCall ? -shareDelta : shareDelta);
-          }
-        } else if (tx.side === 'option_expire') {
-          // Expire closes a SHORT option position. Forward: option += q. Reverse: option -= q.
-          if (optKey && q) optionState[optKey] = (optionState[optKey] ?? 0) - q;
-        } else {
-          if (optKey && q) {
-            if (addSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) - q;
-            else if (subSides.includes(tx.side)) optionState[optKey] = (optionState[optKey] ?? 0) + q;
-          }
-        }
-      } else {
-        const sym = typeof tx.instrumentSymbol === 'string' ? tx.instrumentSymbol : '';
-        if (sym && q) {
-          if (addSides.includes(tx.side)) equityState[sym] = (equityState[sym] ?? 0) - q;
-          else if (subSides.includes(tx.side)) equityState[sym] = (equityState[sym] ?? 0) + q;
-        }
-      }
-    }
-
-    for (const [sym, qty] of Object.entries(equityState)) {
-      if (Math.abs(qty) < 0.0001) continue;
-      const synSide = qty > 0 ? 'buy' : 'sell';
-      const holding = holdingsSnapshot.find((h) => h.symbol === sym);
-      doc.adjustedTransactions.push({
-        side: synSide,
-        quantity: Math.abs(qty),
-        price: holding?.averagePrice ?? 0,
-        cashDelta: 0,
-        currency: holding?.currency ?? doc.currency,
-        timestamp: earliestTransferDate,
-        instrumentSymbol: sym,
-        option: null,
-        synthetic: true,
-        assetType: 'stock',
-      } as any);
-    }
-
-    for (const [optKey, qty] of Object.entries(optionState)) {
-      if (Math.abs(qty) < 0.0001) continue;
-      const synSide = qty > 0 ? 'buy' : 'sell';
-      const optHolding = optionHoldings.find((h) => h.symbol === optKey);
-      const parsed = this.parseOptionKey(optKey);
-      const optPrice = optHolding?.averagePrice ?? 0;
-      const optCashDelta = synSide === 'buy' ? -(optPrice * Math.abs(qty) * 100) : (optPrice * Math.abs(qty) * 100);
-      doc.adjustedTransactions.push({
-        side: synSide,
-        quantity: Math.abs(qty),
-        price: optPrice,
-        cashDelta: optCashDelta,
-        currency: optHolding?.currency || 'USD',
-        timestamp: earliestTransferDate,
-        instrumentSymbol: parsed.underlying,
-        option: parsed.option,
-        synthetic: true,
-        assetType: 'option',
-      } as any);
-    }
-
-    doc.currentHoldings = holdingsSnapshot as any;
-    doc.currentCashByCurrency = cashByCurrency;
-    doc.rebuiltAt = new Date();
-
-    doc.adjustedTransactions.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
-
-    this.logger.log(
-      `Rebuild complete for ${accountId}: ${positions.length} positions, cashByCurrency=${JSON.stringify(cashByCurrency)}, ` +
-      `${doc.adjustedTransactions.filter((t) => t.synthetic).length} synthetic txns`,
-    );
-  }
 
   /* ── Strategy-level sync (two-step) ───────────── */
 
@@ -1171,10 +717,10 @@ export class SnaptradeService {
       .lean()
       .exec();
 
-    let allAdjusted: Array<{ _id: string; [k: string]: any }> = [];
+    let allTransactions: Array<{ _id: string; [k: string]: any }> = [];
     for (const acct of accounts) {
-      for (const tx of acct.adjustedTransactions) {
-        allAdjusted.push({ ...tx, _id: (tx as any)._id?.toString() ?? '' });
+      for (const tx of acct.transactions ?? []) {
+        allTransactions.push({ ...tx, _id: (tx as any)._id?.toString() ?? '' });
       }
     }
 
@@ -1184,7 +730,7 @@ export class SnaptradeService {
     const isOptionTx = (tx: any) => (tx.assetType ?? (tx.option ? 'option' : '')).toLowerCase() === 'option';
     const wantsOptions = assetTypeFilter?.some((a) => a.toLowerCase() === 'option');
     if (typeFilter && typeFilter.length > 0) {
-      allAdjusted = allAdjusted.filter((tx) => {
+      allTransactions = allTransactions.filter((tx) => {
         const side = (tx.side ?? '').toLowerCase();
         if (typeFilter.some((t) => t.toLowerCase() === side)) return true;
         if (typeFilter.some((t) => t.toLowerCase() === 'transfer') && (side === 'transfer_in' || side === 'transfer_out')) return true;
@@ -1195,14 +741,14 @@ export class SnaptradeService {
 
     const currencyFilter = strategy.snaptradeConfig.currencies;
     if (currencyFilter && currencyFilter.length > 0) {
-      allAdjusted = allAdjusted.filter((tx) => {
+      allTransactions = allTransactions.filter((tx) => {
         const ccy = (tx.currency ?? 'USD').toUpperCase();
         return currencyFilter.some((c) => c.toUpperCase() === ccy);
       });
     }
 
     if (assetTypeFilter && assetTypeFilter.length > 0) {
-      allAdjusted = allAdjusted.filter((tx) => {
+      allTransactions = allTransactions.filter((tx) => {
         const at = (tx.assetType ?? (tx.option ? 'option' : 'stock')).toLowerCase();
         return assetTypeFilter.some((a) => a.toLowerCase() === at);
       });
@@ -1210,9 +756,9 @@ export class SnaptradeService {
 
     const optionStrategy = (strategy.snaptradeConfig?.optionStrategy ?? 'all') as string;
     if (optionStrategy === 'income_only' || optionStrategy === 'calls_puts') {
-      const optionTxs = allAdjusted.filter((tx) => isOptionTx(tx));
+      const optionTxs = allTransactions.filter((tx) => isOptionTx(tx));
       const incomeTxIds = this.filterToIncomeOptions(optionTxs);
-      allAdjusted = allAdjusted.filter((tx) => {
+      allTransactions = allTransactions.filter((tx) => {
         if (!isOptionTx(tx)) return true;
         const id = (tx as any)._id?.toString?.() ?? (tx as any)._id;
         const isIncome = id != null && incomeTxIds.has(String(id));
@@ -1230,9 +776,14 @@ export class SnaptradeService {
     );
 
     let synced = 0;
-    for (const tx of allAdjusted) {
+    for (const tx of allTransactions) {
       const txId = tx._id;
       if (!txId || existingAcctTxIds.has(txId)) continue;
+
+      const customData: Record<string, unknown> = {};
+      if (tx.customData?.chainId) customData.chainId = tx.customData.chainId;
+      if (tx.customData?.closeLeg) customData.closeLeg = tx.customData.closeLeg;
+      if (tx.customData?.openLeg) customData.openLeg = tx.customData.openLeg;
 
       await this.txModel.create({
         strategyId,
@@ -1243,7 +794,7 @@ export class SnaptradeService {
         currency: tx.currency ?? '',
         timestamp: tx.timestamp ?? new Date().toISOString(),
         instrumentSymbol: tx.instrumentSymbol ?? '',
-        customData: (tx as any).chainResolved ? { chainResolved: true } : {},
+        customData,
         option: tx.option ?? null,
         source: 'snaptrade',
         accountTransactionId: txId,
@@ -1290,7 +841,6 @@ export class SnaptradeService {
       const qty = Math.abs(Number(tx.quantity ?? 0));
       const k = optKey(tx);
       if (!k) continue;
-      if (side === 'buy' && (tx.customData ?? (tx as any).customData)?.chainResolved) continue;
       if (side === 'sell') {
         positions[k] = (positions[k] ?? 0) + qty;
         if (id) keepIds.add(id);
@@ -1303,32 +853,6 @@ export class SnaptradeService {
       }
     }
     return keepIds;
-  }
-
-  private async fetchAllActivities(
-    accountId: string,
-    creds: { userId: string; userSecret: string },
-  ): Promise<any[]> {
-    const activities: any[] = [];
-    const limit = 1000;
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const resp = await this.snaptrade.accountInformation.getAccountActivities({
-        accountId,
-        userId: creds.userId,
-        userSecret: creds.userSecret,
-        limit,
-        offset,
-      });
-      const page = resp.data?.data ?? [];
-      activities.push(...page);
-      hasMore = page.length >= limit;
-      offset += limit;
-    }
-
-    return activities;
   }
 
   private deriveAssetType(activity: any): string {

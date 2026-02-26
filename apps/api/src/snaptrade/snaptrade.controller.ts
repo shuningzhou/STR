@@ -42,11 +42,6 @@ export class SnaptradeController {
     return this.service.getAccountTransactions(accountId, (req.user as AuthUser).id);
   }
 
-  @Post('accounts/:accountId/rebuild')
-  rebuildAccount(@Param('accountId') accountId: string, @Req() req: Request) {
-    return this.service.rebuildAccountFull(accountId, (req.user as AuthUser).id);
-  }
-
   @Post('accounts/:accountId/sync')
   syncAccount(@Param('accountId') accountId: string, @Req() req: Request) {
     return this.service.syncAccount(accountId, (req.user as AuthUser).id);

@@ -1,12 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { Modal, Button, SegmentControl } from '@/components/ui';
 import {
   useSnaptradeConnections,
   useAccountTransactions,
-  useRebuildAccount,
   useSyncAccount,
   type SnaptradeConnection,
-  type AdjustedTransaction,
+  type SyncedTransaction,
 } from '@/api/hooks';
 
 type CurrencyFilter = 'all' | 'CAD' | 'USD';
@@ -29,17 +28,14 @@ export function AccountTransactionsModal({ onClose }: Props) {
   const accounts = useMemo(() => selectedConn?.accounts ?? [], [selectedConn]);
 
   const { data: txData, isLoading } = useAccountTransactions(selectedAccountId);
-  const rebuildMut = useRebuildAccount();
   const syncMut = useSyncAccount();
 
-  const rawTransactions = txData?.rawTransactions ?? [];
-  const adjustedTransactions = txData?.adjustedTransactions ?? [];
+  const transactions = txData?.transactions ?? [];
   const rawHoldings = txData?.rawHoldings ?? null;
-  const derivedHoldings = txData?.derivedHoldings ?? { positions: [], cashByCurrency: {} };
 
   const filterByCurrency = useMemo(() => {
-    if (currencyFilter === 'all') return (t: AdjustedTransaction) => true;
-    return (t: AdjustedTransaction) => (t.currency || 'USD') === currencyFilter;
+    if (currencyFilter === 'all') return (_t: SyncedTransaction) => true;
+    return (t: SyncedTransaction) => (t.currency || 'USD') === currencyFilter;
   }, [currencyFilter]);
 
   const filterPositionsByCurrency = useMemo(() => {
@@ -47,15 +43,10 @@ export function AccountTransactionsModal({ onClose }: Props) {
     return (p: { currency?: string }) => (p.currency || 'USD') === currencyFilter;
   }, [currencyFilter]);
 
-  const rawTxns = useMemo(() => {
-    const base = [...rawTransactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  const filteredTxns = useMemo(() => {
+    const base = [...transactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     return currencyFilter === 'all' ? base : base.filter(filterByCurrency);
-  }, [rawTransactions, currencyFilter, filterByCurrency]);
-
-  const adjustedTxns = useMemo(() => {
-    const base = [...adjustedTransactions].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    return currencyFilter === 'all' ? base : base.filter(filterByCurrency);
-  }, [adjustedTransactions, currencyFilter, filterByCurrency]);
+  }, [transactions, currencyFilter, filterByCurrency]);
 
   const filteredRawHoldings = useMemo(() => {
     if (!rawHoldings) return null;
@@ -70,32 +61,15 @@ export function AccountTransactionsModal({ onClose }: Props) {
     return { positions, cashByCurrency: filteredCash };
   }, [rawHoldings, currencyFilter, filterPositionsByCurrency]);
 
-  const filteredDerivedHoldings = useMemo(() => {
-    const positions = (derivedHoldings.positions ?? []).filter(filterPositionsByCurrency);
-    const cashByCurrency = derivedHoldings.cashByCurrency ?? {};
-    const filteredCash =
-      currencyFilter === 'all'
-        ? cashByCurrency
-        : currencyFilter in cashByCurrency
-          ? { [currencyFilter]: cashByCurrency[currencyFilter] }
-          : {};
-    return { positions, cashByCurrency: filteredCash };
-  }, [derivedHoldings, currencyFilter, filterPositionsByCurrency]);
-
-  const handleRebuild = () => {
-    if (!selectedAccountId) return;
-    rebuildMut.mutate(selectedAccountId);
-  };
-
-  const handleIncrementalSync = () => {
+  const handleSync = () => {
     if (!selectedAccountId) return;
     syncMut.mutate(selectedAccountId);
   };
 
-  const hasData = rawTxns.length > 0 || adjustedTxns.length > 0;
+  const hasData = filteredTxns.length > 0 || (rawHoldings?.positions?.length ?? 0) > 0;
 
   return (
-    <Modal title="Account Transactions" onClose={onClose} size="2xl" className="!max-w-[96vw] !min-h-[88vh]">
+    <Modal title="Account Transactions" onClose={onClose} size="xl" className="max-h-[85vh]">
       <div className="flex flex-col h-full" style={{ gap: 'var(--space-gap)' }}>
         {/* Filters */}
         <div className="flex items-center shrink-0" style={{ gap: 'var(--space-gap)' }}>
@@ -145,7 +119,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
             ))}
           </select>
 
-          {selectedAccountId && (rawTransactions.length > 0 || adjustedTransactions.length > 0) && (
+          {selectedAccountId && (transactions.length > 0 || (rawHoldings?.positions?.length ?? 0) > 0) && (
             <div style={{ width: 140 }}>
               <SegmentControl<CurrencyFilter>
                 value={currencyFilter}
@@ -163,23 +137,13 @@ export function AccountTransactionsModal({ onClose }: Props) {
             <div className="flex shrink-0" style={{ gap: 'var(--space-gap)' }}>
               <Button
                 type="button"
-                variant="secondary"
-                size="md"
-                onClick={handleIncrementalSync}
-                disabled={syncMut.isPending || rebuildMut.isPending}
-                className="min-w-[140px] px-4"
-              >
-                {syncMut.isPending ? 'Syncing...' : 'Incremental Sync'}
-              </Button>
-              <Button
-                type="button"
                 variant="primary"
                 size="md"
-                onClick={handleRebuild}
-                disabled={rebuildMut.isPending || syncMut.isPending}
-                className="min-w-[160px] px-4"
+                onClick={handleSync}
+                disabled={syncMut.isPending}
+                className="min-w-[100px] px-4"
               >
-                {rebuildMut.isPending ? 'Rebuilding...' : 'Rebuild from scratch'}
+                {syncMut.isPending ? 'Syncing...' : 'Sync'}
               </Button>
             </div>
           )}
@@ -196,43 +160,19 @@ export function AccountTransactionsModal({ onClose }: Props) {
           </p>
         ) : !hasData ? (
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-body)', padding: '24px 0' }}>
-            No transactions found. Click Rebuild from scratch to fetch and process transactions from SnapTrade.
+            No transactions found. Click Sync to fetch transactions from SnapTrade (requires orders data).
           </p>
         ) : (
-          <div className="grid grid-cols-2 flex-1 min-h-0" style={{ gap: 16 }}>
-            {/* Raw column */}
-            <div className="flex flex-col min-h-0" style={{ gap: 'var(--space-gap)' }}>
-              <div className="flex items-center justify-between shrink-0">
-                <h3
-                  className="font-medium"
-                  style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-secondary)', margin: 0 }}
-                >
-                  Raw Transactions
-                </h3>
-                <span className="tabular-nums" style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                  {rawTxns.length}
-                </span>
-              </div>
-              <HoldingsSummary holdings={filteredRawHoldings} label="SnapTrade holdings" />
-              <TxnTable transactions={rawTxns} showSynthetic={false} />
-            </div>
-
-            {/* Adjusted column */}
-            <div className="flex flex-col min-h-0" style={{ gap: 'var(--space-gap)' }}>
-              <div className="flex items-center justify-between shrink-0">
-                <h3
-                  className="font-medium"
-                  style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-secondary)', margin: 0 }}
-                >
-                  Adjusted Transactions
-                </h3>
-                <span className="tabular-nums" style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                  {adjustedTxns.length}
-                </span>
-              </div>
-              <HoldingsSummary holdings={filteredDerivedHoldings} label="Derived from adjusted txns" />
-              <TxnTable transactions={adjustedTxns} showSynthetic />
-            </div>
+          <div className="flex flex-col flex-1 min-h-0 overflow-auto" style={{ gap: 'var(--space-section)' }}>
+            <TableSection title="Holdings">
+              <HoldingsTable holdings={filteredRawHoldings} />
+            </TableSection>
+            <TableSection title="Balance">
+              <BalanceTable holdings={filteredRawHoldings} />
+            </TableSection>
+            <TableSection title="Transactions" count={filteredTxns.length}>
+              <TxnTable transactions={filteredTxns} />
+            </TableSection>
           </div>
         )}
       </div>
@@ -240,90 +180,204 @@ export function AccountTransactionsModal({ onClose }: Props) {
   );
 }
 
-/* ── Holdings summary ──────────────────────────────── */
+/* ── Table section (title above table) ──────────────── */
 
-interface HoldingsSummaryProps {
-  holdings: {
-    positions: Array<{
-      symbol: string;
-      quantity: number;
-      averagePrice?: number;
-      currency?: string;
-      isOption?: boolean;
-    }>;
-    cash?: number;
-    cashByCurrency?: Record<string, number>;
-  } | null;
-  label: string;
+function TableSection({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
+  return (
+    <div className="flex flex-col shrink-0" style={{ gap: 'var(--space-gap)' }}>
+      <div className="flex items-center justify-between">
+        <h3
+          className="font-medium"
+          style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-secondary)', margin: 0 }}
+        >
+          {title}
+        </h3>
+        {count != null && (
+          <span className="tabular-nums" style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+            {count}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
 }
 
-function HoldingsSummary({ holdings, label }: HoldingsSummaryProps) {
+/* ── 1. Holdings table ─────────────────────────────── */
+
+interface HoldingsData {
+  positions: Array<{
+    symbol: string;
+    quantity: number;
+    averagePrice?: number;
+    currency?: string;
+    isOption?: boolean;
+    category?: string;
+  }>;
+  cash?: number;
+  cashByCurrency?: Record<string, number>;
+}
+
+function HoldingsTable({ holdings }: { holdings: HoldingsData | null }) {
   if (!holdings) {
     return (
       <div
-        className="rounded-[var(--radius-medium)] px-3 py-2 shrink-0"
-        style={{ backgroundColor: 'var(--color-bg-input)', border: '1px solid var(--color-border)' }}
+        className="rounded-[var(--radius-medium)] shrink-0"
+        style={{ border: '1px solid var(--color-border)' }}
       >
-        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No data (run Rebuild from scratch first)</div>
+        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', padding: 12 }}>No data (click Sync first)</div>
       </div>
     );
   }
   const sorted = [...holdings.positions].sort((a, b) => a.symbol.localeCompare(b.symbol));
-  const cashByCurrency = holdings.cashByCurrency ?? (holdings.cash != null ? { USD: holdings.cash } : {});
+
   return (
     <div
-      className="rounded-[var(--radius-medium)] px-3 py-2 shrink-0"
-      style={{ backgroundColor: 'var(--color-bg-input)', border: '1px solid var(--color-border)' }}
+      className="rounded-[var(--radius-medium)] shrink-0 overflow-hidden"
+      style={{ border: '1px solid var(--color-border)' }}
     >
-      <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 4 }}>{label}</div>
-      <ul
-        className="list-none m-0 p-0"
-        style={{ fontSize: 11, color: 'var(--color-text-primary)', lineHeight: 1.6 }}
-      >
-        {sorted.map((p) => (
-          <li key={p.symbol} className="flex justify-between gap-4">
-            <span>
-              {p.symbol}
-              {p.isOption && (
-                <span
-                  className="ml-1 px-1 rounded text-[9px]"
-                  style={{ backgroundColor: 'rgba(0, 122, 255, 0.15)', color: 'var(--color-accent)' }}
+      <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr
+              style={{
+                color: 'var(--color-text-muted)',
+                fontSize: 10,
+                borderBottom: '1px solid var(--color-border)',
+                position: 'sticky',
+                top: 0,
+                backgroundColor: 'var(--palette-offblack)',
+                zIndex: 1,
+              }}
+            >
+              <th className="text-left font-medium py-1.5 px-2">Symbol</th>
+              <th className="text-left font-medium py-1.5 px-2">Category</th>
+              <th className="text-right font-medium py-1.5 px-2">Quantity</th>
+              <th className="text-right font-medium py-1.5 px-2">Avg Price</th>
+              <th className="text-right font-medium py-1.5 px-2">Est. Value</th>
+              <th className="text-center font-medium py-1.5 px-2">Ccy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((p) => {
+              const avgPrice = p.averagePrice ?? 0;
+              const qty = p.quantity ?? 0;
+              const isOption = p.isOption || !['stock', 'etf', 'stock_etf'].includes(p.category ?? 'stock');
+              const multiplier = isOption ? 100 : 1;
+              const estValue = avgPrice * Math.abs(qty) * multiplier * (qty >= 0 ? 1 : -1);
+              return (
+                <tr
+                  key={p.symbol}
+                  style={{
+                    borderBottom: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
                 >
-                  opt
-                </span>
-              )}
-            </span>
-            <span className="tabular-nums font-medium shrink-0">
-              {formatQty(p.quantity)}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div style={{ fontSize: 11, color: 'var(--color-text-primary)', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--color-border)' }}>
-        {Object.keys(cashByCurrency).length === 0 ? (
-          'Cash: —'
-        ) : (
-          Object.entries(cashByCurrency).map(([ccy, amt]) => (
-            <div key={ccy}>
-              Cash ({ccy}): <span className="tabular-nums font-medium">${formatNum(amt)}</span>
-            </div>
-          ))
-        )}
+                  <td className="py-1 px-2 font-medium whitespace-nowrap">{p.symbol}</td>
+                  <td className="py-1 px-2">
+                    <span
+                      className="inline-block rounded px-1.5 py-0.5 text-[9px] font-medium"
+                      style={{ backgroundColor: 'rgba(0, 122, 255, 0.15)', color: 'var(--color-accent)' }}
+                    >
+                      {formatCategory(p.category) || 'Stock & ETF'}
+                    </span>
+                  </td>
+                  <td
+                    className="py-1 px-2 text-right tabular-nums font-medium"
+                    style={{
+                      color: qty >= 0 ? 'var(--color-text-primary)' : 'var(--color-negative)',
+                    }}
+                  >
+                    {formatQty(p.quantity)}
+                  </td>
+                  <td className="py-1 px-2 text-right tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
+                    {avgPrice ? `$${formatNum(avgPrice)}` : '—'}
+                  </td>
+                  <td
+                    className="py-1 px-2 text-right tabular-nums"
+                    style={{
+                      color: estValue >= 0 ? 'var(--color-text-primary)' : 'var(--color-negative)',
+                    }}
+                  >
+                    {avgPrice && qty ? `$${formatNum(estValue)}` : '—'}
+                  </td>
+                  <td className="py-1 px-2 text-center" style={{ color: 'var(--color-text-muted)', fontSize: 10 }}>
+                    {p.currency || '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+    </div>
+  );
+}
+
+/* ── 2. Balance table ───────────────────────────────── */
+
+function BalanceTable({ holdings }: { holdings: HoldingsData | null }) {
+  const cashByCurrency = holdings?.cashByCurrency ?? (holdings?.cash != null ? { USD: holdings.cash } : {});
+
+  if (!holdings || Object.keys(cashByCurrency).length === 0) {
+    return (
+      <div
+        className="rounded-[var(--radius-medium)] shrink-0"
+        style={{ border: '1px solid var(--color-border)' }}
+      >
+        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', padding: 12 }}>No data (click Sync first)</div>
       </div>
+    );
+  }
+
+  const entries = Object.entries(cashByCurrency).sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <div
+      className="rounded-[var(--radius-medium)] shrink-0 overflow-hidden"
+      style={{ border: '1px solid var(--color-border)' }}
+    >
+      <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr
+            style={{
+              color: 'var(--color-text-muted)',
+              fontSize: 10,
+              borderBottom: '1px solid var(--color-border)',
+              backgroundColor: 'var(--palette-offblack)',
+            }}
+          >
+            <th className="text-left font-medium py-1.5 px-2">Currency</th>
+            <th className="text-right font-medium py-1.5 px-2">Cash</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map(([ccy, amt]) => (
+            <tr
+              key={ccy}
+              style={{
+                borderBottom: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              <td className="py-1 px-2 font-medium">{ccy}</td>
+              <td
+                className="py-1 px-2 text-right tabular-nums font-medium"
+                style={{
+                  color: amt >= 0 ? 'var(--color-text-primary)' : 'var(--color-negative)',
+                }}
+              >
+                ${formatNum(amt)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 /* ── Shared transaction table ──────────────────────── */
 
-function TxnTable({
-  transactions,
-  showSynthetic,
-}: {
-  transactions: AdjustedTransaction[];
-  showSynthetic: boolean;
-}) {
+function TxnTable({ transactions }: { transactions: SyncedTransaction[] }) {
   if (transactions.length === 0) {
     return (
       <p style={{ color: 'var(--color-text-muted)', fontSize: 12, padding: '16px 0' }}>
@@ -334,7 +388,7 @@ function TxnTable({
 
   return (
     <div
-      className="flex-1 min-h-0 overflow-auto rounded-[var(--radius-medium)]"
+      className="rounded-[var(--radius-medium)] overflow-hidden shrink-0"
       style={{ border: '1px solid var(--color-border)' }}
     >
       <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
@@ -358,7 +412,8 @@ function TxnTable({
             <th className="text-right font-medium py-1.5 px-2">Price</th>
             <th className="text-right font-medium py-1.5 px-2">Cash Delta</th>
             <th className="text-center font-medium py-1.5 px-2">Ccy</th>
-            {showSynthetic && <th className="text-center font-medium py-1.5 px-2">Syn</th>}
+            <th className="text-left font-medium py-1.5 px-2">Category</th>
+            <th className="text-left font-medium py-1.5 px-2">Custom Data</th>
           </tr>
         </thead>
         <tbody>
@@ -368,7 +423,6 @@ function TxnTable({
               style={{
                 borderBottom: '1px solid var(--color-border)',
                 color: 'var(--color-text-primary)',
-                backgroundColor: tx.synthetic ? 'rgba(40, 194, 7, 0.05)' : 'transparent',
               }}
             >
               <td className="py-1 px-2 whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
@@ -407,18 +461,12 @@ function TxnTable({
               <td className="py-1 px-2 text-center" style={{ color: 'var(--color-text-muted)', fontSize: 10 }}>
                 {tx.currency || '—'}
               </td>
-              {showSynthetic && (
-                <td className="py-1 px-2 text-center">
-                  {tx.synthetic && (
-                    <span
-                      className="inline-block rounded-[var(--radius-pill)] px-1.5 py-0.5 text-[9px] font-semibold"
-                      style={{ backgroundColor: 'rgba(40, 194, 7, 0.15)', color: 'var(--color-accent)' }}
-                    >
-                      syn
-                    </span>
-                  )}
-                </td>
-              )}
+              <td className="py-1 px-2" style={{ color: 'var(--color-text-secondary)', fontSize: 10 }}>
+                {formatCategory(tx.category) || '—'}
+              </td>
+              <td className="py-1 px-2" style={{ color: 'var(--color-text-muted)', fontSize: 9, maxWidth: 200, whiteSpace: 'pre-line', lineHeight: 1.4 }}>
+                {formatCustomData(tx.customData)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -429,13 +477,31 @@ function TxnTable({
 
 /* ── Helpers ───────────────────────────────────────── */
 
-function formatOption(option: AdjustedTransaction['option']): string {
+function formatOption(option: SyncedTransaction['option']): string {
   if (!option) return '—';
   const parts: string[] = [];
   if (option.strike) parts.push(`$${option.strike}`);
   if (option.callPut) parts.push(option.callPut.toUpperCase());
   if (option.expiration) parts.push(option.expiration.slice(0, 10));
   return parts.join(' ') || '—';
+}
+
+function formatOptionLeg(leg: unknown): string {
+  if (!leg || typeof leg !== 'object') return '';
+  const L = leg as Record<string, unknown>;
+  const strike = L.strike ?? '';
+  const cp = String(L.callPut ?? '').charAt(0).toUpperCase();
+  const exp = (String(L.expiration ?? '').slice(0, 10));
+  return strike ? `$${strike}${cp} ${exp}` : '';
+}
+
+function formatCustomData(customData?: Record<string, unknown> | null): string {
+  if (!customData || Object.keys(customData).length === 0) return '—';
+  const lines: string[] = [];
+  if (customData.chainId) lines.push(`chain: ${String(customData.chainId)}`);
+  if (customData.closeLeg) lines.push(`close: ${formatOptionLeg(customData.closeLeg)}`);
+  if (customData.openLeg) lines.push(`open: ${formatOptionLeg(customData.openLeg)}`);
+  return lines.length > 0 ? lines.join('\n') : JSON.stringify(customData).slice(0, 80);
 }
 
 function sideColor(side: string): string {
@@ -449,6 +515,12 @@ function sideColor(side: string): string {
     case 'funds_conversion': return 'rgba(255, 165, 0, 0.10)';
     default: return 'rgba(255, 255, 255, 0.05)';
   }
+}
+
+function formatCategory(cat: string | undefined): string {
+  if (!cat) return '';
+  if (cat === 'stock' || cat === 'etf' || cat === 'stock_etf') return 'Stock & ETF';
+  return cat;
 }
 
 function formatNum(n: number): string {

@@ -560,18 +560,6 @@ export function useAccountTransactions(accountId: string | null) {
   });
 }
 
-export function useRebuildAccount() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: snaptradeApi.snaptradeRebuildAccount,
-    onSuccess: (_data, accountId) => {
-      qc.invalidateQueries({ queryKey: snaptradeKeys.accountTransactions(accountId) });
-      qc.invalidateQueries({ queryKey: queryKeys.strategies });
-      qc.invalidateQueries({ queryKey: ['transactions'] });
-    },
-  });
-}
-
 export function useSyncAccount() {
   const qc = useQueryClient();
   return useMutation({
@@ -587,7 +575,7 @@ export function useSyncAccount() {
 export {
   type SnaptradeAccount,
   type SnaptradeConnection,
-  type AdjustedTransaction,
+  type SyncedTransaction,
   type AccountHoldings,
   type AccountTransactionsResponse,
 } from './snaptrade-api';

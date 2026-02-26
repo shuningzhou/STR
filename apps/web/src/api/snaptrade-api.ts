@@ -58,7 +58,7 @@ export async function snaptradeSyncStrategy(strategyId: string): Promise<{ synce
   return apiFetch(`/snaptrade/sync/${strategyId}`, { method: 'POST' });
 }
 
-export interface AdjustedTransaction {
+export interface SyncedTransaction {
   _id: string;
   side: string;
   quantity: number;
@@ -69,7 +69,8 @@ export interface AdjustedTransaction {
   instrumentSymbol: string;
   option: { expiration: string; strike: number; callPut: string; underlyingSymbol?: string } | null;
   snaptradeActivityId?: string;
-  synthetic: boolean;
+  category?: string;
+  customData?: Record<string, unknown>;
 }
 
 export interface HoldingsPosition {
@@ -78,6 +79,7 @@ export interface HoldingsPosition {
   averagePrice?: number;
   currency?: string;
   isOption?: boolean;
+  category?: string;
 }
 
 export interface AccountHoldings {
@@ -87,20 +89,14 @@ export interface AccountHoldings {
 }
 
 export interface AccountTransactionsResponse {
-  rawTransactions: AdjustedTransaction[];
-  adjustedTransactions: AdjustedTransaction[];
+  transactions: SyncedTransaction[];
   rawHoldings: AccountHoldings | null;
-  derivedHoldings: AccountHoldings;
 }
 
 export async function snaptradeGetAccountTransactions(accountId: string): Promise<AccountTransactionsResponse> {
   return apiFetch(`/snaptrade/accounts/${accountId}/transactions`);
 }
 
-export async function snaptradeRebuildAccount(accountId: string): Promise<{ rebuilt: boolean; activities: number }> {
-  return apiFetch(`/snaptrade/accounts/${accountId}/rebuild`, { method: 'POST' });
-}
-
-export async function snaptradeSyncAccount(accountId: string): Promise<{ added: number }> {
+export async function snaptradeSyncAccount(accountId: string): Promise<{ synced: number; syncedTransactions?: boolean }> {
   return apiFetch(`/snaptrade/accounts/${accountId}/sync`, { method: 'POST' });
 }

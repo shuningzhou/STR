@@ -283,11 +283,11 @@ sequenceDiagram
 
 - `userId` (indexed), `accountId` (SnapTrade account ID, unique per user)
 - `authorizationId`, `institutionName`, `currency`
-- `rebuiltAt` (Date | null), `lastSyncedAt` (Date | null)
-- `currentHoldings` (embedded array: symbol, quantity, averagePrice, currency)
+- `lastSyncedAt` (Date | null)
+- `currentHoldings` (embedded array: symbol, quantity, averagePrice, currency, category: stock|etf|secured_put|covered_call|call|put)
 - `currentCash` (number), `currentCashByCurrency` (Record<string, number> — per-currency balance from SnapTrade)
-- `rawTransactions` (embedded array — SnapTrade activities mapped to our format, before rebuild adjustments)
-- `adjustedTransactions` (embedded array of AdjustedTransaction: side, quantity, price, cashDelta, currency, timestamp, instrumentSymbol, option, snaptradeActivityId, synthetic)
+- `transactions` (embedded array — SnapTrade activities mapped to our format, with category, chainId, closeLeg/openLeg for rolls)
+- `transactionsSyncStartDate` (Date | null) — earliest date we synced from (orders boundary); null if no orders
 
 ---
 
@@ -335,8 +335,7 @@ All routes prefixed with `/api`.
 - `DELETE /snaptrade/connections/:authorizationId` -- remove connection
 - `GET /snaptrade/accounts` -- list accounts across all connections
 - `POST /snaptrade/sync/:strategyId` -- sync transactions from selected accounts into strategy (two-step: syncAccount → syncStrategy)
-- `GET /snaptrade/accounts/:accountId/transactions` -- returns `rawTransactions` (unmodified SnapTrade data) and `adjustedTransactions` (sanitized) for side-by-side comparison; plus `rawHoldings` and `derivedHoldings` (cash from SnapTrade balance, not derived from transactions)
-- `POST /snaptrade/accounts/:accountId/rebuild` -- rebuild account: re-fetch activities + positions from SnapTrade, recompute synthetic transactions, drop all downstream strategy transactions (they get re-copied on next strategy sync)
+- `GET /snaptrade/accounts/:accountId/transactions` — returns `transactions` (single list with category) and `rawHoldings` (from SnapTrade, with category)
 
 **Market Data:**
 
@@ -476,52 +475,29 @@ Flow: (1) cached + fresh = render from `cacheData`. (2) stale = run Python, rend
 
 ## 10. SnapTrade Brokerage Integration
 
-**Purpose:** Connect brokerage accounts via SnapTrade OAuth, sanitize transaction data at the account level, and sync sanitized transactions into strategies.
+**Purpose:** Connect brokerage accounts via SnapTrade OAuth, fetch transactions within the orders boundary, categorize holdings and transactions, and sync into strategies.
 
 **Backend (`SnaptradeModule`, `apps/api/src/snaptrade/`):**
 
 - **User registration** — `POST /snaptrade/register` stores `snaptradeUserId`, `snaptradeUserSecret` on User doc
 - **Connection portal** — `POST /snaptrade/connect` returns SnapTrade OAuth redirect URL; user links brokerage in embedded iframe (450×600, no top bar)
 - **Connections** — List, refresh (fetches accounts from SnapTrade), delete. Closed and CARD/MSB accounts filtered out
-- **Account sanitization** — `SyncedAccount` stores `rawTransactions` (SnapTrade activities mapped to our format, before any adjustments) and `adjustedTransactions` (sanitized). On first sync, a **rebuild** runs: fetches positions + cash from SnapTrade, diffs against raw history, inserts synthetic transactions (`synthetic: true`) to fill gaps (in-kind transfers, holdings discrepancies). Synthetic transactions use real `side` types (`buy`, `sell`, `deposit`, `withdrawal`). **Raw vs adjusted** — Users can compare raw (unmodified SnapTrade) and adjusted (our sanitized) transactions side-by-side in the Account Transactions modal to see what adjustments we made.
-- **Manual rebuild** — `POST /snaptrade/accounts/:accountId/rebuild` clears the account's raw and adjusted transactions, re-fetches all activities + positions from SnapTrade, maps activities to `rawTransactions` (before adjustments), runs rebuild (multileg expansion, synthetics, etc.) to produce `adjustedTransactions`, and drops all downstream strategy transactions that originated from this account. Affected strategies get `transactionsVersion` bumped. On next strategy sync or visit, transactions are re-copied from the rebuilt account.
-- **Incremental sync** — `POST /snaptrade/accounts/:accountId/sync` fetches new activities from SnapTrade (dedup by `snaptradeActivityId`), appends to `rawTransactions`, expands multilegs in new activities using `expandMultilegsIncremental` (old holdings from derived `adjustedTransactions`, new holdings from SnapTrade), appends expanded legs to `adjustedTransactions`, and updates `currentHoldings`/`currentCashByCurrency`. First sync (`!rebuiltAt`) runs full rebuild instead. Handles three incremental multileg cases: (1) open in new activities, endpoint in new holdings; (2) fully resolved in new activities; (3) option in old holdings, resolved in new activities.
-- **Two-step sync** — (1) `syncAccount`: fetch SnapTrade activities → dedup → map. If first time: append and full rebuild. Else: incremental sync (append to raw, expand multilegs, append to adjusted, update holdings). (2) `syncStrategy`: for each configured account, call `syncAccount`, then copy filtered adjusted transactions to strategy (dedup by `accountTransactionId`).
+- **Initial sync** — `POST /snaptrade/accounts/:accountId/sync` performs initial sync. (1) Fetch orders with `days=365`. If no orders, store holdings only (no transactions). (2) If orders exist, compute earliest order date. (3) Fetch activities from that date via `/activities` with `startDate`/`endDate`. (4) Map activities to transactions. (5) Match rolls to orders for `closeLeg`/`openLeg` in `customData`. (6) Build option chains (group by underlying+callPut), assign `chainId` (UUID), determine chain type from origin (buy call→call, sell call→covered_call, buy put→put, sell put→secured_put). (7) Categorize: stock, etf, secured_put_open/roll/close, covered_call_open/roll/close, call_open/roll/close, put_open/roll/close. (8) Store `transactions`, `currentHoldings` (with category), `currentCashByCurrency`, `transactionsSyncStartDate`.
+- **Holdings** — From SnapTrade positions + `listOptionHoldings` only. Categories: stock, etf, secured_put (puts sold), covered_call (calls sold), call (calls bought), put (puts bought).
+- **Multilegs** — Not expanded. Keep as single roll transaction with `customData.closeLeg` and `customData.openLeg` (from `/orders` when matched).
+- **Two-step sync** — (1) `syncAccount`: orders boundary → activities → map → match rolls → build chains → categorize → store. (2) `syncStrategy`: call `syncAccount` per configured account, copy filtered `transactions` to strategy (dedup by `accountTransactionId`).
 
-**SnapTrade activity types** — Use original types from SnapTrade. Standard types (BUY, SELL, etc.) are normalized in `ACTIVITY_TYPE_MAP`; brokerage-native types (e.g. `FUNDS_CONVERSION`) pass through as-is (lowercased).
+**SnapTrade activity types** — Use original types from SnapTrade. Standard types (BUY, SELL, etc.) are normalized in `ACTIVITY_TYPE_MAP`; brokerage-native types pass through as-is (lowercased).
 
-**option_assign / option_exercise / option_expire** — When an option is assigned, exercised, or expired, the option is removed; do not add synthetic option transactions to compensate. For assign/exercise only, the underlying instrument is affected: put assign → shares added; call assign → shares removed; call exercise → shares added; put exercise → shares removed (100 shares per contract). Rebuild must not update optionState when reversing assign/exercise/expire (avoids phantom residuals).
+**Brokerage refresh** — `syncAccount` calls `refreshBrokerageAuthorization` before fetching to ensure data is up-to-date.
 
-**options_multileg (rolls)** — SnapTrade reports multi-leg option trades as `OPTIONS_MULTILEG` with `units=0`, `price=0`, and only ONE `option_symbol` (the old/closing leg). The `amount` field is the net cash credit/debit. The new/opening leg is absent. Before the standard rebuild reverse-apply, `resolveMultilegChains` traces the full option lifecycle:
+**Multi-currency and cash** — Store `currentCashByCurrency` from SnapTrade balance. No synthetic transactions.
 
-1. Iterate raw transactions from latest to earliest, find each `options_multileg`.
-2. Build a chain: trace backward through earlier multiligs for the same underlying + call/put type to find the full roll sequence.
-3. Find the origin: the original open matching the earliest old option — either **sell-to-open** (short) or **buy-to-open** (long).
-4. Find the endpoint: the final holding in current option holdings (same underlying + call/put), or a close transaction.
-5. **Short roll** (origin = sell, e.g. secured put): Expand each multileg into buy-to-close (old leg, cashDelta=0) + sell-to-open (new leg, cashDelta=multileg amount). Close transaction: buy, option_assign, option_expire.
-6. **Long roll** (origin = buy, e.g. long call): Expand each multileg into sell-to-close (old leg, cashDelta=multileg amount) + buy-to-open (new leg, cashDelta=0). Close transaction: sell, option_exercise, option_expire.
-7. The new leg of each multileg is inferred: next multileg's old option, or the final holding for the last multileg.
-8. Replace the original multileg + origin + close in `doc.adjustedTransactions` with the reconstructed chain.
-9. Mark only the synthetic buy/sell legs with `chainResolved: true` (for Assigned Rate exclusion). Origin and close transaction stay unmarked.
-10. After all chains are resolved, run the standard reverse-apply rebuild on the remaining transactions.
+**Account Transactions modal** — Single **Transactions** list with category column. **Holdings** from SnapTrade with category badges. **Sync** button only. Segment control: All | CAD | USD to filter by currency.
 
-Example lifecycles:
-- **Short (secured put):** `Sell $60P → Multileg($60P→$57P) → Multileg($57P→$55P) → $55P in holdings` expands to: `sell 1 $60P | buy 1 $60P + sell 1 $57P | buy 1 $57P + sell 1 $55P`.
-- **Long (long call):** `Buy $25C → Multileg($25C→$30C) → $30C in holdings` expands to: `buy 4 $25C | sell 4 $25C + buy 4 $30C`.
+**Strategy config:** `snaptradeConfig.accountIds`, `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker, transaction type multi-select.
 
-**chainResolved** — Only the synthetic buy/sell legs from multileg expansion are marked `chainResolved: true`. The origin transaction (sell-to-open or buy-to-open), close transaction (buy-to-cover, sell-to-close, option_assign, option_exercise, option_expire), and all non-roll transactions are NOT marked. Assigned Rate subview counts only closed/expired/assigned (buy_to_cover, buy, option_assign, option_expire) and excludes transactions with `customData.chainResolved` (roll legs).
-
-**snaptradeActivityId on expanded legs** — When a multileg is expanded into buy/sell legs, the original `snaptradeActivityId` is copied to both expanded legs so incremental sync can deduplicate by SnapTrade activity ID.
-
-**Brokerage refresh before rebuild** — `rebuildAccountFull` calls `refreshBrokerageAuthorization` before fetching activities to ensure transaction data is up-to-date (SnapTrade caches transactions and refreshes once daily).
-
-**Multi-currency and cash** — For margin accounts with multiple currencies (e.g. CAD, USD), treat cash per-currency. Store `currentCashByCurrency: Record<string, number>` from SnapTrade's balance response (each entry has `currency.code` and `cash`). Do not create synthetic deposit/withdrawal transactions; use SnapTrade's current balance directly for display. Deposit/transfer transactions stay as-is; they do not affect holdings. Rebuild focuses on holdings matching only (equity + options).
-
-**Account Transactions modal** — Two columns: **Raw Transactions** (from `rawTransactions` — unmodified SnapTrade data) and **Adjusted Transactions** (from `adjustedTransactions` — sanitized). Users compare to see our adjustments. Buttons: **Incremental Sync** (fetches new activities, expands multilegs, updates holdings; additive) and **Rebuild from scratch** (wipes and full rebuild; destructive). **Derived holdings cash** — Uses SnapTrade balance (`currentCashByCurrency`) only; we do not compute cash from transactions. Display per-currency cash (e.g. Cash (CAD), Cash (USD)). Segment control: All | CAD | USD to filter transactions and holdings by currency. Support negative balances (margin).
-
-**Strategy config:** `snaptradeConfig.accountIds` (SnapTrade account UUIDs), `snaptradeConfig.transactionTypes` (optional filter). AddStrategyModal: Synced mode, account picker with `displayLabel` (currency/type for duplicates), transaction type multi-select, closed accounts filtered.
-
-**Frontend:** User modal — Connect Brokerage button, connection status, Refresh, disconnect, **Account Transactions** button to view sanitized transactions per brokerage account (with **Incremental Sync** and **Rebuild from scratch** buttons). AddStrategyModal — Manual/Synced toggle, account + type selection for synced.
+**Frontend:** User modal — Connect Brokerage, Refresh, disconnect, **Account Transactions** (Sync button). AddStrategyModal — Manual/Synced, account + type selection.
 
 ---
 
