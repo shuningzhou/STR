@@ -24,6 +24,7 @@ export const queryKeys = {
   historyBatch: (symbols: string[], from?: string, to?: string) => ['history', 'batch', symbols.join(','), from, to] as const,
   symbolSearch: (q: string) => ['symbolSearch', q] as const,
   instrumentMarginReqs: (symbols: string[]) => ['instrumentMarginReqs', symbols.join(',')] as const,
+  strategyHoldings: (strategyId: string) => ['strategyHoldings', strategyId] as const,
 };
 
 /* ────────────────────────────────────────────────────
@@ -548,7 +549,16 @@ export function useSyncStrategy() {
     onSuccess: (_data, strategyId) => {
       qc.invalidateQueries({ queryKey: queryKeys.strategies });
       qc.invalidateQueries({ queryKey: queryKeys.transactions(strategyId) });
+      qc.invalidateQueries({ queryKey: queryKeys.strategyHoldings(strategyId) });
     },
+  });
+}
+
+export function useStrategyHoldings(strategyId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.strategyHoldings(strategyId ?? ''),
+    queryFn: () => snaptradeApi.snaptradeGetStrategyHoldings(strategyId!),
+    enabled: !!strategyId && enabled,
   });
 }
 
@@ -563,11 +573,13 @@ export function useAccountTransactions(accountId: string | null) {
 export function useSyncAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: snaptradeApi.snaptradeSyncAccount,
-    onSuccess: (_data, accountId) => {
+    mutationFn: ({ accountId, fullResync = false }: { accountId: string; fullResync?: boolean }) =>
+      snaptradeApi.snaptradeSyncAccount(accountId, fullResync),
+    onSuccess: (_data, { accountId }) => {
       qc.invalidateQueries({ queryKey: snaptradeKeys.accountTransactions(accountId) });
       qc.invalidateQueries({ queryKey: queryKeys.strategies });
       qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'strategyHoldings' });
     },
   });
 }

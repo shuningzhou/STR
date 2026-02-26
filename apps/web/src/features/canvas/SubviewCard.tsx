@@ -11,7 +11,7 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory, useOptionQuotes } from '@/api/hooks';
+import { useTransactions, useStrategyHoldings, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory, useOptionQuotes } from '@/api/hooks';
 import { toOccTicker } from '@/lib/option-utils';
 import type { SubviewSpec } from '@str/shared';
 
@@ -91,6 +91,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const updateSubviewMut = useDebouncedUpdateSubview();
   const updateStrategyMut = useDebouncedUpdateStrategy();
   const { data: transactions = [] } = useTransactions(strategyId);
+  const isSynced = strategy?.mode === 'synced';
+  const { data: strategyHoldingsData } = useStrategyHoldings(strategyId, !!isSynced);
 
   const uniqueSymbols = useMemo(() => {
     const syms = new Set<string>();
@@ -160,7 +162,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
-  const currentPrices = useStrategyPrices(transactions);
+  const currentPrices = useStrategyPrices(transactions, isSynced ? strategyHoldingsData?.holdings : undefined);
 
   const openOptionContracts = useMemo(() => {
     const positions: Record<string, number> = {};
@@ -203,14 +205,15 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     () => ({
       ...buildStrategyContext(
         strategy ? { ...strategy, transactions } : null,
-        currentPrices
+        currentPrices,
+        isSynced ? strategyHoldingsData?.holdings : undefined
       ),
       currentPrices,
       instrumentMarginRequirements: instrumentMarginReqs ?? {},
       priceHistory,
       optionQuotes,
     }),
-    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory, optionQuotes]
+    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory, optionQuotes, isSynced, strategyHoldingsData?.holdings]
   );
 
   const hasSpec = !!effectiveSpec;

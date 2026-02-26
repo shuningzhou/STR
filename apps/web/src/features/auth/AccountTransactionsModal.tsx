@@ -63,7 +63,7 @@ export function AccountTransactionsModal({ onClose }: Props) {
 
   const handleSync = () => {
     if (!selectedAccountId) return;
-    syncMut.mutate(selectedAccountId);
+    syncMut.mutate({ accountId: selectedAccountId, fullResync: true });
   };
 
   const hasData = filteredTxns.length > 0 || (rawHoldings?.positions?.length ?? 0) > 0;
@@ -134,18 +134,16 @@ export function AccountTransactionsModal({ onClose }: Props) {
           )}
 
           {selectedAccountId && (
-            <div className="flex shrink-0" style={{ gap: 'var(--space-gap)' }}>
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                onClick={handleSync}
-                disabled={syncMut.isPending}
-                className="min-w-[100px] px-4"
-              >
-                {syncMut.isPending ? 'Syncing...' : 'Sync'}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={handleSync}
+              disabled={syncMut.isPending}
+              className="min-w-[100px] px-4"
+            >
+              {syncMut.isPending ? 'Syncing...' : 'Sync'}
+            </Button>
           )}
         </div>
 
@@ -278,7 +276,7 @@ function HoldingsTable({ holdings }: { holdings: HoldingsData | null }) {
                       className="inline-block rounded px-1.5 py-0.5 text-[9px] font-medium"
                       style={{ backgroundColor: 'rgba(0, 122, 255, 0.15)', color: 'var(--color-accent)' }}
                     >
-                      {formatCategory(p.category) || 'Stock & ETF'}
+                      {formatCategory(p.category) || '—'}
                     </span>
                   </td>
                   <td
@@ -520,6 +518,8 @@ function sideColor(side: string): string {
 function formatCategory(cat: string | undefined): string {
   if (!cat) return '';
   if (cat === 'stock' || cat === 'etf' || cat === 'stock_etf') return 'Stock & ETF';
+  if (cat === 'transfer') return 'Transfer';
+  if (cat === 'unknown') return 'Unknown';
   return cat;
 }
 

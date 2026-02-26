@@ -116,6 +116,9 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
   ],
   python_code: `
 def _holdings_market_value(context):
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        return sum(float(h.get('marketValue', 0) or 0) for h in precomputed)
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
     def is_non_option(tx):
@@ -164,6 +167,9 @@ def _holdings_market_value(context):
 
 def _holdings_per_symbol(context):
     """Return {symbol: market_value} for each held stock/ETF."""
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        return {str(h.get('instrumentSymbol', h.get('symbol', ''))): float(h.get('marketValue', 0) or 0) for h in precomputed if h.get('instrumentSymbol') or h.get('symbol')}
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
     def is_non_option(tx):

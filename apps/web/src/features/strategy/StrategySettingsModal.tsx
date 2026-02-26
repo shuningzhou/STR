@@ -25,8 +25,7 @@ const LEGACY_OPTION_TYPES = ['option_exercise', 'option_assign', 'option_expire'
 const REMOVED_TYPES = ['transfer', 'transfer_in', 'transfer_out', 'tax', 'adjustment', 'option'];
 
 const ASSET_TYPES = [
-  { value: 'stock', label: 'Stock' },
-  { value: 'etf', label: 'ETF' },
+  { value: 'stock_etf', label: 'Stock & ETF' },
   { value: 'option', label: 'Options' },
 ] as const;
 
@@ -82,6 +81,7 @@ export function StrategySettingsModal() {
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>([]);
   const [optionStrategy, setOptionStrategy] = useState<'all' | 'income_only' | 'calls_puts'>('all');
+  const [balanceAccountId, setBalanceAccountId] = useState<string>('');
 
   const { data: strategies = [] } = useStrategies();
   const { data: snapAccounts = [] } = useSnaptradeAccounts();
@@ -111,14 +111,22 @@ export function StrategySettingsModal() {
         const normalized = types.filter((t) => !LEGACY_OPTION_TYPES.includes(t) && !REMOVED_TYPES.includes(t));
         setSelectedTypes(normalized);
         setSelectedCurrencies(cfg.currencies ?? []);
-        setSelectedAssetTypes(cfg.assetTypes ?? []);
+        const rawAssetTypes = cfg.assetTypes ?? [];
+        const normalizedAssetTypes = rawAssetTypes.includes('stock_etf')
+          ? rawAssetTypes
+          : rawAssetTypes.some((a: string) => a === 'stock' || a === 'etf')
+            ? [...rawAssetTypes.filter((a: string) => a !== 'stock' && a !== 'etf'), 'stock_etf']
+            : rawAssetTypes;
+        setSelectedAssetTypes(normalizedAssetTypes);
         setOptionStrategy((cfg.optionStrategy as 'all' | 'income_only' | 'calls_puts') ?? 'all');
+        setBalanceAccountId(cfg.balanceAccountId ?? '');
       } else {
         setSelectedAccounts([]);
         setSelectedTypes([]);
         setSelectedCurrencies([]);
         setSelectedAssetTypes([]);
         setOptionStrategy('all');
+        setBalanceAccountId('');
       }
     }
     setDeleteConfirm(false);
@@ -154,12 +162,13 @@ export function StrategySettingsModal() {
           currencies: selectedCurrencies,
           assetTypes: selectedAssetTypes,
           optionStrategy,
+          balanceAccountId: balanceAccountId || undefined,
         };
       }
       updateStrategyMut.mutate(dto);
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, optionStrategy, updateStrategyMut, setStrategySettingsModalOpen]
+    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, optionStrategy, balanceAccountId, updateStrategyMut, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -353,6 +362,40 @@ export function StrategySettingsModal() {
                 </div>
               )}
             </div>
+
+            {isSynced && selectedAccounts.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <Label>Wallet Balance from Account</Label>
+                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
+                  Use one account&apos;s cash balance as this strategy&apos;s wallet. Respects currency filter. Negative = margin (wallet 0, loan amount).
+                </p>
+                <select
+                  value={balanceAccountId}
+                  onChange={(e) => setBalanceAccountId(e.target.value)}
+                  style={{
+                    marginTop: 4,
+                    minWidth: 220,
+                    height: 'var(--control-height)',
+                    padding: '0 12px',
+                    fontSize: 'var(--font-size-body)',
+                    borderRadius: 'var(--radius-medium)',
+                    backgroundColor: 'var(--color-bg-input)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <option value="">None (manual balance)</option>
+                  {selectedAccounts.map((id) => {
+                    const acct = snapAccounts.find((a: { accountId: string }) => a.accountId === id);
+                    return (
+                      <option key={id} value={id}>
+                        {acct ? `${acct.institutionName || 'Account'} – ${acct.name || id}` : id}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
 
             <div style={{ marginBottom: 20 }}>
               <Label>Transaction Types</Label>

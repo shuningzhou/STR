@@ -142,5 +142,7 @@ function mapStrategy(raw: Record<string, unknown>): Strategy {
     mode: (doc.mode as 'manual' | 'synced') ?? 'manual',
     snaptradeConfig: doc.snaptradeConfig as Strategy['snaptradeConfig'],
     lastSyncedAt: doc.lastSyncedAt as string | undefined,
+    syncedAccountBalance: doc.syncedAccountBalance as number | undefined,
+    syncedAccountLoanAmount: doc.syncedAccountLoanAmount as number | undefined,
   };
 }

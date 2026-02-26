@@ -106,7 +106,7 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
             all_dates.update(hist.keys())
     trading_dates = sorted(d for d in all_dates if d and first_tx_date <= d <= today)
     if not trading_dates:
-        tx_dates = sorted({date_of(t) for t in stock_txs_sorted if date_of(t)})
+        tx_dates = sorted({date_of(t) for t in stock_txs if date_of(t)})
         trading_dates = [d for d in tx_dates if first_tx_date <= d <= today]
 
     # Precompute cumulative deposit/withdraw/dividend at each date (for showDepositWithdraw)
@@ -237,6 +237,21 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         if show_holdings:
             item['holdingsValue'] = round(mv, 2)
         items.append(item)
+
+    # For last point: use precomputed holdings and wallet so chart matches Holdings Value and Loan cards
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list) and len(precomputed) > 0:
+        synced_holdings_mv = sum(float(h.get('marketValue', 0) or 0) for h in precomputed)
+        synced_loan = float(wallet.get('loanAmount', 0) or 0)
+        synced_balance = float(wallet.get('balance', 0) or 0)
+        if items:
+            last = items[-1]
+            if show_holdings:
+                last['holdingsValue'] = round(synced_holdings_mv, 2)
+            if show_loan and margin_enabled:
+                last['loan'] = round(synced_loan, 2)
+            # Portfolio = holdings - loan (net equity)
+            last['value'] = round(synced_holdings_mv - synced_loan, 2)
 
     colors = {'value': 'green-2', 'depositWithdraw': 'orange-2', 'loan': 'red-2', 'holdingsValue': 'blue-1'}
     return {'items': items, 'colors': colors}

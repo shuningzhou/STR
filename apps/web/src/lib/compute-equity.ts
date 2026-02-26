@@ -56,3 +56,18 @@ export function computeEquity(
   }
   return total;
 }
+
+/** Compute equity from SnapTrade holdings (for synced strategies). Stock/ETF only. */
+export function computeEquityFromHoldings(
+  holdings: Array<{ symbol: string; quantity: number; averagePrice: number; category?: string }>,
+  currentPrices: Record<string, number>
+): number {
+  let total = 0;
+  for (const h of holdings) {
+    const isOption = !['stock', 'etf', 'stock_etf'].includes(h.category ?? 'stock_etf');
+    if (isOption) continue;
+    const price = currentPrices[h.symbol] ?? h.averagePrice ?? 0;
+    total += h.quantity * price;
+  }
+  return total;
+}

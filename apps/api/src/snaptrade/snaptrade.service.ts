@@ -267,6 +267,65 @@ export class SnaptradeService {
     };
   }
 
+  /** Aggregated holdings from all accounts in a synced strategy. For canvas/subview views. */
+  async getStrategyHoldings(strategyId: string, userId: string) {
+    const strategy = await this.strategyModel
+      .findOne({ _id: strategyId, userId })
+      .lean()
+      .exec();
+    if (!strategy) throw new NotFoundException('Strategy not found');
+    if (strategy.mode !== 'synced' || !strategy.snaptradeConfig?.accountIds?.length) {
+      return { holdings: [] };
+    }
+
+    const accounts = await this.syncedAccountModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        accountId: { $in: strategy.snaptradeConfig.accountIds },
+      })
+      .lean()
+      .exec();
+
+    const currencyFilter = (strategy.snaptradeConfig?.currencies ?? []).map((c: string) => c.toUpperCase());
+    const passesCurrency = (ccy: string) => {
+      const up = (ccy || 'USD').toUpperCase();
+      return currencyFilter.length === 0 || currencyFilter.includes(up);
+    };
+
+    const bySymbol = new Map<string, { symbol: string; quantity: number; costTotal: number; currency: string; category: string }>();
+    for (const acct of accounts) {
+      for (const h of acct.currentHoldings ?? []) {
+        const sym = (h as any).symbol;
+        if (!sym) continue;
+        const ccy = (h as any).currency ?? '';
+        if (!passesCurrency(ccy)) continue;
+        const qty = (h as any).quantity ?? 0;
+        const avgPrice = (h as any).averagePrice ?? 0;
+        const cat = (h as any).category ?? 'stock_etf';
+        const isOption = !['stock', 'etf', 'stock_etf'].includes(cat);
+        const mult = isOption ? 100 : 1;
+        const costTotal = qty * avgPrice * mult;
+
+        const existing = bySymbol.get(sym);
+        if (existing) {
+          existing.quantity += qty;
+          existing.costTotal += costTotal;
+        } else {
+          bySymbol.set(sym, { symbol: sym, quantity: qty, costTotal, currency: ccy, category: cat });
+        }
+      }
+    }
+
+    const holdings = Array.from(bySymbol.values()).map((h) => {
+      const isOpt = !['stock', 'etf', 'stock_etf'].includes(h.category);
+      const mult = isOpt ? 100 : 1;
+      const avgPrice = h.quantity !== 0 ? h.costTotal / (h.quantity * mult) : 0;
+      return { symbol: h.symbol, quantity: h.quantity, averagePrice: avgPrice, currency: h.currency, category: h.category };
+    });
+    holdings.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    return { holdings };
+  }
+
   private async fetchOptionHoldings(
     accountId: string,
     userId: string,
@@ -325,34 +384,36 @@ export class SnaptradeService {
     }
   }
 
-  private async fetchActivitiesWithDateRange(
+  private async fetchActivities(
     accountId: string,
     creds: { userId: string; userSecret: string },
-    startDate: string,
-    endDate: string,
+    options?: { startDate?: string; endDate?: string },
   ): Promise<any[]> {
-    const activities: any[] = [];
+    const all: any[] = [];
     const limit = 1000;
     let offset = 0;
-    let hasMore = true;
 
-    while (hasMore) {
+    while (true) {
       const resp = await this.snaptrade.accountInformation.getAccountActivities({
         accountId,
         userId: creds.userId,
         userSecret: creds.userSecret,
-        startDate,
-        endDate,
         limit,
         offset,
+        ...(options?.startDate && { startDate: options.startDate }),
+        ...(options?.endDate && { endDate: options.endDate }),
       });
-      const page = resp.data?.data ?? [];
-      activities.push(...page);
-      hasMore = page.length >= limit;
+      const body = resp.data as { data?: any[]; pagination?: { total?: number } } | undefined;
+      const page = body?.data ?? [];
+      const total = body?.pagination?.total;
+
+      all.push(...page);
+      if (page.length < limit) break;
+      if (total != null && offset + page.length >= total) break;
       offset += limit;
     }
 
-    return activities;
+    return all;
   }
 
   private txKey(t: any): string {
@@ -506,8 +567,9 @@ export class SnaptradeService {
         t.customData = t.customData ?? {};
         t.customData.chainId = chainId;
 
-        if ((t.assetType ?? '') !== 'option' && !t.option) continue;
-        if (t.side === 'options_multileg') {
+        if ((t.assetType ?? '') !== 'option' && !t.option) {
+          continue;
+        } else if (t.side === 'options_multileg') {
           t.category = `${chainType}_roll`;
         } else if (t.side === 'sell' || t.side === 'buy') {
           const isOpen = (t.side === 'sell' && chainType.startsWith('covered')) || (t.side === 'sell' && chainType.startsWith('secured')) || (t.side === 'buy' && (chainType === 'call' || chainType === 'put'));
@@ -518,10 +580,28 @@ export class SnaptradeService {
       }
     }
 
+    const transferSides = [
+      'deposit', 'withdrawal', 'interest', 'dividend', 'refund',
+      'transfer', 'transfer_in', 'transfer_out', 'fee', 'tax', 'split', 'adjustment',
+    ];
+    const stockEtfSides = ['buy', 'sell', 'short', 'buy_to_cover'];
+
     for (const tx of txns) {
+      const side = (tx.side ?? '').toLowerCase();
+      const at = (tx.assetType ?? 'stock').toLowerCase();
+
+      if (transferSides.includes(side)) {
+        tx.category = 'transfer';
+        continue;
+      }
       if (!tx.category) {
-        const at = tx.assetType ?? 'stock';
-        tx.category = (at === 'stock' || at === 'etf') ? 'stock_etf' : at;
+        if (at === 'stock' || at === 'etf') {
+          tx.category = stockEtfSides.includes(side) ? 'stock_etf' : 'transfer';
+        } else if (at === 'option' || tx.option) {
+          tx.category = 'unknown';
+        } else {
+          tx.category = 'transfer';
+        }
       }
     }
   }
@@ -577,7 +657,11 @@ export class SnaptradeService {
     return holdings.sort((a, b) => a.symbol.localeCompare(b.symbol));
   }
 
-  async syncAccount(accountId: string, userId: string): Promise<{ synced: number; syncedTransactions?: boolean }> {
+  async syncAccount(
+    accountId: string,
+    userId: string,
+    fullResync = false,
+  ): Promise<{ synced: number; syncedTransactions?: boolean }> {
     const creds = await this.getSnapCreds(userId);
     const userObjId = new Types.ObjectId(userId);
 
@@ -612,86 +696,146 @@ export class SnaptradeService {
       }
     }
 
-    const orders = await this.fetchOrders(accountId, creds, 365);
+    /* ── 1. Always sync holdings and balance first ── */
+    const holdings = await this.buildCurrentHoldingsWithCategory(accountId, userId, doc.currency);
+    doc.currentHoldings = holdings as any;
+    const cashByCurrency: Record<string, number> = {};
+    try {
+      const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
+        accountId,
+        userId: creds.userId,
+        userSecret: creds.userSecret,
+      });
+      for (const b of balResp.data ?? []) {
+        const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
+        cashByCurrency[ccy] = (b as any).cash ?? (b as any).amount ?? 0;
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to fetch balance for ${accountId}: ${e}`);
+    }
+    doc.currentCashByCurrency = cashByCurrency;
+
+    /* ── 2. Sync transactions (initial or incremental) ── */
+    if (fullResync) {
+      const strategiesWithAccount = await this.strategyModel
+        .find({
+          userId: userObjId,
+          mode: 'synced',
+          'snaptradeConfig.accountIds': accountId,
+        })
+        .select('_id')
+        .lean()
+        .exec();
+      for (const s of strategiesWithAccount) {
+        await this.txModel.deleteMany({
+          strategyId: String(s._id),
+          source: 'snaptrade',
+        });
+        await this.strategyModel.updateOne(
+          { _id: s._id },
+          { $inc: { transactionsVersion: 1 } },
+        );
+      }
+      doc.lastSyncedAt = null;
+      doc.transactions = [];
+      doc.transactionsSyncStartDate = null;
+      await doc.save();
+    }
+    const hasPreviousSync = doc.lastSyncedAt != null;
+    const boundaryDate = hasPreviousSync
+      ? this.subtractOneDay(doc.lastSyncedAt!.toISOString().slice(0, 10))
+      : null;
+    const isInitialSync =
+      fullResync ||
+      !hasPreviousSync ||
+      boundaryDate == null ||
+      (doc.transactions?.length ?? 0) === 0;
+
     let syncedTransactions = false;
 
-    if (orders.length === 0) {
-      const holdings = await this.buildCurrentHoldingsWithCategory(accountId, userId, doc.currency);
-      doc.currentHoldings = holdings as any;
-      const cashByCurrency: Record<string, number> = {};
-      try {
-        const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
-          accountId,
-          userId: creds.userId,
-          userSecret: creds.userSecret,
-        });
-        for (const b of balResp.data ?? []) {
-          const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
-          cashByCurrency[ccy] = ((b as any).cash ?? (b as any).amount ?? 0);
-        }
-      } catch (e) {
-        this.logger.warn(`Failed to fetch balance for ${accountId}: ${e}`);
-      }
-      doc.currentCashByCurrency = cashByCurrency;
-      doc.transactions = [] as any;
-      doc.transactionsSyncStartDate = null;
-      this.logger.log(`syncAccount ${accountId}: no orders, holdings only`);
-    } else {
-      const orderDates = orders
-        .map((o) => ((o as any).time_executed ?? (o as any).time_placed ?? '').slice(0, 10))
-        .filter(Boolean);
-      const earliestDate = orderDates.length > 0 ? orderDates.reduce((a, b) => (a < b ? a : b)) : new Date().toISOString().slice(0, 10);
-      const endDate = new Date().toISOString().slice(0, 10);
-
-      const activities = await this.fetchActivitiesWithDateRange(accountId, creds, earliestDate, endDate);
-      const transactions: any[] = [];
-      const existingIds = new Set<string>();
-
-      for (const activity of activities) {
-        const activityId = (activity as any).id;
-        if (!activityId || existingIds.has(activityId)) continue;
-        const mapped = this.mapActivity(activity);
-        const tx = {
-          ...mapped,
-          snaptradeActivityId: activityId,
-          category: (['stock', 'etf'].includes(mapped.assetType ?? '') ? 'stock_etf' : (mapped.assetType ?? 'stock_etf')) as string,
-          customData: {} as Record<string, unknown>,
-        };
-        transactions.push(tx);
-        existingIds.add(activityId);
-      }
-
+    if (isInitialSync) {
+      const orders = await this.fetchOrders(accountId, creds, 365);
+      const activities = await this.fetchActivities(accountId, creds);
+      const transactions = this.activitiesToTransactions(activities);
       this.matchRollsToOrders(transactions, orders);
       this.buildOptionChains(transactions);
 
-      const holdings = await this.buildCurrentHoldingsWithCategory(accountId, userId, doc.currency);
-      doc.currentHoldings = holdings as any;
-
-      const cashByCurrency: Record<string, number> = {};
-      try {
-        const balResp = await this.snaptrade.accountInformation.getUserAccountBalance({
-          accountId,
-          userId: creds.userId,
-          userSecret: creds.userSecret,
-        });
-        for (const b of balResp.data ?? []) {
-          const ccy = (b as any).currency?.code ?? (b as any).currency ?? 'USD';
-          cashByCurrency[ccy] = ((b as any).cash ?? (b as any).amount ?? 0);
-        }
-      } catch (e) {
-        this.logger.warn(`Failed to fetch balance for ${accountId}: ${e}`);
-      }
-      doc.currentCashByCurrency = cashByCurrency;
       doc.transactions = transactions as any;
-      doc.transactionsSyncStartDate = new Date(earliestDate);
+      let earliestTs: string | null = null;
+      for (const t of transactions) {
+        const ts = (t as any).timestamp;
+        if (ts && (!earliestTs || ts < earliestTs)) earliestTs = ts;
+      }
+      doc.transactionsSyncStartDate = earliestTs ? new Date(earliestTs.slice(0, 10)) : null;
       syncedTransactions = true;
-      this.logger.log(`syncAccount ${accountId}: ${transactions.length} transactions from ${earliestDate}`);
+      this.logger.log(`syncAccount ${accountId}: initial sync, ${transactions.length} activities`);
+    } else {
+      const startDate = boundaryDate;
+      const endDate = new Date().toISOString().slice(0, 10);
+      const days = Math.min(365, Math.ceil((Date.parse(endDate) - Date.parse(startDate)) / 86400000) + 1);
+      const orders = await this.fetchOrders(accountId, creds, Math.max(30, days));
+      const activities = await this.fetchActivities(accountId, creds, { startDate, endDate });
+
+      const existingIds = new Set(
+        (doc.transactions ?? []).map((t: any) => t.snaptradeActivityId).filter(Boolean),
+      );
+      const newActivities = activities.filter((a: any) => a.id && !existingIds.has(String(a.id)));
+
+      if (newActivities.length === 0) {
+        this.logger.log(`syncAccount ${accountId}: incremental, no new activities`);
+        this.buildOptionChains(doc.transactions ?? []);
+      } else {
+        const newTransactions = this.activitiesToTransactions(newActivities);
+        this.matchRollsToOrders(newTransactions, orders);
+
+        const merged = [...(doc.transactions ?? []), ...newTransactions];
+        merged.sort((a, b) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''));
+        const bySnapId = new Map<string, any>();
+        for (const t of merged) {
+          const sid = (t as any).snaptradeActivityId;
+          if (sid) bySnapId.set(String(sid), t);
+        }
+        const finalMerged = Array.from(bySnapId.values()).sort((a, b) =>
+          (a.timestamp ?? '').localeCompare(b.timestamp ?? ''),
+        );
+        this.buildOptionChains(finalMerged);
+        doc.transactions = finalMerged as any;
+
+        const prevStart = doc.transactionsSyncStartDate?.toISOString().slice(0, 10);
+        const newStart = prevStart && startDate < prevStart ? startDate : prevStart ?? startDate;
+        doc.transactionsSyncStartDate = new Date(newStart);
+        syncedTransactions = true;
+        this.logger.log(`syncAccount ${accountId}: incremental, +${newTransactions.length} new (total ${doc.transactions.length})`);
+      }
     }
 
     doc.lastSyncedAt = new Date();
     await doc.save();
 
     return { synced: doc.transactions?.length ?? 0, syncedTransactions };
+  }
+
+  private subtractOneDay(dateStr: string): string {
+    const d = new Date(dateStr + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  private activitiesToTransactions(activities: any[]): any[] {
+    const transactions: any[] = [];
+    const seen = new Set<string>();
+    for (const activity of activities) {
+      const activityId = (activity as any).id;
+      if (!activityId || seen.has(String(activityId))) continue;
+      seen.add(String(activityId));
+      const mapped = this.mapActivity(activity);
+      transactions.push({
+        ...mapped,
+        snaptradeActivityId: activityId,
+        customData: {} as Record<string, unknown>,
+      });
+    }
+    return transactions;
   }
 
 
@@ -750,7 +894,11 @@ export class SnaptradeService {
     if (assetTypeFilter && assetTypeFilter.length > 0) {
       allTransactions = allTransactions.filter((tx) => {
         const at = (tx.assetType ?? (tx.option ? 'option' : 'stock')).toLowerCase();
-        return assetTypeFilter.some((a) => a.toLowerCase() === at);
+        return assetTypeFilter.some((a) => {
+          const ai = a.toLowerCase();
+          if (ai === 'stock_etf') return at === 'stock' || at === 'etf' || at === 'stock_etf';
+          return at === ai;
+        });
       });
     }
 
@@ -803,17 +951,37 @@ export class SnaptradeService {
       synced++;
     }
 
-    if (synced > 0) {
-      await this.strategyModel.updateOne(
-        { _id: strategyId },
-        { $inc: { transactionsVersion: 1 }, $set: { lastSyncedAt: new Date() } },
-      );
-    } else {
-      await this.strategyModel.updateOne(
-        { _id: strategyId },
-        { $set: { lastSyncedAt: new Date() } },
-      );
+    const updateSet: Record<string, unknown> = { lastSyncedAt: new Date() };
+
+    /* ── 3. Update strategy balance from account when balanceAccountId set ── */
+    const balanceAccountId = strategy.snaptradeConfig?.balanceAccountId;
+    if (balanceAccountId) {
+      const balAcct = accounts.find((a: any) => a.accountId === balanceAccountId);
+      const cashByCurrency = (balAcct as any)?.currentCashByCurrency ?? {};
+      const currencyFilter = strategy.snaptradeConfig?.currencies ?? [];
+      const targetCcy =
+        currencyFilter.length > 0
+          ? currencyFilter[0].toUpperCase()
+          : (strategy.baseCurrency ?? 'USD').toUpperCase();
+      const rawBalance = cashByCurrency[targetCcy] ?? cashByCurrency[targetCcy.toLowerCase()] ?? 0;
+
+      if (rawBalance >= 0) {
+        updateSet.syncedAccountBalance = rawBalance;
+        updateSet.syncedAccountLoanAmount = 0;
+      } else {
+        updateSet.syncedAccountBalance = 0;
+        updateSet.syncedAccountLoanAmount = Math.abs(rawBalance);
+      }
     }
+
+    const updateOp: any = {
+      $set: updateSet,
+      ...(synced > 0 && { $inc: { transactionsVersion: 1 } }),
+    };
+    if (!balanceAccountId) {
+      updateOp.$unset = { syncedAccountBalance: '', syncedAccountLoanAmount: '' };
+    }
+    await this.strategyModel.updateOne({ _id: strategyId }, updateOp);
 
     return { synced };
   }

@@ -22,8 +22,7 @@ const TRANSACTION_TYPES = [
 ] as const;
 
 const ASSET_TYPES = [
-  { value: 'stock', label: 'Stock' },
-  { value: 'etf', label: 'ETF' },
+  { value: 'stock_etf', label: 'Stock & ETF' },
   { value: 'option', label: 'Options' },
 ] as const;
 

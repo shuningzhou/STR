@@ -29,6 +29,12 @@ export const PORTFOLIO_PIE_CHART: SubviewSpec = {
   ],
   python_code: `def get_portfolio_pie(context, inputs):
     """Return pie chart data: { items: [{ label: str, value: float }] } for % of portfolio."""
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        holdings = [{'symbol': h.get('instrumentSymbol', h.get('symbol', '')), 'marketValue': float(h.get('marketValue', 0) or 0)} for h in precomputed]
+        total_mv = sum(h['marketValue'] for h in holdings)
+        items = [{'label': h['symbol'], 'value': round(h['marketValue'] / total_mv * 100, 1) if total_mv else 0} for h in sorted(holdings, key=lambda x: x['marketValue'], reverse=True)]
+        return {'items': items}
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
     

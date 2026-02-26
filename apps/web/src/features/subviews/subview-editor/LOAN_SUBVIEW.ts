@@ -48,6 +48,9 @@ export const LOAN_SUBVIEW: SubviewSpec = {
   ],
   python_code: `def _holdings_market_value(context):
     """Return total market value of current stock/ETF holdings."""
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        return sum(float(h.get('marketValue', 0) or 0) for h in precomputed)
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
 

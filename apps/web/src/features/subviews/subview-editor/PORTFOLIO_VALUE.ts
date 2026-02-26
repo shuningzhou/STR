@@ -38,6 +38,9 @@ export const PORTFOLIO_VALUE: SubviewSpec = {
   ],
   python_code: `def get_portfolio_value(context, inputs):
     """Return total market value of current stock and ETF holdings."""
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        return round(sum(float(h.get('marketValue', 0) or 0) for h in precomputed), 2)
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
 

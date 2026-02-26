@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Req } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
 import type { AuthUser } from '../common/auth-user';
 import { SnaptradeService } from './snaptrade.service';
@@ -43,12 +43,21 @@ export class SnaptradeController {
   }
 
   @Post('accounts/:accountId/sync')
-  syncAccount(@Param('accountId') accountId: string, @Req() req: Request) {
-    return this.service.syncAccount(accountId, (req.user as AuthUser).id);
+  syncAccount(
+    @Param('accountId') accountId: string,
+    @Query('fullResync') fullResync: string | undefined,
+    @Req() req: Request,
+  ) {
+    return this.service.syncAccount(accountId, (req.user as AuthUser).id, fullResync === 'true');
   }
 
   @Post('sync/:strategyId')
   syncStrategy(@Param('strategyId') strategyId: string, @Req() req: Request) {
     return this.service.syncStrategy(strategyId, (req.user as AuthUser).id);
+  }
+
+  @Get('strategies/:strategyId/holdings')
+  getStrategyHoldings(@Param('strategyId') strategyId: string, @Req() req: Request) {
+    return this.service.getStrategyHoldings(strategyId, (req.user as AuthUser).id);
   }
 }

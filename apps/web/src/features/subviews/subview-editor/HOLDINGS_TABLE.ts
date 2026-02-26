@@ -57,6 +57,10 @@ export const HOLDINGS_TABLE: SubviewSpec = {
   ],
   python_code: `def get_holdings(context, inputs):
     """Return current stock/ETF holdings with cost basis, market value, gain, dividends, and % of portfolio."""
+    # For synced strategies: use holdings from SnapTrade (not derived from transactions)
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        return precomputed
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
     base_currency = (context.get('wallet') or {}).get('baseCurrency') or 'USD'

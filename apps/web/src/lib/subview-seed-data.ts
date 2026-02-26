@@ -1,8 +1,79 @@
-import { computeEquity } from './compute-equity';
+import { computeEquity, computeEquityFromHoldings } from './compute-equity';
+
+/** Holding from SnapTrade (synced strategy); used instead of transaction-derived holdings */
+interface SyncedHolding {
+  symbol: string;
+  quantity: number;
+  averagePrice: number;
+  currency: string;
+  category: string;
+}
+
+function holdingsToDisplayFormat(
+  holdings: SyncedHolding[],
+  currentPrices: Record<string, number>
+): Array<{
+  instrumentSymbol: string;
+  instrumentId: string;
+  quantity: number;
+  costBasis: number;
+  currentPrice: number;
+  marketValue: number;
+  gain: number;
+  gainPct: number;
+  dividends: number;
+  dividendGainPct: number;
+  portfolioPct: number;
+}> {
+  const isStockEtf = (h: SyncedHolding) => ['stock', 'etf', 'stock_etf'].includes(h.category ?? 'stock_etf');
+  const results = holdings
+    .filter((h) => h.quantity > 0 && isStockEtf(h))
+    .map((h) => {
+      const costBasis = h.averagePrice;
+      const price = currentPrices[h.symbol] ?? costBasis;
+      const marketValue = h.quantity * price;
+      const costTotal = h.quantity * costBasis;
+      const gain = marketValue - costTotal;
+      const gainPct = costTotal ? (gain / costTotal) * 100 : 0;
+      return {
+        instrumentSymbol: h.symbol,
+        instrumentId: h.symbol,
+        quantity: h.quantity,
+        costBasis: Math.round(costBasis * 100) / 100,
+        currentPrice: Math.round(price * 100) / 100,
+        marketValue: Math.round(marketValue * 100) / 100,
+        gain: Math.round(gain * 100) / 100,
+        gainPct: Math.round(gainPct * 100) / 100,
+        dividends: 0,
+        dividendGainPct: 0,
+        portfolioPct: 0,
+      };
+    });
+  results.sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0));
+  const totalMv = results.reduce((s, h) => s + (h.marketValue ?? 0), 0);
+  for (const h of results) {
+    h.portfolioPct = totalMv ? Math.round((h.marketValue / totalMv) * 1000) / 10 : 0;
+  }
+  return results;
+}
 
 export interface SeedContext {
   /** Current price per symbol; backend provides when ready */
   currentPrices?: Record<string, number>;
+  /** When synced strategy: holdings from SnapTrade (not derived from transactions) */
+  holdings?: Array<{
+    instrumentSymbol: string;
+    instrumentId: string;
+    quantity: number;
+    costBasis: number;
+    currentPrice: number;
+    marketValue: number;
+    gain: number;
+    gainPct: number;
+    dividends: number;
+    dividendGainPct: number;
+    portfolioPct: number;
+  }>;
   /** Per-instrument margin requirement %; falls back to wallet.marginRequirement */
   instrumentMarginRequirements?: Record<string, number>;
   /** Live option quotes: OCC ticker -> price per share */
@@ -199,6 +270,7 @@ export type ResolvedTransaction = SeedContext['transactions'][number];
 /**
  * Build context from strategy's real transactions for the canvas.
  * When currentPrices provided, computes equity, marginLimit, marginAvailable, buyingPower.
+ * For synced strategies, pass holdings from SnapTrade to avoid deriving from transactions.
  */
 export function buildStrategyContext(
   strategy: {
@@ -213,19 +285,33 @@ export function buildStrategyContext(
     collateralSecurities?: number;
     collateralCash?: number;
     collateralRequirement?: number;
+    syncedAccountBalance?: number;
+    syncedAccountLoanAmount?: number;
   } | null,
-  currentPrices?: Record<string, number>
+  currentPrices?: Record<string, number>,
+  syncedHoldings?: SyncedHolding[]
 ): SeedContext {
   const txs = strategy?.transactions ?? [];
   const initialBalance = strategy?.initialBalance ?? 0;
-  const computedBalance =
+  const computedFromTxns =
     initialBalance +
     txs.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
 
+  const useAccountBalance =
+    strategy && 'syncedAccountBalance' in strategy && strategy.syncedAccountBalance != null;
+  const balance = useAccountBalance ? (strategy.syncedAccountBalance ?? 0) : computedFromTxns;
+  const marginFromAccount = (strategy?.syncedAccountLoanAmount ?? 0) > 0;
   const marginAccountEnabled =
-    strategy && 'marginAccountEnabled' in strategy ? !!strategy.marginAccountEnabled : false;
-  const loanAmount = marginAccountEnabled ? Math.max(0, -computedBalance) : (strategy?.loanAmount ?? 0);
-  const balance = marginAccountEnabled ? Math.max(0, computedBalance) : computedBalance;
+    useAccountBalance && marginFromAccount
+      ? true
+      : strategy && 'marginAccountEnabled' in strategy
+        ? !!strategy.marginAccountEnabled
+        : false;
+  const loanAmount = useAccountBalance
+    ? (strategy.syncedAccountLoanAmount ?? 0)
+    : marginAccountEnabled
+      ? Math.max(0, -computedFromTxns)
+      : (strategy?.loanAmount ?? 0);
 
   const marginReq = strategy?.marginRequirement ?? 0;
   const collateralSecurities = strategy?.collateralSecurities ?? 0;
@@ -234,15 +320,24 @@ export function buildStrategyContext(
   const collateralLimit = collateralSecurities * (collateralReq / 100);
   const collateralAvailable = (collateralSecurities - collateralLimit) + collateralCash;
 
-  const equity = computeEquity(txs, currentPrices ?? {});
+  const equity =
+    syncedHoldings && syncedHoldings.length > 0
+      ? computeEquityFromHoldings(syncedHoldings, currentPrices ?? {})
+      : computeEquity(txs, currentPrices ?? {});
+
+  const holdingsForContext =
+    syncedHoldings && syncedHoldings.length > 0
+      ? holdingsToDisplayFormat(syncedHoldings, currentPrices ?? {})
+      : undefined;
   const marginLimit = equity * (marginReq / 100);
   const marginAvailable =
     collateralAvailable + equity + balance - loanAmount - marginLimit;
   const buyingPower =
-    marginReq > 0 ? marginAvailable / (marginReq / 100) : computedBalance;
+    marginReq > 0 ? marginAvailable / (marginReq / 100) : balance;
 
   return {
     transactions: txs,
+    holdings: holdingsForContext,
     wallet: {
       baseCurrency: strategy?.baseCurrency ?? 'USD',
       initialBalance,

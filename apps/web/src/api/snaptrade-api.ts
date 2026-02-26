@@ -97,6 +97,22 @@ export async function snaptradeGetAccountTransactions(accountId: string): Promis
   return apiFetch(`/snaptrade/accounts/${accountId}/transactions`);
 }
 
-export async function snaptradeSyncAccount(accountId: string): Promise<{ synced: number; syncedTransactions?: boolean }> {
-  return apiFetch(`/snaptrade/accounts/${accountId}/sync`, { method: 'POST' });
+export async function snaptradeSyncAccount(
+  accountId: string,
+  fullResync = false,
+): Promise<{ synced: number; syncedTransactions?: boolean }> {
+  const qs = fullResync ? '?fullResync=true' : '';
+  return apiFetch(`/snaptrade/accounts/${accountId}/sync${qs}`, { method: 'POST' });
+}
+
+export interface StrategyHolding {
+  symbol: string;
+  quantity: number;
+  averagePrice: number;
+  currency: string;
+  category: string;
+}
+
+export async function snaptradeGetStrategyHoldings(strategyId: string): Promise<{ holdings: StrategyHolding[] }> {
+  return apiFetch(`/snaptrade/strategies/${strategyId}/holdings`);
 }

@@ -49,6 +49,11 @@ export const UNREALIZED_GAIN: SubviewSpec = {
   ],
   python_code: `def _holdings_market_and_book(context):
     """Return (market_value, book_value) for current stock/ETF holdings."""
+    precomputed = context.get('holdings')
+    if precomputed is not None and isinstance(precomputed, list):
+        mv = sum(float(h.get('marketValue', 0) or 0) for h in precomputed)
+        bv = sum(float(h.get('costBasis', 0) or 0) * int(h.get('quantity', 0) or 0) for h in precomputed)
+        return (mv, bv)
     txs = context.get('transactions') or []
     current_prices = context.get('currentPrices') or {}
 

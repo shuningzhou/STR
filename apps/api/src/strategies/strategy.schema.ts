@@ -49,6 +49,8 @@ export class SnaptradeConfig {
   @Prop({ type: [String], default: [] }) assetTypes!: string[];
   /** When assetTypes includes 'option': 'all' = all options; 'income_only' = CC & SP only; 'calls_puts' = normal calls & puts only (exclude CC/SP) */
   @Prop({ default: 'all', enum: ['all', 'income_only', 'calls_puts'] }) optionStrategy!: string;
+  /** If set, use this account's balance as strategy wallet balance (respects currency filter; negative = margin loan) */
+  @Prop() balanceAccountId?: string;
 }
 
 /* ── Strategy ─────────────────────────────────────── */
@@ -74,6 +76,9 @@ export class Strategy {
   @Prop({ default: 'manual', enum: ['manual', 'synced'] }) mode!: string;
   @Prop({ type: SnaptradeConfig }) snaptradeConfig?: SnaptradeConfig;
   @Prop() lastSyncedAt?: Date;
+  /** When balanceAccountId is set, populated after sync from account's currentCashByCurrency (filtered) */
+  @Prop() syncedAccountBalance?: number;
+  @Prop() syncedAccountLoanAmount?: number;
 }
 
 export type StrategyDocument = HydratedDocument<Strategy>;
