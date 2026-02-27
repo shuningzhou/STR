@@ -47,8 +47,8 @@ export function TransactionListPanel() {
     setEditTransactionModalOpen({ strategyId: strategyId!, transaction: tx, mode: 'full' });
   };
 
-  const handleDelete = (txId: string | number) => {
-    setDeleteTransactionConfirmOpen({ strategyId: strategyId!, transactionId: txId });
+  const handleDelete = (tx: StrategyTransaction) => {
+    setDeleteTransactionConfirmOpen({ strategyId: strategyId!, transaction: tx });
   };
 
   const formatDate = (ts: string) => ts?.slice(0, 10) ?? '—';
@@ -372,7 +372,7 @@ export function TransactionListPanel() {
                               type="button"
                               className="p-1 rounded"
                               style={{ color: 'var(--color-text-secondary)' }}
-                              onClick={() => handleDelete(tx.id)}
+                              onClick={() => handleDelete(tx)}
                               title="Delete"
                             >
                               <Trash2 size={12} />

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
-export type AddTransactionModalMode = 'full' | 'stock-etf' | 'option' | 'dividend';
+export type AddTransactionModalMode = 'full' | 'stock-etf' | 'option' | 'option-buy' | 'dividend';
 
 interface UIState {
   sidebarCollapsed: boolean;
@@ -25,8 +25,8 @@ interface UIState {
   walletSettingsModalOpen: string | null;
   /** When open: strategyId for the transaction list slide-out panel */
   transactionListPanelOpen: string | null;
-  /** When open: { strategyId, transactionId } for delete confirmation modal */
-  deleteTransactionConfirmOpen: { strategyId: string; transactionId: string | number } | null;
+  /** When open: { strategyId, transaction } for delete confirmation modal */
+  deleteTransactionConfirmOpen: { strategyId: string; transaction: StrategyTransaction } | null;
   /** When open: { strategyId, transaction } for roll option modal */
   rollOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
   /** When open: { strategyId, transaction } for close option modal (partial close supported) */
@@ -53,7 +53,7 @@ interface UIState {
   setDepositWithdrawModalOpen: (value: { strategyId: string; mode: 'deposit' | 'withdraw' } | null) => void;
   setWalletSettingsModalOpen: (value: string | null) => void;
   setTransactionListPanelOpen: (value: string | null) => void;
-  setDeleteTransactionConfirmOpen: (value: { strategyId: string; transactionId: string | number } | null) => void;
+  setDeleteTransactionConfirmOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setRollOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setAssignOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;

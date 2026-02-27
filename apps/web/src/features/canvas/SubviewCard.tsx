@@ -181,15 +181,25 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
         return isoA.localeCompare(isoB) || a.localeCompare(b);
       });
 
-    const positions: Record<string, number> = {};
+    const shortPositions: Record<string, number> = {};
+    const longPositions: Record<string, number> = {};
     for (const t of transactions) {
       if (!t.option) continue;
       const ticker = toOccTicker(t.instrumentSymbol, t.option.expiration, t.option.strike, t.option.callPut);
-      if (t.side === 'sell') positions[ticker] = (positions[ticker] ?? 0) + t.quantity;
+      if (t.side === 'sell') shortPositions[ticker] = (shortPositions[ticker] ?? 0) + t.quantity;
       else if (t.side === 'buy_to_cover' || t.side === 'option_assign' || t.side === 'option_expire')
-        positions[ticker] = (positions[ticker] ?? 0) - t.quantity;
+        shortPositions[ticker] = (shortPositions[ticker] ?? 0) - t.quantity;
+      else if (t.side === 'buy') longPositions[ticker] = (longPositions[ticker] ?? 0) + t.quantity;
+      else if (t.side === 'sell_to_cover') longPositions[ticker] = (longPositions[ticker] ?? 0) - t.quantity;
     }
-    return sortTickers(filterExpired(Object.entries(positions).filter(([, qty]) => qty > 0).map(([ticker]) => ticker)));
+    const shortTickers = Object.entries(shortPositions)
+      .filter(([, qty]) => qty > 0)
+      .map(([ticker]) => ticker);
+    const longTickers = Object.entries(longPositions)
+      .filter(([, qty]) => qty > 0)
+      .map(([ticker]) => ticker);
+    const allTickers = [...new Set([...shortTickers, ...longTickers])];
+    return sortTickers(filterExpired(allTickers));
   }, [transactions]);
 
   const { data: optionQuotesArr } = useOptionQuotes(openOptionContracts);
@@ -246,6 +256,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       setAddTransactionModalOpen({ strategyId, mode: 'dividend' });
     } else if (handler === 'addOptionTransactionModal') {
       setAddTransactionModalOpen({ strategyId, mode: 'option' });
+    } else if (handler === 'buyLeapModal') {
+      setAddTransactionModalOpen({ strategyId, mode: 'option-buy' });
     } else if (handler === 'depositWallet') {
       setDepositWithdrawModalOpen({ strategyId, mode: 'deposit' });
     } else if (handler === 'withdrawWallet') {

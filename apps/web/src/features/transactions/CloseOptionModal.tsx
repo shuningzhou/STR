@@ -38,14 +38,17 @@ export function CloseOptionModal() {
         return;
       }
 
-      const premium = -Math.round(qty * pr * 10000) / 100; // premium per share × 100 shares × qty; round to cents
       const timestamp = `${date}T12:00:00Z`;
+      const isLong = (transaction.side as string)?.toLowerCase() === 'buy';
+      const premium = Math.round(qty * pr * 10000) / 100;
+      const cashDelta = isLong ? premium : -premium;
+      const side = isLong ? 'sell_to_cover' : 'buy_to_cover';
 
       try {
         await createTx.mutateAsync({
           strategyId,
-          side: 'buy_to_cover',
-          cashDelta: premium,
+          side,
+          cashDelta,
           currency: transaction.currency ?? 'USD',
           timestamp,
           instrumentSymbol: transaction.instrumentSymbol ?? '',

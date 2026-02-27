@@ -356,7 +356,7 @@ function ContentRenderer({
   onEditTransaction?: (transaction: Record<string, unknown>) => void;
   /** Resolved text color for text/number content (from cell.textColor) */
   textColor?: string;
-  setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transactionId: number } | null) => void;
+  setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setRollOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setAssignOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
@@ -585,7 +585,7 @@ function ContentRenderer({
                               if (ra.handler === 'editTransactionModal' && strategyId && onEditTransaction && txId != null) {
                                 onEditTransaction(rowData);
                               } else if (ra.handler === 'deleteTransaction' && strategyId && txId != null && setDeleteTransactionConfirmOpen) {
-                                setDeleteTransactionConfirmOpen({ strategyId, transactionId: txId });
+                                setDeleteTransactionConfirmOpen({ strategyId, transaction: toTx() });
                               } else if (ra.handler === 'rollOptionModal' && strategyId && setRollOptionModalOpen) {
                                 const tx = toTx();
                                 if (tx.option) setRollOptionModalOpen({ strategyId, transaction: tx });

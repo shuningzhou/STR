@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select } from '@/components/ui';
-import type { StrategyTransaction } from '@/store/strategy-store';
 import { useCreateTransaction } from '@/api/hooks';
 
 const CALL_PUT_OPTIONS = [
@@ -23,6 +22,7 @@ export function RollOptionModal() {
   const transaction = rollOptionModalOpen?.transaction;
 
   const opt = transaction?.option;
+  const isLong = (transaction?.side as string)?.toLowerCase() === 'buy';
   const [rollToExp, setRollToExp] = useState('');
   const [rollToStrike, setRollToStrike] = useState('');
   const [rollToCallPut, setRollToCallPut] = useState<'call' | 'put'>('call');
@@ -58,56 +58,93 @@ export function RollOptionModal() {
         setError('Amount is required and must be positive');
         return;
       }
-
       const qty = transaction.quantity ?? 1;
-      const originalPremium = Math.abs(transaction.cashDelta ?? 0);
-      // Amount = net cash from roll, added/deducted in wallet. Receive X => new = original + X (wallet +X). Pay X => new = original − X (wallet −X).
-      const newOptionPremium =
-        receivePay === 'receive'
-          ? Math.round((originalPremium + amt) * 100) / 100
-          : Math.round((originalPremium - amt) * 100) / 100;
-      const newOptionPricePerShare = qty > 0 ? Math.round((newOptionPremium / (qty * 100)) * 100) / 100 : 0;
       const timestamp = `${date}T12:00:00Z`;
       const symbol = transaction.instrumentSymbol ?? '';
-
-      // Original option's premium (what we received when we sold it)
-      const closePremium = -Math.round(originalPremium * 100) / 100;
-      const closePricePerShare = qty > 0 ? Math.abs(originalPremium) / (qty * 100) : 0;
+      const currency = transaction.currency ?? 'USD';
 
       const optionRolledTo = {
         expiration: rollToExp ? `${rollToExp}T00:00:00Z` : '',
         strike,
-        callPut: rollToCallPut,
+        callPut: isLong ? 'call' as const : rollToCallPut,
       };
 
       try {
-        // 1. Buy to cover - close the original option (same premium as when we sold it)
-        const currency = transaction.currency ?? 'USD';
-        await createTx.mutateAsync({
-          strategyId,
-          side: 'buy_to_cover',
-          cashDelta: closePremium,
-          currency,
-          timestamp,
-          instrumentSymbol: symbol,
-          option: opt,
-          customData: {},
-          quantity: qty,
-          price: closePricePerShare,
-        });
-        // 2. Sell - open the new option (premium = roll receive/pay amount)
-        await createTx.mutateAsync({
-          strategyId,
-          side: 'sell',
-          cashDelta: newOptionPremium,
-          currency,
-          timestamp,
-          instrumentSymbol: symbol,
-          option: optionRolledTo,
-          customData: {},
-          quantity: qty,
-          price: newOptionPricePerShare,
-        });
+        if (isLong) {
+          // Long: sell to close at cost basis, then buy new leap call
+          const originalCost = Math.abs(transaction.cashDelta ?? 0);
+          const sellProceeds = Math.round(originalCost * 100) / 100;
+          const newCost =
+            receivePay === 'receive'
+              ? Math.round((sellProceeds - amt) * 100) / 100
+              : Math.round((sellProceeds + amt) * 100) / 100;
+          const newPricePerShare = qty > 0 ? Math.round((newCost / (qty * 100)) * 100) / 100 : 0;
+          const closePricePerShare = qty > 0 ? originalCost / (qty * 100) : 0;
+
+          // 1. Sell to close (at cost basis) - sell_to_cover removes from Leap Calls, does not add to Open Options
+          await createTx.mutateAsync({
+            strategyId,
+            side: 'sell_to_cover',
+            cashDelta: sellProceeds,
+            currency,
+            timestamp,
+            instrumentSymbol: symbol,
+            option: opt,
+            customData: {},
+            quantity: qty,
+            price: closePricePerShare,
+          });
+          // 2. Buy new leap call
+          await createTx.mutateAsync({
+            strategyId,
+            side: 'buy',
+            cashDelta: -newCost,
+            currency,
+            timestamp,
+            instrumentSymbol: symbol,
+            option: optionRolledTo,
+            customData: {},
+            quantity: qty,
+            price: newPricePerShare,
+          });
+        } else {
+          // Short: buy to cover, then sell new option
+          const originalPremium = Math.abs(transaction.cashDelta ?? 0);
+          const newOptionPremium =
+            receivePay === 'receive'
+              ? Math.round((originalPremium + amt) * 100) / 100
+              : Math.round((originalPremium - amt) * 100) / 100;
+          const newOptionPricePerShare = qty > 0 ? Math.round((newOptionPremium / (qty * 100)) * 100) / 100 : 0;
+          const closePremium = -Math.round(originalPremium * 100) / 100;
+          const closePricePerShare = qty > 0 ? Math.abs(originalPremium) / (qty * 100) : 0;
+
+          // 1. Buy to cover
+          await createTx.mutateAsync({
+            strategyId,
+            side: 'buy_to_cover',
+            cashDelta: closePremium,
+            currency,
+            timestamp,
+            instrumentSymbol: symbol,
+            option: opt,
+            customData: {},
+            quantity: qty,
+            price: closePricePerShare,
+          });
+          // 2. Sell new option
+          await createTx.mutateAsync({
+            strategyId,
+            side: 'sell',
+            cashDelta: newOptionPremium,
+            currency,
+            timestamp,
+            instrumentSymbol: symbol,
+            option: optionRolledTo,
+            customData: {},
+            quantity: qty,
+            price: newOptionPricePerShare,
+          });
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to roll option');
         return;
@@ -115,7 +152,7 @@ export function RollOptionModal() {
 
       setRollOptionModalOpen(null);
     },
-    [strategyId, transaction, opt, rollToExp, rollToStrike, rollToCallPut, receivePay, amount, date, createTx, setRollOptionModalOpen]
+    [strategyId, transaction, opt, isLong, rollToExp, rollToStrike, rollToCallPut, receivePay, amount, date, createTx, setRollOptionModalOpen]
   );
 
   const handleClose = useCallback(() => {
@@ -153,9 +190,10 @@ export function RollOptionModal() {
               className="w-full"
             />
           ))}
-          {field('To: Call/Put', (
-            <Select options={CALL_PUT_OPTIONS} value={rollToCallPut} onChange={(v) => setRollToCallPut(v as 'call' | 'put')} className="w-full" />
-          ))}
+          {!isLong &&
+            field('To: Call/Put', (
+              <Select options={CALL_PUT_OPTIONS} value={rollToCallPut} onChange={(v) => setRollToCallPut(v as 'call' | 'put')} className="w-full" />
+            ))}
           {field('Date', (
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
           ))}
@@ -169,7 +207,7 @@ export function RollOptionModal() {
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="e.g. 10 (net receive or pay)"
+              placeholder={isLong ? 'e.g. 10 (net receive or pay from roll)' : 'e.g. 10 (net receive or pay)'}
               error={error ?? undefined}
               className="w-full"
             />

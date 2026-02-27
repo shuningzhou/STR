@@ -41,6 +41,7 @@ export function AddTransactionModal() {
   const mode = addTransactionModalOpen?.mode ?? 'stock-etf';
   const isFull = mode === 'full';
   const isOption = mode === 'option';
+  const isLeapBuy = mode === 'option-buy';
   const isDividend = mode === 'dividend';
 
   const [symbol, setSymbol] = useState('');
@@ -61,7 +62,7 @@ export function AddTransactionModal() {
     [strategies, strategyId]
   );
 
-  const title = isFull ? 'Add Transaction' : isOption ? 'Sell Option' : isDividend ? 'Record dividend income received' : 'Add Stock/ETF Transaction';
+  const title = isFull ? 'Add Transaction' : isOption ? 'Sell Option' : isLeapBuy ? 'Buy Leap Call' : isDividend ? 'Record dividend income received' : 'Add Stock/ETF Transaction';
 
   const resetForm = useCallback(() => {
     setSymbol('');
@@ -311,6 +312,68 @@ export function AddTransactionModal() {
     [strategyId, symbol, quantity, optExpiration, optStrike, optCallPut, price, date, createTx, setAddTransactionModalOpen, resetForm]
   );
 
+  const handleSubmitLeapBuy = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!strategyId) return;
+
+      const sym = symbol.trim().toUpperCase();
+      if (!sym) {
+        setError('Symbol is required');
+        return;
+      }
+      const qty = parseFloat(quantity);
+      if (isNaN(qty) || qty <= 0) {
+        setError('Quantity must be a positive number');
+        return;
+      }
+      if (!optExpiration) {
+        setError('Expiration is required');
+        return;
+      }
+      const strike = parseFloat(optStrike);
+      if (isNaN(strike) || strike < 0) {
+        setError('Strike must be non-negative');
+        return;
+      }
+      const pr = parseFloat(price);
+      if (isNaN(pr) || pr < 0) {
+        setError('Premium must be non-negative');
+        return;
+      }
+
+      setError(null);
+      const premiumPaid = Math.round(qty * pr * 10000) / 100;
+      const timestamp = `${date}T12:00:00Z`;
+
+      try {
+        await createTx.mutateAsync({
+          strategyId,
+          side: 'buy',
+          cashDelta: -premiumPaid,
+          currency: strategy?.baseCurrency ?? 'USD',
+          timestamp,
+          instrumentSymbol: sym,
+          option: {
+            expiration: `${optExpiration}T00:00:00Z`,
+            strike,
+            callPut: 'call',
+          },
+          customData: {},
+          quantity: qty,
+          price: pr,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add leap call');
+        return;
+      }
+
+      resetForm();
+      setAddTransactionModalOpen(null);
+    },
+    [strategyId, symbol, quantity, optExpiration, optStrike, price, date, strategy?.baseCurrency, createTx, setAddTransactionModalOpen, resetForm]
+  );
+
   const handleSubmitDividend = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -358,9 +421,11 @@ export function AddTransactionModal() {
     ? handleSubmitFull
     : isOption
       ? handleSubmitOption
-      : isDividend
-        ? handleSubmitDividend
-        : handleSubmitSimple;
+      : isLeapBuy
+        ? handleSubmitLeapBuy
+        : isDividend
+          ? handleSubmitDividend
+          : handleSubmitSimple;
 
   const handleClose = useCallback(() => {
     setAddTransactionModalOpen(null);
@@ -379,7 +444,7 @@ export function AddTransactionModal() {
   return (
     <Modal title={title} onClose={handleClose} size={isFull ? 'lg' : 'default'}>
       <form onSubmit={handleSubmit}>
-        {!isFull && !isOption && !isDividend && (
+        {!isFull && !isOption && !isLeapBuy && !isDividend && (
           <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
             Add transaction to <strong>{strategy?.name}</strong>
           </p>
@@ -421,6 +486,80 @@ export function AddTransactionModal() {
                 ))}
               </div>
             </div>
+          </div>
+        ) : isLeapBuy ? (
+          <div style={{ marginBottom: 20 }}>
+            <div className="grid grid-cols-[1fr_1fr] gap-4 mb-4">
+              {field('Underlying', (
+                <Input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => {
+                    setSymbol(e.target.value.toUpperCase());
+                    setError(null);
+                  }}
+                  placeholder="e.g. AAPL, SPY"
+                  className="w-full"
+                  autoFocus
+                />
+              ))}
+              {field('Expiration', (
+                <Input type="date" value={optExpiration} onChange={(e) => setOptExpiration(e.target.value)} className="w-full" />
+              ))}
+              {field('Strike', (
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={optStrike}
+                  onChange={(e) => setOptStrike(e.target.value)}
+                  placeholder="e.g. 180"
+                  className="w-full"
+                />
+              ))}
+              {field('Contracts', (
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={(e) => {
+                    setQuantity(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="1"
+                  className="w-full"
+                />
+              ))}
+              {field('Premium ($/share)', (
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="e.g. 1"
+                  error={error ?? undefined}
+                  className="w-full"
+                />
+              ))}
+              {field('Trade date', (
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full" />
+              ))}
+            </div>
+            {(() => {
+              const q = parseFloat(quantity);
+              const p = parseFloat(price);
+              if (isNaN(q) || isNaN(p) || q <= 0 || p < 0) return null;
+              return (
+                <p className="text-[13px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Total premium paid: <strong>${(q * p * 100).toFixed(2)}</strong>
+                </p>
+              );
+            })()}
           </div>
         ) : isOption ? (
           <div style={{ marginBottom: 20 }}>
@@ -725,7 +864,7 @@ export function AddTransactionModal() {
             Cancel
           </Button>
           <Button type="submit" variant="primary" className="flex-1">
-            {isOption ? 'Sell' : 'Add'}
+            {isOption ? 'Sell' : isLeapBuy ? 'Buy' : 'Add'}
           </Button>
         </div>
       </form>

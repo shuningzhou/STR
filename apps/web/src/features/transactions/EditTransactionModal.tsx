@@ -11,6 +11,7 @@ const SIDE_OPTIONS_FULL = [
   { value: 'sell', label: 'Sell' },
   { value: 'sell_short', label: 'Sell Short' },
   { value: 'buy_to_cover', label: 'Buy to Cover' },
+  { value: 'sell_to_cover', label: 'Sell to Cover' },
   { value: 'option_assign', label: 'Option assign' },
   { value: 'dividend', label: 'Dividend' },
   { value: 'deposit', label: 'Deposit' },
@@ -59,7 +60,7 @@ export function EditTransactionModal() {
     if (transaction) {
       setSymbol((transaction.instrumentSymbol ?? '').toUpperCase());
       const txSide = transaction.side ?? 'buy';
-      setSide(['buy', 'sell', 'sell_short', 'buy_to_cover', 'option_assign', 'dividend', 'deposit', 'withdrawal', 'fee', 'interest'].includes(txSide) ? txSide : 'buy');
+      setSide(['buy', 'sell', 'sell_short', 'buy_to_cover', 'sell_to_cover', 'option_assign', 'dividend', 'deposit', 'withdrawal', 'fee', 'interest'].includes(txSide) ? txSide : 'buy');
       setQuantity(String(transaction.quantity ?? ''));
       setPrice(String(transaction.price ?? ''));
       setCashDelta(isSimple ? '' : String(transaction.cashDelta ?? ''));
@@ -181,7 +182,7 @@ export function EditTransactionModal() {
         }
         if (cd !== null) return Math.round(cd * 100) / 100;
         if (side === 'buy') return Math.round(-qty * pr * mult * 100) / 100;
-        if (side === 'sell' || side === 'sell_short') return Math.round(qty * pr * mult * 100) / 100;
+        if (side === 'sell' || side === 'sell_short' || side === 'sell_to_cover') return Math.round(qty * pr * mult * 100) / 100;
         if (side === 'buy_to_cover') return Math.round(-qty * pr * mult * 100) / 100;
         // option_assign: put = buy at strike (-), call = sell at strike (+)
         if (side === 'option_assign' && hasOption) {
