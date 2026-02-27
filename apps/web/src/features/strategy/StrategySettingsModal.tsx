@@ -3,37 +3,11 @@ import { Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import type { StrategyInputConfig } from '@/store/strategy-store';
 import { IconPicker } from '@/components/IconPicker';
 import { useStrategyStore } from '@/store/strategy-store';
-import { useStrategies, useUpdateStrategy, useDeleteStrategy, useMoveStrategy, useSnaptradeAccounts } from '@/api/hooks';
+import { useStrategies, useUpdateStrategy, useDeleteStrategy, useMoveStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { Modal, Button, Input, Label, Select, SegmentControl } from '@/components/ui';
 
 const CURRENCIES = ['USD', 'CAD'] as const;
-
-const TRANSACTION_TYPES = [
-  { value: 'buy', label: 'Buy' },
-  { value: 'sell', label: 'Sell' },
-  { value: 'dividend', label: 'Dividend' },
-  { value: 'deposit', label: 'Deposit' },
-  { value: 'withdrawal', label: 'Withdrawal' },
-  { value: 'fee', label: 'Fee' },
-  { value: 'interest', label: 'Interest' },
-  { value: 'refund', label: 'Refund' },
-  { value: 'split', label: 'Split' },
-] as const;
-
-const LEGACY_OPTION_TYPES = ['option_exercise', 'option_assign', 'option_expire', 'options_multileg'];
-const REMOVED_TYPES = ['transfer', 'transfer_in', 'transfer_out', 'tax', 'adjustment', 'option'];
-
-const ASSET_TYPES = [
-  { value: 'stock_etf', label: 'Stock & ETF' },
-  { value: 'option', label: 'Options' },
-] as const;
-
-const OPTION_STRATEGIES = [
-  { value: 'all', label: 'All options' },
-  { value: 'income_only', label: 'Covered calls & Secured puts' },
-  { value: 'calls_puts', label: 'Long calls & puts' },
-] as const;
 
 const INPUT_TYPES = [
   { value: 'time_range', label: 'Time range' },
@@ -76,15 +50,8 @@ export function StrategySettingsModal() {
   const [collateralEnabled, setCollateralEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
-  const [selectedAssetTypes, setSelectedAssetTypes] = useState<string[]>([]);
-  const [optionStrategy, setOptionStrategy] = useState<'all' | 'income_only' | 'calls_puts'>('all');
-  const [balanceAccountId, setBalanceAccountId] = useState<string>('');
 
   const { data: strategies = [] } = useStrategies();
-  const { data: snapAccounts = [] } = useSnaptradeAccounts();
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const updateStrategyMut = useUpdateStrategy();
   const deleteStrategyMut = useDeleteStrategy();
@@ -93,7 +60,6 @@ export function StrategySettingsModal() {
   const { strategySettingsModalOpen, setStrategySettingsModalOpen } = useUIStore();
 
   const strategy = strategies.find((s) => s.id === activeStrategyId);
-  const isSynced = strategy?.mode === 'synced';
 
   const [icon, setIcon] = useState<string | undefined>('');
 
@@ -104,30 +70,6 @@ export function StrategySettingsModal() {
       setMarginAccountEnabled(strategy.marginAccountEnabled ?? false);
       setCollateralEnabled(strategy.collateralEnabled ?? false);
       setIcon(strategy.icon ?? '');
-      const cfg = strategy.snaptradeConfig;
-      if (cfg) {
-        setSelectedAccounts(cfg.accountIds ?? []);
-        const types = cfg.transactionTypes ?? [];
-        const normalized = types.filter((t) => !LEGACY_OPTION_TYPES.includes(t) && !REMOVED_TYPES.includes(t));
-        setSelectedTypes(normalized);
-        setSelectedCurrencies(cfg.currencies ?? []);
-        const rawAssetTypes = cfg.assetTypes ?? [];
-        const normalizedAssetTypes = rawAssetTypes.includes('stock_etf')
-          ? rawAssetTypes
-          : rawAssetTypes.some((a: string) => a === 'stock' || a === 'etf')
-            ? [...rawAssetTypes.filter((a: string) => a !== 'stock' && a !== 'etf'), 'stock_etf']
-            : rawAssetTypes;
-        setSelectedAssetTypes(normalizedAssetTypes);
-        setOptionStrategy((cfg.optionStrategy as 'all' | 'income_only' | 'calls_puts') ?? 'all');
-        setBalanceAccountId(cfg.balanceAccountId ?? '');
-      } else {
-        setSelectedAccounts([]);
-        setSelectedTypes([]);
-        setSelectedCurrencies([]);
-        setSelectedAssetTypes([]);
-        setOptionStrategy('all');
-        setBalanceAccountId('');
-      }
     }
     setDeleteConfirm(false);
     setError(null);
@@ -142,33 +84,18 @@ export function StrategySettingsModal() {
         setError('Name is required');
         return;
       }
-      if (isSynced && selectedAccounts.length === 0) {
-        setError('Select at least one brokerage account');
-        return;
-      }
       setError(null);
-      const dto: Record<string, unknown> = {
+      updateStrategyMut.mutate({
         id: strategy.id,
         name: trimmed,
         baseCurrency,
         icon: icon || undefined,
         marginAccountEnabled,
         collateralEnabled,
-      };
-      if (isSynced) {
-        (dto as any).snaptradeConfig = {
-          accountIds: selectedAccounts,
-          transactionTypes: selectedTypes,
-          currencies: selectedCurrencies,
-          assetTypes: selectedAssetTypes,
-          optionStrategy,
-          balanceAccountId: balanceAccountId || undefined,
-        };
-      }
-      updateStrategyMut.mutate(dto);
+      });
       setStrategySettingsModalOpen(false);
     },
-    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, isSynced, selectedAccounts, selectedTypes, selectedCurrencies, selectedAssetTypes, optionStrategy, balanceAccountId, updateStrategyMut, setStrategySettingsModalOpen]
+    [name, baseCurrency, icon, marginAccountEnabled, collateralEnabled, strategy, updateStrategyMut, setStrategySettingsModalOpen]
   );
 
   const handleDelete = useCallback(() => {
@@ -286,487 +213,10 @@ export function StrategySettingsModal() {
   const strategyInputs = strategy.inputs ?? [];
 
   return (
-    <Modal title="Strategy settings" onClose={handleClose} size={isSynced ? '2xl' : 'default'} className={!isSynced ? 'w-[520px] max-w-[95vw]' : undefined}>
-      <form onSubmit={handleSubmit}>
-        {isSynced ? (
-          <div className="flex flex-row-reverse gap-6 min-h-0" style={{ minHeight: 400 }}>
-            {/* Right: Brokerage accounts + filters - flex to fill remaining space */}
-            <div className="flex-1 min-w-0 flex flex-col overflow-auto">
-              <div style={{ marginBottom: 20 }}>
-              <Label>Brokerage Accounts</Label>
-              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                Select which accounts to sync transactions from.
-              </p>
-              {snapAccounts.length === 0 ? (
-                <p style={{ color: 'var(--color-text-muted)', fontSize: 13, marginTop: 8 }}>
-                  No connected accounts. Connect a brokerage in Account settings first.
-                </p>
-              ) : (
-                <div
-                  className="mt-1 overflow-auto"
-                  style={{
-                    maxHeight: 240,
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-medium)',
-                    fontSize: 'var(--font-size-body)',
-                  }}
-                >
-                  <table className="w-full border-collapse" style={{ tableLayout: 'auto', minWidth: 400 }}>
-                    <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                      <tr style={{ backgroundColor: 'var(--color-table-header-bg)' }}>
-                        <th style={{ width: 36, padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left' }} />
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Institution</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Name</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Currency</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'left', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Type</th>
-                        <th style={{ padding: 6, borderBottom: '1px solid var(--color-table-border)', textAlign: 'right', color: 'var(--color-table-header-text)', fontWeight: 500 }}>Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {snapAccounts.map((acct) => {
-                        const checked = selectedAccounts.includes(acct.accountId);
-                        return (
-                          <tr
-                            key={acct.accountId}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setSelectedAccounts((prev) => prev.includes(acct.accountId) ? prev.filter((id) => id !== acct.accountId) : [...prev, acct.accountId])}
-                            onKeyDown={(e) => e.key === 'Enter' && setSelectedAccounts((prev) => prev.includes(acct.accountId) ? prev.filter((id) => id !== acct.accountId) : [...prev, acct.accountId])}
-                            style={{
-                              cursor: 'pointer',
-                              backgroundColor: checked ? 'var(--color-bg-hover)' : 'transparent',
-                              borderBottom: '1px solid var(--color-table-border)',
-                            }}
-                          >
-                            <td style={{ padding: 6, width: 36, verticalAlign: 'middle' }}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => setSelectedAccounts((prev) => prev.includes(acct.accountId) ? prev.filter((id) => id !== acct.accountId) : [...prev, acct.accountId])}
-                                onClick={(e) => e.stopPropagation()}
-                                className="accent-[var(--color-active)]"
-                              />
-                            </td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.institutionName || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.name || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.currency || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>{acct.type || '—'}</td>
-                            <td style={{ padding: 6, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                              {acct.balanceAmount != null ? acct.balanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {isSynced && selectedAccounts.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <Label>Wallet Balance from Account</Label>
-                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                  Use one account&apos;s cash balance as this strategy&apos;s wallet. Respects currency filter. Negative = margin (wallet 0, loan amount).
-                </p>
-                <select
-                  value={balanceAccountId}
-                  onChange={(e) => setBalanceAccountId(e.target.value)}
-                  style={{
-                    marginTop: 4,
-                    minWidth: 220,
-                    height: 'var(--control-height)',
-                    padding: '0 12px',
-                    fontSize: 'var(--font-size-body)',
-                    borderRadius: 'var(--radius-medium)',
-                    backgroundColor: 'var(--color-bg-input)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                >
-                  <option value="">None (manual balance)</option>
-                  {selectedAccounts.map((id) => {
-                    const acct = snapAccounts.find((a: { accountId: string }) => a.accountId === id);
-                    return (
-                      <option key={id} value={id}>
-                        {acct ? `${acct.institutionName || 'Account'} – ${acct.name || id}` : id}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            )}
-
-            <div style={{ marginBottom: 20 }}>
-              <Label>Transaction Types</Label>
-              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                Select which transaction types to sync. Empty = all.
-              </p>
-              <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
-                {TRANSACTION_TYPES.map((t) => {
-                  const checked = selectedTypes.includes(t.value);
-                  return (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => setSelectedTypes((prev) => prev.includes(t.value) ? prev.filter((x) => x !== t.value) : [...prev, t.value])}
-                      className="font-medium transition-colors cursor-pointer shrink-0"
-                      style={{
-                        minHeight: 'var(--control-height)',
-                        paddingLeft: 'var(--space-gap)',
-                        paddingRight: 'var(--space-gap)',
-                        fontSize: 'var(--font-size-body)',
-                        borderRadius: 'var(--radius-medium)',
-                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
-                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
-                      }}
-                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
-                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <Label>Currency Filter</Label>
-              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 4 }}>
-                Only sync transactions in these currencies. Empty = all.
-              </p>
-              <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
-                {CURRENCIES.map((ccy) => {
-                  const checked = selectedCurrencies.includes(ccy);
-                  return (
-                    <button
-                      key={ccy}
-                      type="button"
-                      onClick={() => setSelectedCurrencies((prev) => prev.includes(ccy) ? prev.filter((c) => c !== ccy) : [...prev, ccy])}
-                      className="font-medium transition-colors cursor-pointer shrink-0"
-                      style={{
-                        minHeight: 'var(--control-height)',
-                        paddingLeft: 'var(--space-gap)',
-                        paddingRight: 'var(--space-gap)',
-                        fontSize: 'var(--font-size-body)',
-                        borderRadius: 'var(--radius-medium)',
-                        backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
-                        color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
-                      }}
-                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
-                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
-                    >
-                      {ccy}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-start gap-6" style={{ marginBottom: 20 }}>
-              <div className="shrink-0">
-                <Label>Asset Type Filter</Label>
-                <div className="flex flex-wrap mt-1" style={{ gap: 'var(--space-gap)' }}>
-                  {ASSET_TYPES.map((at) => {
-                    const checked = selectedAssetTypes.includes(at.value);
-                    return (
-                      <button
-                        key={at.value}
-                        type="button"
-                        onClick={() => setSelectedAssetTypes((prev) => prev.includes(at.value) ? prev.filter((a) => a !== at.value) : [...prev, at.value])}
-                        className="font-medium transition-colors cursor-pointer shrink-0"
-                        style={{
-                          minHeight: 'var(--control-height)',
-                          paddingLeft: 'var(--space-gap)',
-                          paddingRight: 'var(--space-gap)',
-                          fontSize: 'var(--font-size-body)',
-                          borderRadius: 'var(--radius-medium)',
-                          backgroundColor: checked ? 'var(--color-active)' : 'var(--color-bg-input)',
-                          color: checked ? 'var(--color-text-active)' : 'var(--color-text-secondary)',
-                        }}
-                        onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
-                        onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--color-bg-input)'; }}
-                      >
-                        {at.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {selectedAssetTypes.includes('option') && (
-                <div className="flex-1 min-w-[240px] flex flex-col items-stretch" style={{ maxWidth: '100%' }}>
-                  <Label>Option Strategy Filter</Label>
-                  <SegmentControl
-                    className="mt-1 w-full"
-                    optionsWithLabels={OPTION_STRATEGIES}
-                    value={optionStrategy}
-                    onChange={(v) => setOptionStrategy(v as 'all' | 'income_only' | 'calls_puts')}
-                    flexWeights={[1, 2, 1]}
-                  />
-                </div>
-              )}
-            </div>
-            </div>
-
-            {/* Left: Name, base currency, order, inputs - width from inputs table */}
-            <div className="flex-shrink-0 flex flex-col overflow-auto" style={{ width: 480, borderRight: '1px solid var(--color-border)', paddingRight: 24 }}>
-              <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
-                <div className="flex-1 min-w-0">
-                  <Label htmlFor="strategy-name-edit">Name</Label>
-                  <div className="mt-1">
-                    <Input
-                      id="strategy-name-edit"
-                      type="text"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        setError(null);
-                      }}
-                      placeholder="e.g. Growth Portfolio"
-                      error={error ?? undefined}
-                    />
-                  </div>
-                </div>
-                <div style={{ minWidth: 160 }}>
-                  <IconPicker
-                    value={icon || undefined}
-                    onChange={(v) => setIcon(v ?? '')}
-                    label="Icon"
-                    placeholder="Default"
-                    showColorPicker={false}
-                    defaultIcon="LayoutDashboard"
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <Label>Base currency</Label>
-                <div className="flex flex-wrap items-center gap-4 mt-1">
-                  <div style={{ width: 150 }}>
-                    <SegmentControl
-                      value={baseCurrency}
-                      options={CURRENCIES}
-                      onChange={(c) => setBaseCurrency(c)}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="strategy-margin"
-                      checked={marginAccountEnabled}
-                      onChange={(e) => setMarginAccountEnabled(e.target.checked)}
-                    />
-                    <Label htmlFor="strategy-margin" className="!mb-0 cursor-pointer">
-                      Margin
-                    </Label>
-                  </div>
-                  {marginAccountEnabled && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="strategy-collateral"
-                        checked={collateralEnabled}
-                        onChange={(e) => setCollateralEnabled(e.target.checked)}
-                      />
-                      <Label htmlFor="strategy-collateral" className="!mb-0 cursor-pointer">
-                        Collateral
-                      </Label>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Strategy order - inside right column when synced */}
-              {strategies.length > 1 && (
-                <div style={{ marginBottom: 20 }}>
-                  <Label>Order in sidebar</Label>
-                  <div
-                    className="flex flex-col gap-1 mt-1"
-                    style={{
-                      padding: 12,
-                      borderRadius: 'var(--radius-medium)',
-                      backgroundColor: 'var(--palette-grey-4)',
-                      border: '1px solid var(--palette-grey-3)',
-                    }}
-                  >
-                    {strategies.map((st, idx) => {
-                      const canMoveUp = idx > 0;
-                      const canMoveDown = idx < strategies.length - 1;
-                      return (
-                        <React.Fragment key={st.id}>
-                          {idx > 0 && (
-                            <div style={{ height: 0, borderTop: '1px solid var(--palette-grey-3)' }} aria-hidden />
-                          )}
-                          <div
-                            className="flex items-center gap-2"
-                            style={{
-                              padding: '6px 8px',
-                              borderRadius: 'var(--radius-medium)',
-                              backgroundColor: st.id === strategy?.id ? 'var(--color-bg-input)' : undefined,
-                            }}
-                          >
-                            <span className="text-xs font-medium truncate flex-1 min-w-0" style={{ color: 'var(--color-text-primary)' }}>
-                              {st.name}
-                            </span>
-                            <div className="flex shrink-0">
-                              <button
-                                type="button"
-                                className="p-1 rounded transition-colors"
-                                style={{
-                                  color: canMoveUp ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
-                                  opacity: canMoveUp ? 1 : 0.4,
-                                }}
-                                onClick={() => canMoveUp && moveStrategyMut.mutate({ id: st.id, direction: 'up' })}
-                                disabled={!canMoveUp}
-                                title="Move up"
-                              >
-                                <ChevronUp size={14} strokeWidth={2} />
-                              </button>
-                              <button
-                                type="button"
-                                className="p-1 rounded transition-colors"
-                                style={{
-                                  color: canMoveDown ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
-                                  opacity: canMoveDown ? 1 : 0.4,
-                                }}
-                                onClick={() => canMoveDown && moveStrategyMut.mutate({ id: st.id, direction: 'down' })}
-                                disabled={!canMoveDown}
-                                title="Move down"
-                              >
-                                <ChevronDown size={14} strokeWidth={2} />
-                              </button>
-                            </div>
-                          </div>
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Inputs - inside right column when synced */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ marginBottom: 10 }}>
-                  <Label>Inputs</Label>
-                </div>
-                <div
-                  className="grid gap-x-2 gap-y-2"
-                  style={{
-                    padding: 12,
-                    borderRadius: 'var(--radius-medium)',
-                    backgroundColor: 'var(--palette-grey-4)',
-                    border: '1px solid var(--palette-grey-3)',
-                    gridTemplateColumns: '120px 120px 150px 32px',
-                    width: 'fit-content',
-                    minWidth: 320,
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{ gridColumn: 1 }}>
-                    <Label className="text-[11px]">ID (unique)</Label>
-                  </div>
-                  <div style={{ gridColumn: 2 }}>
-                    <Label className="text-[11px]">Title</Label>
-                  </div>
-                  <div style={{ gridColumn: 3 }}>
-                    <Label className="text-[11px]">Type</Label>
-                  </div>
-                  <div style={{ gridColumn: 4 }} />
-                  {strategyInputs.map((inp, idx) => (
-                    <React.Fragment key={inp.id}>
-                      {idx > 0 && (
-                        <div style={{ gridColumn: '1 / -1', height: 0, borderTop: '1px solid var(--palette-grey-3)' }} aria-hidden />
-                      )}
-                      <div style={{ gridColumn: 1 }}>
-                        <Input
-                          defaultValue={inp.id}
-                          onBlur={(e) => {
-                            const v = e.target.value.trim().toLowerCase().replace(/\s+/g, '_');
-                            if (v && v !== inp.id) handleUpdateInput(inp.id, { id: v });
-                          }}
-                          placeholder="e.g. timeRange"
-                          style={{ height: 28, fontSize: 12 }}
-                        />
-                      </div>
-                      <div style={{ gridColumn: 2 }}>
-                        <Input
-                          value={inp.title}
-                          onChange={(e) => handleUpdateInput(inp.id, { title: e.target.value })}
-                          placeholder="e.g. Time Range"
-                          style={{ height: 28, fontSize: 12 }}
-                        />
-                      </div>
-                      <div style={{ gridColumn: 3 }}>
-                        <Select
-                          value={inp.type}
-                          onChange={(v) => handleUpdateInput(inp.id, { type: v as StrategyInputConfig['type'] })}
-                          options={[...INPUT_TYPES]}
-                          style={{ height: 28, fontSize: 12 }}
-                        />
-                      </div>
-                      <div style={{ gridColumn: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveInput(inp.id)}
-                          className="p-1 rounded hover:bg-[var(--color-bg-input)] transition-colors"
-                          style={{ color: 'var(--color-text-muted)' }}
-                          title="Remove input"
-                        >
-                          <Trash2 size={16} strokeWidth={2} />
-                        </button>
-                      </div>
-                    </React.Fragment>
-                  ))}
-                  <div style={{ gridColumn: '1 / -1', paddingTop: 8 }}>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={handleAddInput}
-                      className="w-full gap-2"
-                    >
-                      <Plus size={14} strokeWidth={2} />
-                      Add input
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer: Cancel + Save - inside right column when synced */}
-              <div className="flex gap-3" style={{ marginTop: 'auto', marginBottom: 20 }}>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleClose}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" variant="primary" className="flex-1">
-                  Save
-                </Button>
-              </div>
-
-              <div
-                style={{
-                  paddingTop: 20,
-                  borderTop: '1px solid var(--color-border)',
-                }}
-              >
-                <Button
-                  type="button"
-                  variant={deleteConfirm ? 'danger' : 'secondary'}
-                  onClick={handleDelete}
-                  className="w-full gap-2"
-                >
-                  <Trash2 size={16} strokeWidth={2} />
-                  {deleteConfirm ? 'Confirm delete' : 'Delete strategy'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
+    <Modal title="Strategy settings" onClose={handleClose} className="w-[520px] max-w-[95vw]">
+      <div className="flex flex-col">
+        <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 20 }} className="flex gap-3 items-end">
               <div className="flex-1 min-w-0">
                 <Label htmlFor="strategy-name-edit">Name</Label>
                 <div className="mt-1">
@@ -831,11 +281,8 @@ export function StrategySettingsModal() {
                 )}
               </div>
             </div>
-          </>
-        )}
 
-        {/* Strategy order + Inputs when NOT synced (manual strategy) */}
-        {!isSynced && strategies.length > 1 && (
+        {strategies.length > 1 && (
           <div style={{ marginBottom: 20 }}>
             <Label>Order in sidebar</Label>
             <div
@@ -902,9 +349,8 @@ export function StrategySettingsModal() {
           </div>
         )}
 
-        {!isSynced && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 10 }}>
               <Label>Inputs</Label>
             </div>
             <div
@@ -988,34 +434,21 @@ export function StrategySettingsModal() {
               </div>
             </div>
           </div>
-        )}
 
-        {/* Footer: Cancel + Save (only when NOT synced - synced has it in right column) */}
-        {!isSynced && (
-          <div className="flex gap-3" style={{ marginBottom: 20 }}>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleClose}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" className="flex-1">
-              Save
-            </Button>
-          </div>
-        )}
-      </form>
-
-      {/* Delete button (only when NOT synced - synced has it in right column) */}
-      {!isSynced && (
-        <div
-          style={{
-            paddingTop: 20,
-            borderTop: '1px solid var(--color-border)',
-          }}
-        >
+        <div className="flex gap-3" style={{ marginBottom: 20 }}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClose}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" className="flex-1">
+            Save
+          </Button>
+        </div>
+        <div style={{ paddingTop: 20, borderTop: '1px solid var(--color-border)' }}>
           <Button
             type="button"
             variant={deleteConfirm ? 'danger' : 'secondary'}
@@ -1026,7 +459,8 @@ export function StrategySettingsModal() {
             {deleteConfirm ? 'Confirm delete' : 'Delete strategy'}
           </Button>
         </div>
-      )}
+        </form>
+      </div>
     </Modal>
   );
 }

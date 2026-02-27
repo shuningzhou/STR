@@ -11,7 +11,7 @@ import { InputControl } from '@/features/subviews/InputControl';
 import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { useTransactions, useStrategyHoldings, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory, useOptionQuotes } from '@/api/hooks';
+import { useTransactions, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory, useOptionQuotes } from '@/api/hooks';
 import { toOccTicker, parseOptionHoldingSymbol } from '@/lib/option-utils';
 import type { SubviewSpec } from '@str/shared';
 
@@ -91,8 +91,6 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const updateSubviewMut = useDebouncedUpdateSubview();
   const updateStrategyMut = useDebouncedUpdateStrategy();
   const { data: transactions = [] } = useTransactions(strategyId);
-  const isSynced = strategy?.mode === 'synced';
-  const { data: strategyHoldingsData } = useStrategyHoldings(strategyId, !!isSynced);
 
   const uniqueSymbols = useMemo(() => {
     const syms = new Set<string>();
@@ -162,7 +160,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
     [strategy]
   );
 
-  const currentPrices = useStrategyPrices(transactions, isSynced ? strategyHoldingsData?.holdings : undefined);
+  const currentPrices = useStrategyPrices(transactions, undefined);
 
   const openOptionContracts = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -183,17 +181,6 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
         return isoA.localeCompare(isoB) || a.localeCompare(b);
       });
 
-    if (isSynced && strategyHoldingsData?.holdings?.length) {
-      const tickers: string[] = [];
-      for (const h of strategyHoldingsData.holdings) {
-        if (!['covered_call', 'secured_put'].includes(h.category ?? '') || (h.quantity ?? 0) >= 0) continue;
-        const parsed = parseOptionHoldingSymbol(h.symbol);
-        if (!parsed) continue;
-        tickers.push(toOccTicker(parsed.underlying, parsed.expiration, parsed.strike, parsed.callPut));
-      }
-      return sortTickers(filterExpired([...new Set(tickers)]));
-    }
-
     const positions: Record<string, number> = {};
     for (const t of transactions) {
       if (!t.option) continue;
@@ -203,7 +190,7 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
         positions[ticker] = (positions[ticker] ?? 0) - t.quantity;
     }
     return sortTickers(filterExpired(Object.entries(positions).filter(([, qty]) => qty > 0).map(([ticker]) => ticker)));
-  }, [transactions, isSynced, strategyHoldingsData?.holdings]);
+  }, [transactions]);
 
   const { data: optionQuotesArr } = useOptionQuotes(openOptionContracts);
   const optionQuotes = useMemo(() => {
@@ -218,14 +205,14 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       ...buildStrategyContext(
         strategy ? { ...strategy, transactions } : null,
         currentPrices,
-        isSynced ? strategyHoldingsData?.holdings : undefined
+        undefined
       ),
       currentPrices,
       instrumentMarginRequirements: instrumentMarginReqs ?? {},
       priceHistory,
       optionQuotes,
     }),
-    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory, optionQuotes, isSynced, strategyHoldingsData?.holdings]
+    [strategy, transactions, currentPrices, instrumentMarginReqs, priceHistory, optionQuotes]
   );
 
   const hasSpec = !!effectiveSpec;

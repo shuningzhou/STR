@@ -1,5 +1,5 @@
-import { SquarePlus, Settings, Database, Wallet, Pencil, PencilOff, RefreshCw } from 'lucide-react';
-import { useActiveStrategy, useStrategies, useSyncStrategy } from '@/api/hooks';
+import { SquarePlus, Settings, Database, Wallet, Pencil, PencilOff } from 'lucide-react';
+import { useActiveStrategy, useStrategies } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { CanvasGrid } from '@/features/canvas/CanvasGrid';
 import { CANVAS_GRID_CONFIG, OPTIMIZED_CANVAS_WIDTH } from '@/features/canvas/canvas-grid-config';
@@ -22,12 +22,6 @@ export function CanvasArea() {
   const hasStrategies = strategies.length > 0;
 
   const hasSubviews = (activeStrategy?.subviews?.length ?? 0) > 0;
-  const isSynced = activeStrategy?.mode === 'synced';
-  const syncStrategy = useSyncStrategy();
-
-  const handleSync = () => {
-    if (activeStrategy) syncStrategy.mutate(activeStrategy.id);
-  };
 
   const handleGearClick = () => {
     if (activeStrategy) setStrategySettingsModalOpen(true);
@@ -214,26 +208,6 @@ export function CanvasArea() {
             >
               <Wallet size={18} strokeWidth={1.5} />
             </button>
-            {isSynced && (
-              <button
-                type="button"
-                className={floatingButton}
-                style={{
-                  color: 'var(--color-text-primary)',
-                }}
-                onClick={handleSync}
-                disabled={syncStrategy.isPending}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-                title={`Sync now${activeStrategy?.lastSyncedAt ? ` (last: ${new Date(activeStrategy.lastSyncedAt).toLocaleDateString()})` : ''}`}
-              >
-                <RefreshCw size={18} strokeWidth={1.5} className={syncStrategy.isPending ? 'animate-spin' : ''} />
-              </button>
-            )}
           </div>
         )}
       </div>

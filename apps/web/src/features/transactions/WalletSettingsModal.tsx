@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useStrategies, useTransactions, useStrategyHoldings, useUpdateStrategy } from '@/api/hooks';
+import { useStrategies, useTransactions, useUpdateStrategy } from '@/api/hooks';
 import { useUIStore } from '@/store/ui-store';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
-import { computeEquity, computeEquityFromHoldings } from '@/lib/compute-equity';
+import { computeEquity } from '@/lib/compute-equity';
 import { Modal, Button, Input, Label } from '@/components/ui';
 
 function formatCurrency(value: number, currency: string) {
@@ -94,8 +94,6 @@ export function WalletSettingsModal() {
   const strategyId = walletSettingsModalOpen;
   const strategy = strategies.find((s) => s.id === strategyId);
   const { data: transactions = [] } = useTransactions(strategyId);
-  const isSynced = strategy?.mode === 'synced';
-  const { data: strategyHoldings } = useStrategyHoldings(strategyId ?? null, !!isSynced);
 
   const [loanInterest, setLoanInterest] = useState('');
   const [marginRequirement, setMarginRequirement] = useState('');
@@ -103,7 +101,7 @@ export function WalletSettingsModal() {
   const [collateralCash, setCollateralCash] = useState('');
   const [collateralRequirement, setCollateralRequirement] = useState('');
 
-  const currentPrices = useStrategyPrices(transactions, isSynced ? strategyHoldings?.holdings : undefined);
+  const currentPrices = useStrategyPrices(transactions, undefined);
 
   const { computedBalance, currency, equity } = useMemo(() => {
     if (!strategy) return { computedBalance: 0, currency: 'USD', equity: 0 };
@@ -112,12 +110,9 @@ export function WalletSettingsModal() {
     const balance =
       initial +
       txs.reduce((sum, tx) => sum + ((tx as { cashDelta?: number }).cashDelta ?? 0), 0);
-    const equity =
-      isSynced && strategyHoldings?.holdings?.length
-        ? computeEquityFromHoldings(strategyHoldings.holdings, currentPrices)
-        : computeEquity(txs, currentPrices);
+    const equity = computeEquity(txs, currentPrices);
     return { computedBalance: balance, currency: strategy.baseCurrency ?? 'USD', equity };
-  }, [strategy, currentPrices, transactions, isSynced, strategyHoldings?.holdings]);
+  }, [strategy, currentPrices, transactions]);
 
   useEffect(() => {
     if (strategy) {

@@ -87,18 +87,6 @@ export interface Strategy {
   /** @deprecated Transactions are fetched separately via useTransactions() */
   transactions?: StrategyTransaction[];
   subviews: Subview[];
-  mode?: 'manual' | 'synced';
-  snaptradeConfig?: {
-    accountIds: string[];
-    transactionTypes: string[];
-    currencies?: string[];
-    assetTypes?: string[];
-    optionStrategy?: 'all' | 'income_only' | 'calls_puts';
-    balanceAccountId?: string;
-  };
-  lastSyncedAt?: string;
-  syncedAccountBalance?: number;
-  syncedAccountLoanAmount?: number;
 }
 
 /* ─── UI-only Zustand store ─────────────────────── */

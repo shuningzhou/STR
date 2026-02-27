@@ -22,8 +22,7 @@ export class Transaction {
   @Prop({ default: '' }) instrumentSymbol!: string;
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} }) customData!: Record<string, unknown>;
   @Prop({ type: OptionData, default: null }) option!: OptionData | null;
-  @Prop({ default: 'manual', enum: ['manual', 'snaptrade'] }) source!: string;
-  @Prop() snaptradeActivityId?: string;
+  @Prop({ default: 'manual', enum: ['manual'] }) source!: string;
   @Prop() accountTransactionId?: string;
   @Prop({ default: false }) readonly!: boolean;
   @Prop({ default: '' }) category!: string;
@@ -32,5 +31,4 @@ export class Transaction {
 export type TransactionDocument = HydratedDocument<Transaction>;
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 TransactionSchema.index({ strategyId: 1, timestamp: -1 });
-TransactionSchema.index({ strategyId: 1, snaptradeActivityId: 1 }, { sparse: true });
 TransactionSchema.index({ strategyId: 1, accountTransactionId: 1 }, { sparse: true });

@@ -15,8 +15,6 @@ export async function createStrategy(dto: {
   initialBalance?: number;
   marginAccountEnabled?: boolean;
   collateralEnabled?: boolean;
-  mode?: 'manual' | 'synced';
-  snaptradeConfig?: { accountIds: string[]; transactionTypes: string[]; currencies?: string[]; assetTypes?: string[]; optionStrategy?: 'all' | 'income_only' | 'calls_puts' };
 }): Promise<Strategy> {
   const raw = await apiFetch<Record<string, unknown>>('/strategies', {
     method: 'POST',
@@ -139,10 +137,5 @@ function mapStrategy(raw: Record<string, unknown>): Strategy {
     inputValues: (doc.inputValues as Record<string, string | number>) ?? {},
     transactionsVersion: (doc.transactionsVersion as number) ?? 0,
     subviews: ((doc.subviews as Record<string, unknown>[]) ?? []).map(mapSubview),
-    mode: (doc.mode as 'manual' | 'synced') ?? 'manual',
-    snaptradeConfig: doc.snaptradeConfig as Strategy['snaptradeConfig'],
-    lastSyncedAt: doc.lastSyncedAt as string | undefined,
-    syncedAccountBalance: doc.syncedAccountBalance as number | undefined,
-    syncedAccountLoanAmount: doc.syncedAccountLoanAmount as number | undefined,
   };
 }

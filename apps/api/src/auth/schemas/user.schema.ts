@@ -8,8 +8,6 @@ export class User {
   @Prop({ default: false }) emailVerified!: boolean;
   @Prop() otpCode?: string;
   @Prop() otpExpiresAt?: Date;
-  @Prop() snaptradeUserId?: string;
-  @Prop() snaptradeUserSecret?: string;
 }
 
 export type UserDocument = HydratedDocument<User>;
