@@ -762,6 +762,7 @@ function ContentRenderer({
       );
     } else if (chart.type === 'line' && items.length > 0) {
       const lineColor = resolveColor(dataColors?.value) ?? resolveColor((chart as { color?: string }).color) ?? 'var(--color-chart-1)';
+      const hasShowPortfolio = Boolean(inputs?.showPortfolio);
       const hasDepositWithdraw = items.some((i) => 'depositWithdraw' in i && (i as { depositWithdraw?: number }).depositWithdraw != null);
       const hasLoan = items.some((i) => 'loan' in i && (i as { loan?: number }).loan != null);
       const hasHoldingsValue = items.some((i) => 'holdingsValue' in i && (i as { holdingsValue?: number }).holdingsValue != null);
@@ -787,7 +788,9 @@ function ContentRenderer({
             }}
           >
             <div style={{ color: 'white' }}>Date: {label}</div>
-            <div style={{ color: 'white' }}>Portfolio: ${Number(portfolioPayload?.value ?? 0).toLocaleString()}</div>
+            {hasShowPortfolio && (
+              <div style={{ color: 'white' }}>Portfolio: ${Number(portfolioPayload?.value ?? 0).toLocaleString()}</div>
+            )}
             {dwPayload != null && (
               <div style={{ color: 'white' }}>Deposit: ${Number(dwPayload.value ?? 0).toLocaleString()}</div>
             )}
@@ -811,7 +814,9 @@ function ContentRenderer({
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--color-text-muted)" tickFormatter={(v) => `$${v}`} />
                 <Tooltip content={<LineTooltip />} />
                 <Legend />
-                <Line type="basis" dataKey="value" stroke={lineColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Portfolio" />
+                {hasShowPortfolio && (
+                  <Line type="basis" dataKey="value" stroke={lineColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Portfolio" />
+                )}
                 {hasDepositWithdraw && (
                   <Line type="basis" dataKey="depositWithdraw" stroke={dwColor} strokeWidth={2} dot={false} isAnimationActive={false} name="Deposit" />
                 )}
