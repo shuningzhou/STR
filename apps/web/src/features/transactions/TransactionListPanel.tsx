@@ -27,6 +27,11 @@ export function TransactionListPanel() {
     [transactions]
   );
 
+  const amountSum = useMemo(
+    () => transactions.reduce((sum, tx) => sum + (tx.cashDelta ?? 0), 0),
+    [transactions]
+  );
+
   const handleClose = () => setTransactionListPanelOpen(null);
 
   useEffect(() => {
@@ -135,6 +140,17 @@ export function TransactionListPanel() {
           >
             Transactions — {strategy?.name ?? 'Strategy'}
           </h2>
+          {sortedTransactions.length > 0 && (
+            <span
+              className="shrink-0 font-semibold tabular-nums"
+              style={{
+                fontSize: 'var(--font-size-body)',
+                color: amountSum >= 0 ? 'var(--color-positive, var(--color-active))' : 'var(--color-negative)',
+              }}
+            >
+              {formatCurrency(amountSum)}
+            </span>
+          )}
           <button
               type="button"
               className="w-5 h-5 shrink-0 flex items-center justify-center rounded-[var(--radius-medium)] transition-colors"

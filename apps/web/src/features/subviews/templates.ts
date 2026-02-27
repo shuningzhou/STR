@@ -2,6 +2,7 @@ import type { SubviewSpec, SubviewCategory } from '@str/shared';
 import { WIN_RATE_EXAMPLE } from './subview-editor/WIN_RATE_EXAMPLE';
 import { STOCK_ETF_TRANSACTIONS_TABLE } from './subview-editor/STOCK_ETF_TRANSACTIONS_TABLE';
 import { OPTION_INCOME_TABLE } from './subview-editor/OPTION_INCOME_TABLE';
+import { OPEN_OPTIONS_PNL } from './subview-editor/OPEN_OPTIONS_PNL';
 import { LEAP_CALLS_TABLE } from './subview-editor/LEAP_CALLS_TABLE';
 import { HOLDINGS_TABLE } from './subview-editor/HOLDINGS_TABLE';
 import { PORTFOLIO_PIE_CHART } from './subview-editor/PORTFOLIO_PIE_CHART';
@@ -44,6 +45,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'win-rate', name: 'Win Rate', description: '% of profitable trades', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: WIN_RATE_EXAMPLE as unknown as SubviewSpec },
   { id: 'stock-etf-transactions', name: 'Stock & ETF Transactions', description: 'Table of stock and ETF transactions (no options)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'stock-etf'], spec: STOCK_ETF_TRANSACTIONS_TABLE as unknown as SubviewSpec },
   { id: 'option-income', name: 'Open Options', description: 'Covered calls and secured puts. Add, edit, delete, roll, or close (partial close supported)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'option'], spec: OPTION_INCOME_TABLE as unknown as SubviewSpec },
+  { id: 'open-options-pnl', name: 'Open Options P&L', description: 'Total unrealized gain of open covered calls and secured puts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: OPEN_OPTIONS_PNL as unknown as SubviewSpec },
   { id: 'leap-calls', name: 'Leap Calls', description: 'Long call positions (LEAPS, 9+ months). Add, edit, delete, roll, or close', defaultSize: { w: 700, h: 180 }, categories: ['option'], spec: LEAP_CALLS_TABLE as unknown as SubviewSpec },
   { id: 'secured-puts-capital', name: 'Secured Puts Capital', description: 'Total money occupied by secured puts (strike × 100 × contracts)', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SECURED_PUTS_CAPITAL as unknown as SubviewSpec },
   { id: 'covered-call-count', name: 'Covered Call', description: 'Number of open covered call contracts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: COVERED_CALL_COUNT as unknown as SubviewSpec },
