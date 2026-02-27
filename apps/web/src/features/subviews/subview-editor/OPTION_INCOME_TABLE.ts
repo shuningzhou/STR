@@ -76,8 +76,20 @@ export const OPTION_INCOME_TABLE: SubviewSpec = {
     strike_str = str(int(round(strike * 1000))).zfill(8)
     return 'O:' + sym.upper() + date + cp + strike_str
 
+def _parse_option_symbol(sym):
+    """Parse SnapTrade symbol 'MTRX $34 C 2026-03-21' -> (underlying, strike, callPut, expiration)."""
+    import re
+    m = re.match(r'^(.+?)\s+\$([\d.]+)\s+([CP])\s+(\d{4}-\d{2}-\d{2})$', sym)
+    if not m:
+        return None
+    return (m.group(1).strip(), float(m.group(2)), 'call' if m.group(3) == 'C' else 'put', m.group(4))
+
 def get_option_income_transactions(context, inputs):
-    """Return open option positions with live pricing."""
+    """Return open option positions with live pricing. For synced strategies, uses optionHoldings from SnapTrade."""
+    option_holdings = context.get('optionHoldings')
+    if option_holdings is not None and isinstance(option_holdings, list) and len(option_holdings) > 0:
+        return _result_from_option_holdings(context, inputs, option_holdings)
+
     txs = sorted(context.get('transactions') or [], key=lambda t: t.get('timestamp', ''))
     option_quotes = context.get('optionQuotes') or {}
     current_prices = context.get('currentPrices') or {}
@@ -186,6 +198,67 @@ def get_option_income_transactions(context, inputs):
         })
 
     # Sort by expiration (earliest first), then strike, then symbol
+    result.sort(key=lambda t: (t.get('expiration', ''), t.get('strike', 0), t.get('instrumentSymbol', '')))
+    return result
+
+def _result_from_option_holdings(context, inputs, option_holdings):
+    """Build Open Options result from SnapTrade option holdings (synced strategy)."""
+    option_quotes = context.get('optionQuotes') or {}
+    current_prices = context.get('currentPrices') or {}
+    global_inputs = inputs.get('global') or {}
+    global_config = inputs.get('globalInputConfig') or []
+    ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
+    ticker_id = ticker_inp.get('id') if ticker_inp else None
+    ticker_filter = global_inputs.get(ticker_id, 'all') if ticker_id else 'all'
+
+    result = []
+    for h in option_holdings:
+        parsed = _parse_option_symbol(h.get('symbol') or '')
+        if not parsed:
+            continue
+        sym, strike, cp, exp = parsed
+        if ticker_filter != 'all' and sym != ticker_filter:
+            continue
+        qty = abs(int(h.get('quantity') or 0))
+        if qty <= 0:
+            continue
+        book = float(h.get('averagePrice') or 0)
+        occ = _to_occ_ticker(sym, exp, strike, cp)
+        current = option_quotes.get(occ)
+        gain = None
+        gain_pct = None
+        if current is not None and book > 0:
+            gain = (book - current) * qty * 100
+            gain_pct = ((book - current) / book) * 100
+        elif current is not None:
+            gain = -current * qty * 100
+        underlying = current_prices.get(sym)
+        status = '—'
+        if underlying is not None:
+            status = ('ITM' if underlying > strike else 'OTM') if cp == 'call' else ('ITM' if underlying < strike else 'OTM')
+        opt_type = 'Covered call' if cp == 'call' else 'Secured put'
+        result.append({
+            'id': None,
+            'side': 'sell',
+            'cashDelta': -book * qty * 100,
+            'timestamp': '',
+            'instrumentSymbol': sym,
+            'option': {'expiration': exp, 'strike': strike, 'callPut': cp, 'multiplier': 100},
+            'customData': {},
+            'quantity': qty,
+            'price': book,
+            'date': exp[:10] if len(exp) >= 10 else exp,
+            'expiration': exp[:10] if len(exp) >= 10 else exp,
+            'strike': strike,
+            'underlyingPrice': underlying,
+            'optionType': opt_type,
+            'premiumPerShare': book,
+            'premiumReceived': book * qty * 100,
+            'currentPrice': current,
+            'gain': gain,
+            'gainPct': gain_pct,
+            'status': status,
+        })
     result.sort(key=lambda t: (t.get('expiration', ''), t.get('strike', 0), t.get('instrumentSymbol', '')))
     return result
 `,

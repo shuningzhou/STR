@@ -31,9 +31,59 @@ export const OPTIONS_TIMELINE: SubviewSpec = {
       },
     ],
   ],
-  python_code: `def get_options_timeline(context, inputs):
+  python_code: `def _parse_opt_symbol(sym):
+    import re
+    m = re.match(r'^(.+?)\s+\$([\d.]+)\s+([CP])\s+(\d{4}-\d{2}-\d{2})$', sym or '')
+    return (m.group(1).strip(), 'call' if m.group(3) == 'C' else 'put', m.group(4)) if m else None
+
+def get_options_timeline(context, inputs):
     """Return timeline events: { events: [{ date, tickers, color, dateShort }] }.
-    Grouped by date. CC=green, SP=blue, mixed=violet-1."""
+    Grouped by date. CC=green, SP=blue, mixed=violet-1. For synced strategies, uses optionHoldings."""
+    option_holdings = context.get('optionHoldings')
+    if option_holdings is not None and isinstance(option_holdings, list) and len(option_holdings) > 0:
+        global_inputs = inputs.get('global') or {}
+        global_config = inputs.get('globalInputConfig') or []
+        ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
+        ticker_id = ticker_inp.get('id') if ticker_inp else None
+        ticker_filter = global_inputs.get(ticker_id, 'all') if ticker_id else 'all'
+        by_date = {}
+        for h in option_holdings:
+            if (h.get('quantity') or 0) <= 0:
+                continue
+            parsed = _parse_opt_symbol(h.get('symbol') or '')
+            if not parsed:
+                continue
+            sym, cp, exp = parsed
+            if ticker_filter != 'all' and sym != ticker_filter:
+                continue
+            if exp not in by_date:
+                by_date[exp] = {'tickers': [], 'ticker_types': {}, 'has_call': False, 'has_put': False}
+            if sym not in by_date[exp]['ticker_types']:
+                by_date[exp]['tickers'].append(sym)
+                by_date[exp]['ticker_types'][sym] = [False, False]
+            t = by_date[exp]['ticker_types'][sym]
+            if cp == 'call':
+                t[0] = True
+                by_date[exp]['has_call'] = True
+            else:
+                t[1] = True
+                by_date[exp]['has_put'] = True
+        from datetime import datetime
+        events = []
+        for d in sorted(by_date.keys()):
+            info = by_date[d]
+            try:
+                dt = datetime.strptime(d, '%Y-%m-%d')
+                short = str(dt.day)
+            except Exception:
+                short = d[-2:] if len(d) >= 10 else d
+            color = 'cyan-3' if (info['has_call'] and info['has_put']) else ('green-3' if info['has_call'] else 'blue-3')
+            def ticker_color(s):
+                has_c, has_p = info['ticker_types'].get(s, [False, False])
+                return 'violet-1' if (has_c and has_p) else ('green-1' if has_c else 'blue-1')
+            events.append({'date': d, 'dateShort': short, 'tickers': info['tickers'], 'color': color, 'tickerColors': {s: ticker_color(s) for s in info['tickers']}})
+        return {'events': events}
+
     txs = context.get('transactions') or []
     global_inputs = inputs.get('global') or {}
     global_config = inputs.get('globalInputConfig') or []

@@ -69,6 +69,18 @@ export function TransactionListPanel() {
       return '…';
     }
   };
+  const formatCategory = (tx: StrategyTransaction) => {
+    const cat = tx.category;
+    if (!cat) return '—';
+    const map: Record<string, string> = {
+      stock: 'Stock & ETF',
+      etf: 'Stock & ETF',
+      stock_etf: 'Stock & ETF',
+      transfer: 'Transfer',
+      unknown: 'Unknown',
+    };
+    return map[cat] ?? cat;
+  };
 
   if (!strategyId) return null;
 
@@ -186,18 +198,19 @@ export function TransactionListPanel() {
               <div className="overflow-auto min-h-0 min-w-0 flex-1 subview-table-body w-full">
                 <table
                   className="w-full border-collapse"
-                  style={{ tableLayout: 'auto', width: '100%', fontSize: 12, minWidth: 840 }}
+                  style={{ tableLayout: 'auto', width: '100%', fontSize: 12, minWidth: 900 }}
                 >
                   <colgroup>
                     <col style={{ width: 36 }} />
                     <col style={{ width: 90 }} />
                     <col style={{ width: 60 }} />
                     <col style={{ width: 50 }} />
+                    <col style={{ width: 90 }} />
                     <col style={{ width: 48 }} />
                     <col style={{ width: 58 }} />
                     <col style={{ width: 72 }} />
+                    <col style={{ width: 50 }} />
                     <col style={{ width: 140 }} />
-                    <col style={{ width: 80 }} />
                     <col style={{ width: 56 }} />
                   </colgroup>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
@@ -207,6 +220,7 @@ export function TransactionListPanel() {
                         ['Date', 'text-left'],
                         ['Symbol', 'text-left'],
                         ['Side', 'text-left'],
+                        ['Category', 'text-left'],
                         ['Qty', 'text-right'],
                         ['Price', 'text-right'],
                         ['Amount', 'text-right'],
@@ -277,6 +291,15 @@ export function TransactionListPanel() {
                           }}
                         >
                           {tx.side}
+                        </td>
+                        <td
+                          style={{
+                            color: 'var(--color-text-primary)',
+                            borderRight: '1px solid var(--color-table-border)',
+                            padding: CELL_PADDING,
+                          }}
+                        >
+                          {formatCategory(tx)}
                         </td>
                         <td
                           className="text-right"

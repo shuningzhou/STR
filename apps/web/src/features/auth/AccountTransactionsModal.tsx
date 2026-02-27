@@ -517,9 +517,6 @@ function sideColor(side: string): string {
 
 function formatCategory(cat: string | undefined): string {
   if (!cat) return '';
-  if (cat === 'stock' || cat === 'etf' || cat === 'stock_etf') return 'Stock & ETF';
-  if (cat === 'transfer') return 'Transfer';
-  if (cat === 'unknown') return 'Unknown';
   return cat;
 }
 

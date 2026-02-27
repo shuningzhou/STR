@@ -947,6 +947,7 @@ export class SnaptradeService {
         source: 'snaptrade',
         accountTransactionId: txId,
         readonly: true,
+        category: tx.category ?? '',
       });
       synced++;
     }

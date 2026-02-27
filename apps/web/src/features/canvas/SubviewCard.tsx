@@ -12,7 +12,7 @@ import { SUBVIEW_TEMPLATES } from '@/features/subviews/templates';
 import { buildStrategyContext, SEED_INPUTS } from '@/lib/subview-seed-data';
 import { useStrategyPrices } from '@/hooks/useStrategyPrices';
 import { useTransactions, useStrategyHoldings, useDebouncedUpdateSubview, useDebouncedUpdateStrategy, useInstrumentMarginRequirements, usePriceHistory, useOptionQuotes } from '@/api/hooks';
-import { toOccTicker } from '@/lib/option-utils';
+import { toOccTicker, parseOptionHoldingSymbol } from '@/lib/option-utils';
 import type { SubviewSpec } from '@str/shared';
 
 interface SubviewCardProps {
@@ -165,6 +165,35 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
   const currentPrices = useStrategyPrices(transactions, isSynced ? strategyHoldingsData?.holdings : undefined);
 
   const openOptionContracts = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const filterExpired = (tickers: string[]) =>
+      tickers.filter((ticker) => {
+        const datePart = ticker.replace(/^O:\w+?(\d{6})[CP]/, '$1');
+        if (datePart.length !== 6) return true;
+        const exp = `20${datePart.slice(0, 2)}-${datePart.slice(2, 4)}-${datePart.slice(4, 6)}`;
+        return exp >= today;
+      });
+    const sortTickers = (tickers: string[]) =>
+      tickers.sort((a, b) => {
+        const expA = a.replace(/^O:\w+?(\d{6})[CP]/, '$1');
+        const expB = b.replace(/^O:\w+?(\d{6})[CP]/, '$1');
+        if (expA.length !== 6 || expB.length !== 6) return 0;
+        const isoA = `20${expA.slice(0, 2)}-${expA.slice(2, 4)}-${expA.slice(4, 6)}`;
+        const isoB = `20${expB.slice(0, 2)}-${expB.slice(2, 4)}-${expB.slice(4, 6)}`;
+        return isoA.localeCompare(isoB) || a.localeCompare(b);
+      });
+
+    if (isSynced && strategyHoldingsData?.holdings?.length) {
+      const tickers: string[] = [];
+      for (const h of strategyHoldingsData.holdings) {
+        if (!['covered_call', 'secured_put'].includes(h.category ?? '') || (h.quantity ?? 0) >= 0) continue;
+        const parsed = parseOptionHoldingSymbol(h.symbol);
+        if (!parsed) continue;
+        tickers.push(toOccTicker(parsed.underlying, parsed.expiration, parsed.strike, parsed.callPut));
+      }
+      return sortTickers(filterExpired([...new Set(tickers)]));
+    }
+
     const positions: Record<string, number> = {};
     for (const t of transactions) {
       if (!t.option) continue;
@@ -173,25 +202,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       else if (t.side === 'buy_to_cover' || t.side === 'option_assign' || t.side === 'option_expire')
         positions[ticker] = (positions[ticker] ?? 0) - t.quantity;
     }
-    const today = new Date().toISOString().slice(0, 10);
-    return Object.entries(positions)
-      .filter(([, qty]) => qty > 0)
-      .map(([ticker]) => ticker)
-      .filter((ticker) => {
-        const datePart = ticker.replace(/^O:\w+?(\d{6})[CP]/, '$1');
-        if (datePart.length !== 6) return true;
-        const exp = `20${datePart.slice(0, 2)}-${datePart.slice(2, 4)}-${datePart.slice(4, 6)}`;
-        return exp >= today;
-      })
-      .sort((a, b) => {
-        const expA = a.replace(/^O:\w+?(\d{6})[CP]/, '$1');
-        const expB = b.replace(/^O:\w+?(\d{6})[CP]/, '$1');
-        if (expA.length !== 6 || expB.length !== 6) return 0;
-        const isoA = `20${expA.slice(0, 2)}-${expA.slice(2, 4)}-${expA.slice(4, 6)}`;
-        const isoB = `20${expB.slice(0, 2)}-${expB.slice(2, 4)}-${expB.slice(4, 6)}`;
-        return isoA.localeCompare(isoB) || a.localeCompare(b);
-      });
-  }, [transactions]);
+    return sortTickers(filterExpired(Object.entries(positions).filter(([, qty]) => qty > 0).map(([ticker]) => ticker)));
+  }, [transactions, isSynced, strategyHoldingsData?.holdings]);
 
   const { data: optionQuotesArr } = useOptionQuotes(openOptionContracts);
   const optionQuotes = useMemo(() => {

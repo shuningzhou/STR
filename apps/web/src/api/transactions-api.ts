@@ -47,5 +47,6 @@ function mapTransaction(raw: Record<string, unknown>): StrategyTransaction {
     customData: (doc.customData as Record<string, unknown>) ?? {},
     quantity: (doc.quantity as number) ?? 0,
     price: (doc.price as number) ?? 0,
+    category: (doc.category as string) ?? '',
   };
 }

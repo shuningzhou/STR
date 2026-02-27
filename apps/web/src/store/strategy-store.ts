@@ -56,6 +56,8 @@ export interface StrategyTransaction {
   customData: Record<string, unknown>;
   quantity: number;
   price: number;
+  /** stock_etf, secured_put_open, transfer, etc. */
+  category?: string;
 }
 
 /** Strategy shape */

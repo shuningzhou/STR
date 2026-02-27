@@ -26,6 +26,7 @@ export class Transaction {
   @Prop() snaptradeActivityId?: string;
   @Prop() accountTransactionId?: string;
   @Prop({ default: false }) readonly!: boolean;
+  @Prop({ default: '' }) category!: string;
 }
 
 export type TransactionDocument = HydratedDocument<Transaction>;

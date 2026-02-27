@@ -60,6 +60,8 @@ function holdingsToDisplayFormat(
 export interface SeedContext {
   /** Current price per symbol; backend provides when ready */
   currentPrices?: Record<string, number>;
+  /** When synced strategy: option holdings from SnapTrade (covered_call, secured_put). Not derived from transactions. */
+  optionHoldings?: Array<{ symbol: string; quantity: number; averagePrice: number; category: string }>;
   /** When synced strategy: holdings from SnapTrade (not derived from transactions) */
   holdings?: Array<{
     instrumentSymbol: string;
@@ -329,6 +331,13 @@ export function buildStrategyContext(
     syncedHoldings && syncedHoldings.length > 0
       ? holdingsToDisplayFormat(syncedHoldings, currentPrices ?? {})
       : undefined;
+
+  const optionHoldingsForContext =
+    syncedHoldings && syncedHoldings.length > 0
+      ? syncedHoldings
+          .filter((h) => ['covered_call', 'secured_put'].includes(h.category ?? ''))
+          .map((h) => ({ symbol: h.symbol, quantity: Math.abs(h.quantity), averagePrice: h.averagePrice, category: h.category ?? '' }))
+      : undefined;
   const marginLimit = equity * (marginReq / 100);
   const marginAvailable =
     collateralAvailable + equity + balance - loanAmount - marginLimit;
@@ -338,6 +347,7 @@ export function buildStrategyContext(
   return {
     transactions: txs,
     holdings: holdingsForContext,
+    optionHoldings: optionHoldingsForContext,
     wallet: {
       baseCurrency: strategy?.baseCurrency ?? 'USD',
       initialBalance,
