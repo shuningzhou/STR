@@ -12,6 +12,7 @@ import { WalletSettingsModal } from '@/features/transactions/WalletSettingsModal
 import { DeleteTransactionConfirmModal } from '@/features/transactions/DeleteTransactionConfirmModal';
 import { RollOptionModal } from '@/features/transactions/RollOptionModal';
 import { CloseOptionModal } from '@/features/transactions/CloseOptionModal';
+import { AssignOptionModal } from '@/features/transactions/AssignOptionModal';
 import { TransactionListPanel } from '@/features/transactions/TransactionListPanel';
 import { UserModal } from '@/features/auth/UserModal';
 import { initializeTheme } from '@/store/theme-store';
@@ -36,6 +37,7 @@ export default function App() {
       <DeleteTransactionConfirmModal />
       <RollOptionModal />
       <CloseOptionModal />
+      <AssignOptionModal />
       <TransactionListPanel />
       <UserModal />
     </div>

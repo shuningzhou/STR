@@ -38,7 +38,7 @@ function rdpIndices(vals: number[], epsilon: number, start: number, end: number)
   const right = rdpIndices(vals, epsilon, maxI, end);
   return [...left.slice(0, -1), ...right];
 }
-import { Pencil, Trash2, Repeat, X } from 'lucide-react';
+import { Pencil, Trash2, Repeat, X, FileCheck } from 'lucide-react';
 import { getIconComponent } from '@/lib/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList } from 'recharts';
 
@@ -340,6 +340,7 @@ function ContentRenderer({
   setDeleteTransactionConfirmOpen,
   setRollOptionModalOpen,
   setCloseOptionModalOpen,
+  setAssignOptionModalOpen,
   isEditMode = true,
 }: {
   item: ContentItem;
@@ -358,6 +359,7 @@ function ContentRenderer({
   setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transactionId: number } | null) => void;
   setRollOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setAssignOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   isEditMode?: boolean;
 }) {
   if ('input' in item) {
@@ -589,6 +591,8 @@ function ContentRenderer({
                                 if (tx.option) setRollOptionModalOpen({ strategyId, transaction: tx });
                               } else if (ra.handler === 'closeOptionModal' && strategyId && setCloseOptionModalOpen) {
                                 setCloseOptionModalOpen({ strategyId, transaction: toTx() });
+                              } else if (ra.handler === 'assignOptionModal' && strategyId && setAssignOptionModalOpen) {
+                                setAssignOptionModalOpen({ strategyId, transaction: toTx() });
                               }
                             };
                             const icon = ra.icon?.toLowerCase();
@@ -605,6 +609,7 @@ function ContentRenderer({
                                 {icon === 'trash' && <Trash2 size={12} />}
                                 {icon === 'repeat' && <Repeat size={12} />}
                                 {icon === 'x' && <X size={12} />}
+                                {icon === 'file-check' && <FileCheck size={12} />}
                               </button>
                             );
                           })}
@@ -1275,6 +1280,7 @@ export function SubviewSpecRenderer({
   const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
   const setRollOptionModalOpen = useUIStore((s) => s.setRollOptionModalOpen);
   const setCloseOptionModalOpen = useUIStore((s) => s.setCloseOptionModalOpen);
+  const setAssignOptionModalOpen = useUIStore((s) => s.setAssignOptionModalOpen);
 
   const handleEditTransaction = (row: Record<string, unknown>) => {
     if (!strategyId) return;
@@ -1473,6 +1479,7 @@ export function SubviewSpecRenderer({
                         setDeleteTransactionConfirmOpen={strategyId ? setDeleteTransactionConfirmOpen : undefined}
                         setRollOptionModalOpen={strategyId ? setRollOptionModalOpen : undefined}
                         setCloseOptionModalOpen={strategyId ? setCloseOptionModalOpen : undefined}
+                        setAssignOptionModalOpen={strategyId ? setAssignOptionModalOpen : undefined}
                         isEditMode={isEditMode}
                       />
                     ))}

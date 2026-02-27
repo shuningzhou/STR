@@ -80,6 +80,12 @@ export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
         except Exception:
             return True
 
+    def is_stock_or_assign(tx):
+        side = (tx.get('side') or tx.get('type') or '').lower()
+        if side == 'option_assign':
+            return True
+        return is_non_option(tx)
+
     def in_range(tx):
         tx_date = (tx.get('timestamp') or '')[:10]
         if not time_filter or not tx_date:
@@ -96,7 +102,7 @@ export const STOCK_ETF_TRANSACTIONS_TABLE: SubviewSpec = {
 
     result = []
     for tx in txs:
-        if not is_non_option(tx):
+        if not is_stock_or_assign(tx):
             continue
         side = (tx.get('side') or tx.get('type') or '').lower()
         if side in cash_only_sides:

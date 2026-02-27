@@ -61,6 +61,7 @@ export const OPTION_INCOME_TABLE: SubviewSpec = {
                 { title: 'Delete', icon: 'trash', handler: 'deleteTransaction' },
                 { title: 'Roll', icon: 'repeat', handler: 'rollOptionModal' },
                 { title: 'Close', icon: 'x', handler: 'closeOptionModal' },
+                { title: 'Assign', icon: 'file-check', handler: 'assignOptionModal' },
               ],
             },
           },

@@ -22,11 +22,6 @@ export function computeEquity(
   const CASH_ONLY_SIDES = ['deposit', 'withdrawal', 'interest', 'fee'];
 
   for (const tx of transactions ?? []) {
-    const opt = tx.option;
-    const isOption =
-      opt != null && typeof opt === 'object' && opt && 'expiration' in opt;
-    if (isOption) continue;
-
     const side = ((tx.side ?? tx.type) ?? '').toLowerCase();
     if (CASH_ONLY_SIDES.includes(side)) continue;
 
@@ -34,10 +29,25 @@ export function computeEquity(
     const instId = tx.instrumentId || sym || '';
     if (!instId) continue;
 
-    let qty = Number(tx.quantity) || 0;
+    let qty: number;
     const cash = Number(tx.cashDelta) || 0;
 
-    if (side === 'sell' || side === 'short') qty = -qty;
+    // option_assign: treated as stock buy/sell (put = buy, call = sell)
+    if (side === 'option_assign') {
+      const opt = tx.option;
+      if (!opt || typeof opt !== 'object' || !('expiration' in opt)) continue;
+      const contracts = Number(tx.quantity) || 0;
+      const mult = (opt as { multiplier?: number }).multiplier ?? 100;
+      const cp = ((opt as { callPut?: string }).callPut ?? 'call').toLowerCase();
+      qty = cp === 'put' ? contracts * mult : -contracts * mult;
+    } else {
+      const opt = tx.option;
+      const isOption =
+        opt != null && typeof opt === 'object' && opt && 'expiration' in opt;
+      if (isOption) continue;
+      qty = Number(tx.quantity) || 0;
+      if (side === 'sell' || side === 'short') qty = -qty;
+    }
 
     if (!agg[instId]) {
       agg[instId] = { symbol: sym || instId, quantity: 0, costTotal: 0 };

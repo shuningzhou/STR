@@ -71,19 +71,33 @@ export const UNREALIZED_GAIN: SubviewSpec = {
     cash_only_sides = {'deposit', 'withdrawal', 'interest', 'fee', 'dividend'}
     agg = {}
     for tx in txs:
-        if not is_non_option(tx):
-            continue
         side = (tx.get('side') or tx.get('type') or '').lower()
         if side in cash_only_sides:
             continue
-        sym = tx.get('instrumentSymbol')
-        inst_id = tx.get('instrumentId') or sym or ''
-        if not inst_id:
-            continue
-        qty = int(tx.get('quantity') or 0)
-        cash = float(tx.get('cashDelta') or 0)
-        if side in ('sell', 'short'):
-            qty = -qty
+        if side == 'option_assign':
+            opt = tx.get('option') or {}
+            if not opt.get('expiration'):
+                continue
+            contracts = int(tx.get('quantity') or 0)
+            mult = int(opt.get('multiplier') or 100)
+            cp = (opt.get('callPut') or 'call').lower()
+            qty = contracts * mult if cp == 'put' else -contracts * mult
+            sym = tx.get('instrumentSymbol')
+            inst_id = tx.get('instrumentId') or sym or ''
+            if not inst_id:
+                continue
+            cash = float(tx.get('cashDelta') or 0)
+        else:
+            if not is_non_option(tx):
+                continue
+            sym = tx.get('instrumentSymbol')
+            inst_id = tx.get('instrumentId') or sym or ''
+            if not inst_id:
+                continue
+            qty = int(tx.get('quantity') or 0)
+            cash = float(tx.get('cashDelta') or 0)
+            if side in ('sell', 'short'):
+                qty = -qty
         if inst_id not in agg:
             agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0, 'cost_total': 0.0}
         agg[inst_id]['quantity'] += qty

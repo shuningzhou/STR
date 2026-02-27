@@ -11,6 +11,7 @@ const SIDE_OPTIONS_FULL = [
   { value: 'sell', label: 'Sell' },
   { value: 'sell_short', label: 'Sell Short' },
   { value: 'buy_to_cover', label: 'Buy to Cover' },
+  { value: 'option_assign', label: 'Option assign' },
   { value: 'dividend', label: 'Dividend' },
   { value: 'deposit', label: 'Deposit' },
   { value: 'withdrawal', label: 'Withdrawal' },
@@ -186,6 +187,13 @@ export function AddTransactionModal() {
         if (side === 'buy') return Math.round(-qty * pr * mult * 100) / 100;
         if (side === 'sell' || side === 'sell_short') return Math.round(qty * pr * mult * 100) / 100;
         if (side === 'buy_to_cover') return Math.round(-qty * pr * mult * 100) / 100;
+        // option_assign: put = buy at strike (-), call = sell at strike (+)
+        if (side === 'option_assign' && hasOption) {
+          const strikeVal = parseFloat(optStrike) || 0;
+          return optCallPut === 'put'
+            ? Math.round(-qty * strikeVal * 100 * 100) / 100
+            : Math.round(qty * strikeVal * 100 * 100) / 100;
+        }
         return 0;
       })();
 
@@ -196,6 +204,9 @@ export function AddTransactionModal() {
             callPut: optCallPut,
           }
         : null;
+
+      // For option_assign, price is strike (per share)
+      const priceToUse = side === 'option_assign' && hasOption ? (parseFloat(optStrike) || 0) : pr;
 
       try {
         await createTx.mutateAsync({
@@ -208,7 +219,7 @@ export function AddTransactionModal() {
           option,
           customData: parsedCustomData,
           quantity: qty,
-          price: pr,
+          price: priceToUse,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add transaction');

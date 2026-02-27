@@ -91,11 +91,17 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
         except Exception:
             return True
 
+    def is_stock_or_assign(tx):
+        side = (tx.get('side') or tx.get('type') or '').lower()
+        if side == 'option_assign':
+            return True
+        return is_non_option(tx)
+
     def date_of(tx):
         ts = tx.get('timestamp') or ''
         return ts[:10] if len(ts) >= 10 else ts
 
-    stock_txs = [t for t in txs if is_non_option(t)]
+    stock_txs = [t for t in txs if is_stock_or_assign(t)]
     stock_txs.sort(key=lambda t: t.get('timestamp') or '')
 
     if not stock_txs:
@@ -181,12 +187,23 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
                 sym = tx.get('instrumentSymbol') or ''
                 inst_id = tx.get('instrumentId') or sym or ''
                 if inst_id:
-                    qty = int(tx.get('quantity') or 0)
-                    if side in ('sell', 'short'):
-                        qty = -qty
-                    if inst_id not in agg:
-                        agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
-                    agg[inst_id]['quantity'] += qty
+                    if side == 'option_assign':
+                        opt = tx.get('option') or {}
+                        if opt.get('expiration'):
+                            contracts = int(tx.get('quantity') or 0)
+                            mult = int(opt.get('multiplier') or 100)
+                            cp = (opt.get('callPut') or 'call').lower()
+                            qty = contracts * mult if cp == 'put' else -contracts * mult
+                            if inst_id not in agg:
+                                agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+                            agg[inst_id]['quantity'] += qty
+                    else:
+                        qty = int(tx.get('quantity') or 0)
+                        if side in ('sell', 'short'):
+                            qty = -qty
+                        if inst_id not in agg:
+                            agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+                        agg[inst_id]['quantity'] += qty
             tx_idx += 1
 
         mv = 0.0
@@ -219,12 +236,23 @@ export const PORTFOLIO_GROWTH_LINE_CHART: SubviewSpec = {
                 sym = tx.get('instrumentSymbol') or ''
                 inst_id = tx.get('instrumentId') or sym or ''
                 if inst_id:
-                    qty = int(tx.get('quantity') or 0)
-                    if side in ('sell', 'short'):
-                        qty = -qty
-                    if inst_id not in agg:
-                        agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
-                    agg[inst_id]['quantity'] += qty
+                    if side == 'option_assign':
+                        opt = tx.get('option') or {}
+                        if opt.get('expiration'):
+                            contracts = int(tx.get('quantity') or 0)
+                            mult = int(opt.get('multiplier') or 100)
+                            cp = (opt.get('callPut') or 'call').lower()
+                            qty = contracts * mult if cp == 'put' else -contracts * mult
+                            if inst_id not in agg:
+                                agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+                            agg[inst_id]['quantity'] += qty
+                    else:
+                        qty = int(tx.get('quantity') or 0)
+                        if side in ('sell', 'short'):
+                            qty = -qty
+                        if inst_id not in agg:
+                            agg[inst_id] = {'symbol': sym or inst_id, 'quantity': 0}
+                        agg[inst_id]['quantity'] += qty
             tx_idx += 1
         mv = 0.0
         for inst_id, row in agg.items():

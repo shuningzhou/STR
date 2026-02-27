@@ -11,6 +11,7 @@ const SIDE_OPTIONS_FULL = [
   { value: 'sell', label: 'Sell' },
   { value: 'sell_short', label: 'Sell Short' },
   { value: 'buy_to_cover', label: 'Buy to Cover' },
+  { value: 'option_assign', label: 'Option assign' },
   { value: 'dividend', label: 'Dividend' },
   { value: 'deposit', label: 'Deposit' },
   { value: 'withdrawal', label: 'Withdrawal' },
@@ -57,7 +58,8 @@ export function EditTransactionModal() {
   useEffect(() => {
     if (transaction) {
       setSymbol((transaction.instrumentSymbol ?? '').toUpperCase());
-      setSide(transaction.side === 'sell' ? 'sell' : 'buy');
+      const txSide = transaction.side ?? 'buy';
+      setSide(['buy', 'sell', 'sell_short', 'buy_to_cover', 'option_assign', 'dividend', 'deposit', 'withdrawal', 'fee', 'interest'].includes(txSide) ? txSide : 'buy');
       setQuantity(String(transaction.quantity ?? ''));
       setPrice(String(transaction.price ?? ''));
       setCashDelta(isSimple ? '' : String(transaction.cashDelta ?? ''));
@@ -181,6 +183,12 @@ export function EditTransactionModal() {
         if (side === 'buy') return Math.round(-qty * pr * mult * 100) / 100;
         if (side === 'sell' || side === 'sell_short') return Math.round(qty * pr * mult * 100) / 100;
         if (side === 'buy_to_cover') return Math.round(-qty * pr * mult * 100) / 100;
+        // option_assign: put = buy at strike (-), call = sell at strike (+)
+        if (side === 'option_assign' && hasOption) {
+          const cp = (optCallPut ?? 'call').toLowerCase();
+          const strikeVal = parseFloat(optStrike) || 0;
+          return cp === 'put' ? Math.round(-qty * strikeVal * 100 * 100) / 100 : Math.round(qty * strikeVal * 100 * 100) / 100;
+        }
         return transaction.cashDelta ?? 0;
       })();
 
@@ -192,13 +200,16 @@ export function EditTransactionModal() {
           }
         : null;
 
+      // For option_assign, price is strike (per share)
+      const priceToUse = side === 'option_assign' && hasOption ? (parseFloat(optStrike) || 0) : pr;
+
       updateTx.mutate({ id: String(transaction.id), strategyId,
         side,
         cashDelta: computedCashDelta,
         timestamp,
         instrumentSymbol: sym,
         quantity: qty,
-        price: pr,
+        price: priceToUse,
         option,
         customData: parsedCustomData,
       });
