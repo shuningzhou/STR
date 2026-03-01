@@ -15,6 +15,16 @@ for port in 3001 5173; do
   fi
 done
 
+# Give ports time to release
+sleep 2
+
+# ── Check MongoDB config (API won't start without it) ──
+if [ ! -f apps/api/.env ]; then
+  echo "Warning: apps/api/.env not found. Copy from apps/api/.env.example and set MONGODB_URI."
+  echo "  For local MongoDB: MONGODB_URI=mongodb://localhost:27017/str"
+  echo ""
+fi
+
 # ── Clean stale build cache & rebuild backend to avoid watch-mode race ──
 echo "Building backend..."
 rm -f apps/api/tsconfig.tsbuildinfo
@@ -26,8 +36,8 @@ echo "  Frontend: http://localhost:5173"
 echo "  Backend:  http://localhost:3001"
 echo ""
 
-# Open browser after a short delay to let Vite start
-(sleep 3 && open http://localhost:5173) &
+# Open browser after a short delay (ignore errors if open fails)
+(sleep 4 && (open http://localhost:5173 2>/dev/null || true)) &
 
 npx concurrently \
   -n "web,api" \
