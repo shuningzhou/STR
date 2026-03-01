@@ -40,9 +40,12 @@ export const WALLET_TABLE: SubviewSpec = {
     ],
   ],
   python_code: `def get_wallet_balance(context, inputs):
-    """Return wallet balance (float)."""
+    """Return wallet balance (float). When margin enabled, negative is loan so wallet shows 0."""
     wallet = context.get('wallet') or {}
-    return float(wallet.get('balance', 0))
+    balance = float(wallet.get('balance', 0))
+    if wallet.get('marginAccountEnabled'):
+        return max(0.0, balance)
+    return balance
 
 def get_wallet_currency(context, inputs):
     """Return wallet currency (string)."""

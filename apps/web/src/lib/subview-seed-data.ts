@@ -35,7 +35,7 @@ function holdingsToDisplayFormat(
       const costTotal = h.quantity * costBasis;
       const gain = marketValue - costTotal;
       const gainPct = costTotal ? (gain / costTotal) * 100 : 0;
-      return {
+      const row: Record<string, unknown> = {
         instrumentSymbol: h.symbol,
         instrumentId: h.symbol,
         quantity: h.quantity,
@@ -48,6 +48,8 @@ function holdingsToDisplayFormat(
         dividendGainPct: 0,
         portfolioPct: 0,
       };
+      if (gain < 0) row._rowBackground = 'red-3';
+      return row;
     });
   results.sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0));
   const totalMv = results.reduce((s, h) => s + (h.marketValue ?? 0), 0);

@@ -52,7 +52,7 @@ export const OPTION_INCOME_TABLE: SubviewSpec = {
                 gainPct: { _positive: 'green-1', _negative: 'red-1' },
               },
               columnCellBackgroundColors: {
-                status: { 'ITM': 'red-4' },
+                status: { 'ITM': 'red-3' },
               },
               columnFormats: { strike: 'number', underlyingPrice: 'currency', premiumPerShare: 'currency', premiumReceived: 'currency', currentPrice: 'currency', gain: 'currency', gainPct: 'percent' },
               emptyMessage: 'No option trades',

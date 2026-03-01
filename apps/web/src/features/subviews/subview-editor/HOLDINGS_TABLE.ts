@@ -147,7 +147,7 @@ export const HOLDINGS_TABLE: SubviewSpec = {
         gain_pct = (gain / cost_total * 100) if cost_total else 0
         cumulative_dividends = dividend_by_sym.get(sym, 0.0)
         dividend_gain_pct = (cumulative_dividends / cost_total * 100) if cost_total else 0
-        holdings.append({
+        row_data = {
             'instrumentSymbol': sym,
             'instrumentId': inst_id,
             'quantity': qty,
@@ -159,7 +159,10 @@ export const HOLDINGS_TABLE: SubviewSpec = {
             'dividends': round(cumulative_dividends, 2),
             'dividendGainPct': round(dividend_gain_pct, 2),
             'portfolioPct': 0,
-        })
+        }
+        if gain < 0:
+            row_data['_rowBackground'] = 'red-3'
+        holdings.append(row_data)
     # Sort by market value desc
     holdings.sort(key=lambda h: h.get('marketValue', 0), reverse=True)
     total_mv = sum(h.get('marketValue', 0) for h in holdings)
