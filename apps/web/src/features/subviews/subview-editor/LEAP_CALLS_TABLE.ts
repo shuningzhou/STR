@@ -75,8 +75,7 @@ export const LEAP_CALLS_TABLE: SubviewSpec = {
     return 'O:' + sym.upper() + date + cp + strike_str
 
 def get_leap_calls_transactions(context, inputs):
-    """Return open long call positions. Buy opens, sell closes. Leap = call with 9+ months to expiration."""
-    from datetime import date, datetime, timedelta
+    """Return open long call positions. Buy opens, sell closes. Shows all call buys regardless of expiration."""
     txs = sorted(context.get('transactions') or [], key=lambda t: t.get('timestamp', ''))
     option_quotes = context.get('optionQuotes') or {}
     current_prices = context.get('currentPrices') or {}
@@ -85,9 +84,6 @@ def get_leap_calls_transactions(context, inputs):
     ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
     ticker_id = ticker_inp.get('id') if ticker_inp else None
     ticker = global_inputs.get(ticker_id, 'all') if ticker_id else 'all'
-
-    today = date.today()
-    leap_threshold = (today + timedelta(days=273)).isoformat()
 
     def opt_key(opt, sym):
         if not opt or not hasattr(opt, 'get'):
@@ -111,10 +107,6 @@ def get_leap_calls_transactions(context, inputs):
             continue
         cp = (opt.get('callPut') or 'call').lower()
         if cp != 'call':
-            continue
-
-        exp_str = (opt.get('expiration') or '')[:10]
-        if exp_str < leap_threshold:
             continue
 
         k = opt_key(opt, sym)

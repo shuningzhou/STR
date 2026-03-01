@@ -47,7 +47,6 @@ export const LEAP_CALLS_PNL: SubviewSpec = {
 
 def get_leap_calls_pnl(context, inputs):
     """Return sum of unrealized gain on leap call positions (same positions as Leap Calls table)."""
-    from datetime import date, timedelta
     txs = sorted(context.get('transactions') or [], key=lambda t: t.get('timestamp', ''))
     option_quotes = context.get('optionQuotes') or {}
     global_inputs = inputs.get('global') or {}
@@ -55,9 +54,6 @@ def get_leap_calls_pnl(context, inputs):
     ticker_inp = next((c for c in global_config if c.get('type') == 'ticker_selector'), None)
     ticker_id = ticker_inp.get('id') if ticker_inp else None
     ticker = global_inputs.get(ticker_id, 'all') if ticker_id else 'all'
-
-    today = date.today()
-    leap_threshold = (today + timedelta(days=273)).isoformat()
 
     def opt_key(opt, sym):
         if not opt or not hasattr(opt, 'get'):
@@ -80,10 +76,6 @@ def get_leap_calls_pnl(context, inputs):
             continue
         cp = (opt.get('callPut') or 'call').lower()
         if cp != 'call':
-            continue
-
-        exp_str = (opt.get('expiration') or '')[:10]
-        if exp_str < leap_threshold:
             continue
 
         k = opt_key(opt, sym)
