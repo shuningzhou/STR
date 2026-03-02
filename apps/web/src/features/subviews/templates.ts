@@ -5,6 +5,8 @@ import { OPTION_INCOME_TABLE } from './subview-editor/OPTION_INCOME_TABLE';
 import { OPEN_OPTIONS_PNL } from './subview-editor/OPEN_OPTIONS_PNL';
 import { LEAP_CALLS_TABLE } from './subview-editor/LEAP_CALLS_TABLE';
 import { LEAP_CALLS_PNL } from './subview-editor/LEAP_CALLS_PNL';
+import { LEAP_CALLS_ALLOCATION } from './subview-editor/LEAP_CALLS_ALLOCATION';
+import { LEAP_CALLS_TIMELINE } from './subview-editor/LEAP_CALLS_TIMELINE';
 import { HOLDINGS_TABLE } from './subview-editor/HOLDINGS_TABLE';
 import { PORTFOLIO_PIE_CHART } from './subview-editor/PORTFOLIO_PIE_CHART';
 import { PORTFOLIO_GROWTH_LINE_CHART } from './subview-editor/PORTFOLIO_GROWTH_LINE_CHART';
@@ -49,6 +51,8 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'open-options-pnl', name: 'Open Options P&L', description: 'Total unrealized gain of open covered calls and secured puts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: OPEN_OPTIONS_PNL as unknown as SubviewSpec },
   { id: 'leap-calls', name: 'Leap Calls', description: 'Long call positions. Add, edit, delete, roll, or close', defaultSize: { w: 700, h: 180 }, categories: ['option'], spec: LEAP_CALLS_TABLE as unknown as SubviewSpec },
   { id: 'leap-calls-pnl', name: 'Leap Calls P&L', description: 'Total unrealized gain of open leap call positions', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: LEAP_CALLS_PNL as unknown as SubviewSpec },
+  { id: 'leap-calls-allocation', name: 'Leap Call Allocation', description: 'Donut chart showing % of leap call portfolio by current value', defaultSize: { w: 375, h: 125 }, categories: ['option'], spec: LEAP_CALLS_ALLOCATION as unknown as SubviewSpec },
+  { id: 'leap-calls-timeline', name: 'Leap Calls Timeline', description: 'Timeline of leap call expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['option'], spec: LEAP_CALLS_TIMELINE as unknown as SubviewSpec },
   { id: 'secured-puts-capital', name: 'Secured Puts Capital', description: 'Total money occupied by secured puts (strike × 100 × contracts)', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SECURED_PUTS_CAPITAL as unknown as SubviewSpec },
   { id: 'covered-call-count', name: 'Covered Call', description: 'Number of open covered call contracts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: COVERED_CALL_COUNT as unknown as SubviewSpec },
   { id: 'secured-puts-count', name: 'Secured Puts', description: 'Number of open secured put contracts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SECURED_PUTS_COUNT as unknown as SubviewSpec },
