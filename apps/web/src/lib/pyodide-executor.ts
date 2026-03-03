@@ -9,7 +9,9 @@ let pyodidePromise: Promise<PyodideInterface> | null = null;
 
 export async function getPyodide(): Promise<PyodideInterface> {
   if (!pyodidePromise) {
-    pyodidePromise = loadPyodide();
+    pyodidePromise = loadPyodide({
+      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.3/full/',
+    });
   }
   return pyodidePromise;
 }
