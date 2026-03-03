@@ -1,0 +1,16 @@
+# STR deployment config – copy to deploy.config and fill in values
+# deploy.config is gitignored
+
+SERVER_IP=205.198.68.58
+DOMAIN_NAME=opticanvas.com
+DEPLOY_MODE=nginx
+
+# API (written to apps/api/.env on VM)
+MONGODB_URI=
+PORT=3001
+EODHD_API_TOKEN=
+MASSIVE_API_KEY=
+JWT_SECRET=
+JWT_EXPIRES_IN=12h
+RESEND_API_KEY=
+EMAIL_FROM=signal@opticanvas.com

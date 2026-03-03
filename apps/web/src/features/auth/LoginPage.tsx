@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { apiFetch, ApiError } from '@/api/api-client';
 import { useAuthStore } from './auth-store';
+import { useSettings } from '@/api/hooks';
 import { Button, Input, Label } from '@/components/ui';
 
 type Step = 'register' | 'verify-email' | 'login' | 'verify-otp';
@@ -24,6 +26,13 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const { data: settings } = useSettings();
+  const allowRegistration = settings?.allowRegistration ?? true;
+
+  useEffect(() => {
+    if (!allowRegistration && step === 'register') setStep('login');
+  }, [allowRegistration, step]);
 
   const reset = () => {
     setError('');
@@ -199,7 +208,7 @@ export function LoginPage() {
           </div>
         )}
 
-        {step === 'register' && (
+        {step === 'register' && allowRegistration && (
           <form onSubmit={handleRegister} className="flex flex-col gap-4">
             <div>
               <Label htmlFor="auth-email" uppercase={false}>Email</Label>
@@ -216,30 +225,50 @@ export function LoginPage() {
             </div>
             <div>
               <Label htmlFor="auth-password" uppercase={false}>Password</Label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
                 <Input
                   id="auth-password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
                   placeholder="Min 8 characters"
+                  style={{ paddingRight: 40 }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:opacity-80"
+                  style={{ color: 'var(--color-text-muted)' }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
             <div>
               <Label htmlFor="auth-confirm" uppercase={false}>Confirm password</Label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
                 <Input
                   id="auth-confirm"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   minLength={8}
                   placeholder="Repeat password"
+                  style={{ paddingRight: 40 }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:opacity-80"
+                  style={{ color: 'var(--color-text-muted)' }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
             <div style={{ marginTop: 'var(--space-gap)' }}>
@@ -302,15 +331,25 @@ export function LoginPage() {
             </div>
             <div>
               <Label htmlFor="auth-password-login" uppercase={false}>Password</Label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
                 <Input
                   id="auth-password-login"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="Your password"
+                  style={{ paddingRight: 40 }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:opacity-80"
+                  style={{ color: 'var(--color-text-muted)' }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
             <div style={{ marginTop: 'var(--space-gap)' }}>
@@ -318,12 +357,14 @@ export function LoginPage() {
                 {loading ? 'Sending code...' : 'Sign in'}
               </Button>
             </div>
-            <p style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-muted)' }}>
-              Need an account?{' '}
-              <button type="button" onClick={() => { setStep('register'); reset(); setEmail(''); setPassword(''); }} style={linkStyle}>
-                Register
-              </button>
-            </p>
+            {allowRegistration && (
+              <p style={{ fontSize: 'var(--font-size-body)', color: 'var(--color-text-muted)' }}>
+                Need an account?{' '}
+                <button type="button" onClick={() => { setStep('register'); reset(); setEmail(''); setPassword(''); }} style={linkStyle}>
+                  Register
+                </button>
+              </p>
+            )}
           </form>
         )}
 

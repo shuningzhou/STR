@@ -4,16 +4,20 @@ import { useThemeStore } from '@/store/theme-store';
 import { useUIStore } from '@/store/ui-store';
 import { useStrategyStore } from '@/store/strategy-store';
 import { useStrategies } from '@/api/hooks';
+import { useAuthStore } from '@/features/auth/auth-store';
+import { isSuperAdmin } from '@/features/auth/auth-utils';
 import { cn } from '@/lib/utils';
 
 const CURRENCIES = ['USD', 'CAD'] as const;
 
 export function Sidebar() {
   const { viewingCurrency, setViewingCurrency } = useThemeStore();
-  const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen, setUserModalOpen } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar, setAddStrategyModalOpen, setUserModalOpen, setAdminSettingsModalOpen } = useUIStore();
   const { data: strategies = [] } = useStrategies();
   const activeStrategyId = useStrategyStore((s) => s.activeStrategyId);
   const setActiveStrategy = useStrategyStore((s) => s.setActiveStrategy);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const showSettings = isSuperAdmin(accessToken);
 
   return (
     <aside
@@ -229,25 +233,28 @@ export function Sidebar() {
               <User size={16} strokeWidth={1.5} />
             </button>
 
-            <button
-              type="button"
-              className={cn(
-                'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
-                sidebarCollapsed ? 'w-full py-2' : 'w-7 h-7 shrink-0',
-              )}
-              style={{ color: 'var(--color-text-secondary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
-                e.currentTarget.style.color = 'var(--color-text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--color-text-secondary)';
-              }}
-              title="Settings"
-            >
-              <Settings size={16} strokeWidth={1.5} />
-            </button>
+            {showSettings && (
+              <button
+                type="button"
+                className={cn(
+                  'flex items-center justify-center cursor-pointer transition-colors rounded-[var(--radius-medium)]',
+                  sidebarCollapsed ? 'w-full py-2' : 'w-7 h-7 shrink-0',
+                )}
+                style={{ color: 'var(--color-text-secondary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)';
+                  e.currentTarget.style.color = 'var(--color-text-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--color-text-secondary)';
+                }}
+                title="Admin Settings"
+                onClick={() => setAdminSettingsModalOpen(true)}
+              >
+                <Settings size={16} strokeWidth={1.5} />
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -35,6 +35,8 @@ interface UIState {
   assignOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
   /** User account modal (logout etc.) */
   userModalOpen: boolean;
+  /** Admin settings modal (super admin only) */
+  adminSettingsModalOpen: boolean;
   /** Measured canvas grid width so preview can match */
   canvasWidth: number;
 
@@ -58,6 +60,7 @@ interface UIState {
   setCloseOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setAssignOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setUserModalOpen: (open: boolean) => void;
+  setAdminSettingsModalOpen: (open: boolean) => void;
   setCanvasWidth: (width: number) => void;
 }
 
@@ -80,6 +83,7 @@ export const useUIStore = create<UIState>()(
       closeOptionModalOpen: null,
       assignOptionModalOpen: null,
       userModalOpen: false,
+      adminSettingsModalOpen: false,
       canvasWidth: 0,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -98,6 +102,7 @@ export const useUIStore = create<UIState>()(
       setCloseOptionModalOpen: (value) => set({ closeOptionModalOpen: value }),
       setAssignOptionModalOpen: (value) => set({ assignOptionModalOpen: value }),
       setUserModalOpen: (open) => set({ userModalOpen: open }),
+      setAdminSettingsModalOpen: (open) => set({ adminSettingsModalOpen: open }),
       setCanvasWidth: (width) => set({ canvasWidth: width }),
     }),
     { name: 'str-ui', partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }) }

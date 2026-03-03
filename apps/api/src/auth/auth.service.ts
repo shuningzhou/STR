@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument } from './schemas/user.schema';
 import { MailService } from './mail.service';
+import { AppSettingsService } from '../app-settings/app-settings.service';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { LoginDto } from './dto/login.dto';
@@ -22,9 +23,14 @@ export class AuthService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
+    private readonly appSettings: AppSettingsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ message: string }> {
+    const allowed = await this.appSettings.isRegistrationAllowed();
+    if (!allowed) {
+      throw new BadRequestException('Registration is currently disabled');
+    }
     const existing = await this.userModel.findOne({ email: dto.email.toLowerCase() }).lean().exec();
     if (existing) {
       throw new BadRequestException('Email already registered');

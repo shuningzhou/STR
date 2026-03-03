@@ -5,6 +5,7 @@ import * as transactionsApi from './transactions-api';
 import * as walletsApi from './wallets-api';
 import * as marketDataApi from './market-data-api';
 import * as instrumentsApi from './instruments-api';
+import * as settingsApi from './settings-api';
 import type { Strategy, Subview, SubviewPosition, StrategyTransaction } from '@/store/strategy-store';
 import type { WalletData } from './wallets-api';
 import type { QuoteResult, HistoryBar, SymbolMatch } from './market-data-api';
@@ -24,6 +25,7 @@ export const queryKeys = {
   historyBatch: (symbols: string[], from?: string, to?: string) => ['history', 'batch', symbols.join(','), from, to] as const,
   symbolSearch: (q: string) => ['symbolSearch', q] as const,
   instrumentMarginReqs: (symbols: string[]) => ['instrumentMarginReqs', symbols.join(',')] as const,
+  settings: ['settings'] as const,
 };
 
 /* ────────────────────────────────────────────────────
@@ -461,6 +463,26 @@ export function useInstrumentMarginRequirements(symbols: string[]) {
     queryFn: () => instrumentsApi.getMarginRequirements(symbols),
     enabled: symbols.length > 0,
     staleTime: 10 * 60 * 1000,
+  });
+}
+
+/* ────────────────────────────────────────────────────
+   Settings (admin)
+   ──────────────────────────────────────────────────── */
+
+export function useSettings() {
+  return useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: settingsApi.getSettings,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useUpdateSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: settingsApi.updateSettings,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.settings }); },
   });
 }
 

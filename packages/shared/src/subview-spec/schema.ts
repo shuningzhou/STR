@@ -296,31 +296,34 @@ export const SUBVIEW_CATEGORIES = ['essential', 'stock-etf', 'margin', 'option',
 export type SubviewCategory = (typeof SUBVIEW_CATEGORIES)[number];
 
 // --- Top-level spec ---
-export const subviewSpecSchema = z
-  .object({
-    type: z.enum(['readonly', 'readwrite']),
-    name: z.string(),
-    description: z.string(),
-    maker: z.string(),
-    /** Icon shown in subview card title bar (left of title). Lucide name, e.g. ChartPie, Wallet. */
-    icon: z.string().optional(),
-    /** Color for spec icon and title: built-in name or rgb/#hex */
-    iconColor: z.string().optional(),
-    /** Color for title text when no icon. When icon present, iconColor applies to both. */
-    titleColor: z.string().optional(),
-    /** Categories for gallery: example, essential, stock-etf, margin, option, income. A subview can be in multiple. */
-    categories: z.array(z.enum(['example', 'essential', 'stock-etf', 'margin', 'option', 'income'])).optional(),
-    defaultSize: z.union([sizeShapeSchema, z.string()]).optional(),
-    preferredSize: sizeShapeSchema.optional(),
-    /** Buttons in subview card header (e.g. Add, Deposit, Withdraw) */
-    headerActions: z.array(headerActionSchema).optional(),
-    inputs: z.record(z.string(), inputConfigSchema).optional(),
-    layout: z.array(layoutRowSchema),
-    python_code: z.string(),
-    functions: z.array(z.string()),
-  })
+const subviewSpecSchemaBase = z.object({
+  type: z.enum(['readonly', 'readwrite']),
+  name: z.string(),
+  description: z.string(),
+  maker: z.string(),
+  /** Icon shown in subview card title bar (left of title). Lucide name, e.g. ChartPie, Wallet. */
+  icon: z.string().optional(),
+  /** Color for spec icon and title: built-in name or rgb/#hex */
+  iconColor: z.string().optional(),
+  /** Color for title text when no icon. When icon present, iconColor applies to both. */
+  titleColor: z.string().optional(),
+  /** Categories for gallery: example, essential, stock-etf, margin, option, income. A subview can be in multiple. */
+  categories: z.array(z.enum(['example', 'essential', 'stock-etf', 'margin', 'option', 'income'])).optional(),
+  defaultSize: z.union([sizeShapeSchema, z.string()]).optional(),
+  preferredSize: sizeShapeSchema.optional(),
+  /** Buttons in subview card header (e.g. Add, Deposit, Withdraw) */
+  headerActions: z.array(headerActionSchema).optional(),
+  inputs: z.record(z.string(), inputConfigSchema).optional(),
+  layout: z.array(layoutRowSchema),
+  python_code: z.string(),
+  functions: z.array(z.string()),
+});
+
+type SubviewSpecInput = z.infer<typeof subviewSpecSchemaBase>;
+
+export const subviewSpecSchema = subviewSpecSchemaBase
   .transform((data) => {
-    const d = data as { size?: string; defaultSize?: { w: number; h: number } | string };
+    const d = data as SubviewSpecInput & { size?: string };
     let defaultSize: { w: number; h: number };
     if (d.defaultSize != null) {
       defaultSize = typeof d.defaultSize === 'object' ? d.defaultSize : parseSizeString(d.defaultSize);
@@ -329,7 +332,7 @@ export const subviewSpecSchema = z
     } else {
       defaultSize = { w: 400, h: 100 };
     }
-    const { size: _, ...rest } = d;
+    const { size: _, defaultSize: __, ...rest } = d;
     return { ...rest, defaultSize };
   })
   .refine(

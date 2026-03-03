@@ -7,6 +7,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { AppSettingsModule } from './app-settings/app-settings.module';
 import { StrategiesModule } from './strategies/strategies.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { WalletsModule } from './wallets/wallets.module';
@@ -23,6 +24,7 @@ import { MarketDataModule } from './market-data/market-data.module';
       }),
     }),
     AuthModule,
+    AppSettingsModule,
     StrategiesModule,
     TransactionsModule,
     WalletsModule,

@@ -15,6 +15,7 @@ import { CloseOptionModal } from '@/features/transactions/CloseOptionModal';
 import { AssignOptionModal } from '@/features/transactions/AssignOptionModal';
 import { TransactionListPanel } from '@/features/transactions/TransactionListPanel';
 import { UserModal } from '@/features/auth/UserModal';
+import { AdminSettingsModal } from '@/features/auth/AdminSettingsModal';
 import { initializeTheme } from '@/store/theme-store';
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
       <AssignOptionModal />
       <TransactionListPanel />
       <UserModal />
+      <AdminSettingsModal />
     </div>
   );
 }

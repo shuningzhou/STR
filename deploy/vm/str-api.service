@@ -1,0 +1,15 @@
+[Unit]
+Description=STR API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/STR/apps/api
+ExecStart=/usr/bin/env node dist/main.js
+Restart=on-failure
+Environment=NODE_ENV=production
+EnvironmentFile=/root/STR/apps/api/.env
+
+[Install]
+WantedBy=multi-user.target

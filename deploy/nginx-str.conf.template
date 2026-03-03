@@ -1,0 +1,39 @@
+# STR nginx config - generated from deploy.config by apply-config.sh
+# Values: DOMAIN_NAME={{DOMAIN_NAME}} SERVER_IP={{SERVER_IP}}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name {{DOMAIN_NAME}} www.{{DOMAIN_NAME}};
+
+    root /root/STR/apps/web/dist;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /docs {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /openapi.json {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+    }
+}
+
+# HTTPS: certbot --nginx -d {{DOMAIN_NAME}} -d www.{{DOMAIN_NAME}}
