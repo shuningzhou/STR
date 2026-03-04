@@ -26,10 +26,17 @@ export function DeleteTransactionConfirmModal() {
 
   const strategyId = deleteTransactionConfirmOpen?.strategyId ?? null;
   const transaction = deleteTransactionConfirmOpen?.transaction ?? null;
+  const transactions = deleteTransactionConfirmOpen?.transactions ?? null;
 
-  const handleConfirm = () => {
-    if (strategyId != null && transaction != null) {
-      deleteTx.mutate({ id: String(transaction.id), strategyId });
+  const toDelete = transactions && transactions.length > 0 ? transactions : transaction ? [transaction] : [];
+
+  const handleConfirm = async () => {
+    if (strategyId == null || toDelete.length === 0) {
+      setDeleteTransactionConfirmOpen(null);
+      return;
+    }
+    for (const tx of toDelete) {
+      await deleteTx.mutateAsync({ id: String(tx.id), strategyId });
     }
     setDeleteTransactionConfirmOpen(null);
   };
@@ -38,18 +45,21 @@ export function DeleteTransactionConfirmModal() {
     setDeleteTransactionConfirmOpen(null);
   };
 
-  if (!deleteTransactionConfirmOpen || strategyId == null || transaction == null) return null;
+  if (!deleteTransactionConfirmOpen || strategyId == null || toDelete.length === 0) return null;
 
-  const optionLabel = formatOptionLabel(transaction);
+  const isSpread = toDelete.length > 1;
+  const optionLabel = toDelete.length === 1 ? formatOptionLabel(toDelete[0]) : null;
 
   return (
-    <Modal title="Delete transaction" onClose={handleClose}>
+    <Modal title={isSpread ? 'Delete spread' : 'Delete transaction'} onClose={handleClose}>
       <div
         className="text-[13px]"
         style={{ color: 'var(--color-text-secondary)', marginBottom: 20 }}
       >
         <p style={{ marginBottom: 8 }}>
-          Delete this transaction? This action cannot be undone.
+          {isSpread
+            ? `Delete this spread (${toDelete.length} transactions)? This action cannot be undone.`
+            : 'Delete this transaction? This action cannot be undone.'}
         </p>
         <div
           className="rounded-[var(--radius-medium)] p-3"
@@ -58,19 +68,21 @@ export function DeleteTransactionConfirmModal() {
             border: '1px solid var(--color-border)',
           }}
         >
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <span>{formatDate(transaction.timestamp)}</span>
-            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {transaction.instrumentSymbol ?? '—'}
-            </span>
-            <span>{transaction.side}</span>
-            <span>{transaction.quantity}</span>
-            <span>${(transaction.price ?? 0).toFixed(2)}</span>
-            <span style={{ color: transaction.cashDelta < 0 ? 'var(--color-negative)' : 'var(--color-positive)' }}>
-              {formatAmount(transaction.cashDelta)}
-            </span>
-            {optionLabel && <span>{optionLabel}</span>}
-          </div>
+          {toDelete.map((tx, i) => (
+            <div key={tx.id ?? i} className="flex flex-wrap gap-x-4 gap-y-1" style={{ marginBottom: i < toDelete.length - 1 ? 8 : 0 }}>
+              <span>{formatDate(tx.timestamp)}</span>
+              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                {tx.instrumentSymbol ?? '—'}
+              </span>
+              <span>{tx.side}</span>
+              <span>{tx.quantity}</span>
+              <span>${(tx.price ?? 0).toFixed(2)}</span>
+              <span style={{ color: tx.cashDelta < 0 ? 'var(--color-negative)' : 'var(--color-positive)' }}>
+                {formatAmount(tx.cashDelta)}
+              </span>
+              {formatOptionLabel(tx) && <span>{formatOptionLabel(tx)}</span>}
+            </div>
+          ))}
         </div>
       </div>
       <div className="flex gap-3">

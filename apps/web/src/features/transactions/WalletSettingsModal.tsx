@@ -97,6 +97,7 @@ export function WalletSettingsModal() {
 
   const [loanInterest, setLoanInterest] = useState('');
   const [marginRequirement, setMarginRequirement] = useState('');
+  const [borrowAmount, setBorrowAmount] = useState('');
   const [collateralSecurities, setCollateralSecurities] = useState('');
   const [collateralCash, setCollateralCash] = useState('');
   const [collateralRequirement, setCollateralRequirement] = useState('');
@@ -118,6 +119,7 @@ export function WalletSettingsModal() {
     if (strategy) {
       setLoanInterest(String(strategy.loanInterest ?? ''));
       setMarginRequirement(String(strategy.marginRequirement ?? 30));
+      setBorrowAmount(String(strategy.borrowAmount ?? ''));
       setCollateralSecurities(String(strategy.collateralSecurities ?? ''));
       setCollateralCash(String(strategy.collateralCash ?? ''));
       setCollateralRequirement(String(strategy.collateralRequirement ?? ''));
@@ -130,12 +132,13 @@ export function WalletSettingsModal() {
       id: strategyId,
       loanInterest: loanInterest === '' ? undefined : parseFloat(loanInterest) || 0,
       marginRequirement: marginRequirement === '' ? undefined : parseFloat(marginRequirement) || 0,
+      borrowAmount: borrowAmount === '' ? undefined : parseFloat(borrowAmount) || 0,
       collateralSecurities: collateralSecurities === '' ? undefined : parseFloat(collateralSecurities) || 0,
       collateralCash: collateralCash === '' ? undefined : parseFloat(collateralCash) || 0,
       collateralRequirement: collateralRequirement === '' ? undefined : parseFloat(collateralRequirement) || 0,
     });
     setWalletSettingsModalOpen(null);
-  }, [strategyId, loanInterest, marginRequirement, collateralSecurities, collateralCash, collateralRequirement, updateStrategyMut, setWalletSettingsModalOpen]);
+  }, [strategyId, loanInterest, marginRequirement, borrowAmount, collateralSecurities, collateralCash, collateralRequirement, updateStrategyMut, setWalletSettingsModalOpen]);
 
   const handleClose = useCallback(() => {
     setWalletSettingsModalOpen(null);
@@ -161,8 +164,10 @@ export function WalletSettingsModal() {
   const marginLimit = equity * (marginReqNum / 100);
   const marginAvailable =
     collateralAvailable + equity + currentBalance - loanAmountNum - marginLimit;
+  const borrowAmountNum = parseFloat(borrowAmount) || 0;
+  const marginAvailableAfterBorrow = Math.max(0, marginAvailable - borrowAmountNum);
   const buyingPower =
-    marginReqNum > 0 ? marginAvailable / (marginReqNum / 100) : 0;
+    marginReqNum > 0 ? marginAvailableAfterBorrow / (marginReqNum / 100) : 0;
 
   const inputStyle = { padding: '8px 12px', textAlign: 'right' as const, width: 120, minWidth: 120 };
 
@@ -234,9 +239,29 @@ export function WalletSettingsModal() {
             equation="collateral available + equity + balance − loan − margin limit"
             value={formatCurrency(marginAvailable, currency)}
           />
+          <FieldWithInput label="Borrow amount" id="wallet-borrow-amount">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Input
+                id="wallet-borrow-amount"
+                type="number"
+                step="0.01"
+                min={0}
+                value={borrowAmount}
+                onChange={(e) => setBorrowAmount(e.target.value)}
+                placeholder="0.00"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{currency}</span>
+            </div>
+          </FieldWithInput>
+          <Row
+            label="Margin available after borrow"
+            equation="margin available − borrow amount"
+            value={formatCurrency(marginAvailableAfterBorrow, currency)}
+          />
           <Row
             label="Buying power"
-            equation="margin available ÷ (margin requirement / 100)"
+            equation="(margin available − borrow) ÷ (margin requirement / 100)"
             value={formatCurrency(buyingPower, currency)}
           />
         </Group>

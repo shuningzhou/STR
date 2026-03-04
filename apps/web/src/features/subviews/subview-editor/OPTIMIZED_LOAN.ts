@@ -8,7 +8,7 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
   description: 'Optimal loan based on target amplification with margin health gauge',
   maker: 'official',
   categories: ['margin'],
-  defaultSize: { w: 375, h: 130 },
+  defaultSize: { w: 375, h: 200 },
   inputs: {
     targetAmplification: {
       type: 'slider',
@@ -45,7 +45,7 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
     [
       {
         flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-        padding: { top: 6, left: 12, right: 12, bottom: 4 },
+        padding: { top: 6, left: 12, right: 12, bottom: 2 },
         content: [
           { text: { value: 'Net Equity', size: 'sm' } },
           { number: { value: 'py:get_net_equity', size: 'sm', bold: true, format: '$', decimals: 2 } },
@@ -54,8 +54,17 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
     ],
     [
       {
+        flex: { flex: 1 },
+        padding: { top: 0, left: 12, right: 12, bottom: 4 },
+        content: [
+          { text: { value: 'holdings − loan + collateral available + collateral cash', size: 'xs', color: 'grey-2' } },
+        ],
+      },
+    ],
+    [
+      {
         flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-        padding: { top: 4, left: 12, right: 12, bottom: 4 },
+        padding: { top: 4, left: 12, right: 12, bottom: 2 },
         content: [
           { text: { value: 'Optimal Loan', size: 'sm' } },
           { number: { value: 'py:get_optimal_loan', size: 'sm', bold: true, format: '$', decimals: 2 } },
@@ -64,11 +73,29 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
     ],
     [
       {
+        flex: { flex: 1 },
+        padding: { top: 0, left: 12, right: 12, bottom: 4 },
+        content: [
+          { text: { value: 'py:get_optimal_loan_formula', size: 'xs', color: 'grey-2' } },
+        ],
+      },
+    ],
+    [
+      {
         flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-        padding: { top: 4, left: 12, right: 12, bottom: 4 },
+        padding: { top: 4, left: 12, right: 12, bottom: 2 },
         content: [
           { text: { value: 'Current Loan', size: 'sm' } },
           { number: { value: 'py:get_current_loan', size: 'sm', bold: true, format: '$', decimals: 2 } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1 },
+        padding: { top: 0, left: 12, right: 12, bottom: 4 },
+        content: [
+          { text: { value: 'loan + borrow amount', size: 'xs', color: 'grey-2' } },
         ],
       },
     ],
@@ -99,6 +126,63 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
     ],
     [
       {
+        flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+        padding: { top: 4, left: 12, right: 12, bottom: 2 },
+        content: [
+          { text: { value: 'Holdings after crash', size: 'sm' } },
+          { number: { value: 'py:get_holdings_after_crash', size: 'sm', bold: true, format: '$', decimals: 2 } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1 },
+        padding: { top: 0, left: 12, right: 12, bottom: 4 },
+        content: [
+          { text: { value: 'py:get_holdings_after_crash_formula', size: 'xs', color: 'grey-2' } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+        padding: { top: 4, left: 12, right: 12, bottom: 2 },
+        content: [
+          { text: { value: 'Collateral after crash', size: 'sm' } },
+          { number: { value: 'py:get_collateral_after_crash', size: 'sm', bold: true, format: '$', decimals: 2 } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1 },
+        padding: { top: 0, left: 12, right: 12, bottom: 4 },
+        content: [
+          { text: { value: 'py:get_collateral_after_crash_formula', size: 'xs', color: 'grey-2' } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+        padding: { top: 4, left: 12, right: 12, bottom: 2 },
+        content: [
+          { text: { value: 'Margin required', size: 'sm' } },
+          { number: { value: 'py:get_margin_required_at_crash', size: 'sm', bold: true, format: '$', decimals: 2 } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1 },
+        padding: { top: 0, left: 12, right: 12, bottom: 4 },
+        content: [
+          { text: { value: 'py:get_margin_required_formula', size: 'xs', color: 'grey-2' } },
+        ],
+      },
+    ],
+    [
+      {
         flex: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
         padding: { top: 0, left: 12, bottom: 5 },
         content: [
@@ -107,9 +191,19 @@ export const OPTIMIZED_LOAN: SubviewSpec = {
       },
       {
         flex: { flex: 1, flexDirection: 'column', justifyContent: 'center' },
-        padding: { top: 0, right: 12, bottom: 8 },
+        padding: { top: 0, right: 12, bottom: 4 },
         content: [
-          { text: { value: 'py:get_margin_message', size: 'xs', padding: { bottom: 4 } } },
+          { text: { value: 'py:get_margin_message', size: 'xs', padding: { bottom: 8 } } },
+        ],
+      },
+    ],
+    [
+      {
+        flex: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+        padding: { top: 4, left: 12, right: 12, bottom: 6 },
+        marginTop: -20,
+        content: [
+          { text: { value: 'py:get_max_crash_calculation', size: 'xs', color: 'grey-2', alignment: 'center' } },
         ],
       },
     ],
@@ -251,30 +345,36 @@ def get_target_amplification_label(context, inputs):
 def _wallet_fields(context):
     wallet = context.get('wallet') or {}
     loan = float(wallet.get('loanAmount', 0) or 0)
+    borrow = float(wallet.get('borrowAmount', 0) or 0)
     col_sec = float(wallet.get('collateralSecurities', 0) or 0)
     col_cash = float(wallet.get('collateralCash', 0) or 0)
     col_req = float(wallet.get('collateralRequirement', 0) or 0)
     margin_req = float(wallet.get('marginRequirement', 0) or 0)
-    return loan, col_sec, col_cash, col_req, margin_req
+    return loan, borrow, col_sec, col_cash, col_req, margin_req
 
 def get_net_equity(context, inputs):
     holdings_value = _holdings_market_value(context)
-    loan, col_sec, col_cash, col_req, _ = _wallet_fields(context)
+    loan, _, col_sec, col_cash, col_req, _ = _wallet_fields(context)
     col_available = col_sec * (1 - col_req / 100)
     net_equity = holdings_value - loan + col_available + col_cash
     return round(net_equity, 2)
 
 def get_optimal_loan(context, inputs):
     holdings_value = _holdings_market_value(context)
-    loan, col_sec, col_cash, col_req, _ = _wallet_fields(context)
+    loan, _, col_sec, col_cash, col_req, _ = _wallet_fields(context)
     col_available = col_sec * (1 - col_req / 100)
     net_equity = holdings_value - loan + col_available + col_cash
     target = float(inputs.get('targetAmplification', 25)) / 100
     return round(net_equity * target, 2)
 
+def get_optimal_loan_formula(context, inputs):
+    target = int(inputs.get('targetAmplification', 25))
+    return "net equity × (target amplification / 100) = net equity × %d%%" % target
+
 def get_current_loan(context, inputs):
-    wallet = context.get('wallet') or {}
-    return round(float(wallet.get('loanAmount', 0) or 0), 2)
+    """Return effective current loan: actual loan + borrowed margin amount."""
+    loan, borrow, _, _, _, _ = _wallet_fields(context)
+    return round(loan + borrow, 2)
 
 def get_loan_status_color(context, inputs):
     optimal = get_optimal_loan(context, inputs)
@@ -291,10 +391,10 @@ def get_borrow_message(context, inputs):
     return "%s-borrowed by $%s" % (sign, "{:,.2f}".format(abs(diff)))
 
 def _max_crash_pct(context, inputs):
-    """Binary search for the max market crash % the account can survive without margin call, using the optimal loan."""
+    """Binary search for max crash % where: (holdings after crash + collateral after crash − optimal loan) ≥ margin required."""
     holdings_per_sym = _holdings_per_symbol(context)
     holdings_value = sum(holdings_per_sym.values())
-    loan, col_sec, col_cash, col_req, strategy_margin_req = _wallet_fields(context)
+    loan, _, col_sec, col_cash, col_req, strategy_margin_req = _wallet_fields(context)
     inst_margin_reqs = context.get('instrumentMarginRequirements') or {}
     target = float(inputs.get('targetAmplification', 25)) / 100
     col_available = col_sec * (1 - col_req / 100)
@@ -311,7 +411,7 @@ def _max_crash_pct(context, inputs):
         h_after = holdings_value * (1 - crash)
         col_sec_after = col_sec * (1 - crash)
         col_avail_after = col_sec_after * (1 - col_req / 100) + col_cash
-        equity_after = h_after + col_avail_after - optimal_loan
+        left_side = h_after + col_avail_after - optimal_loan
 
         margin_required_after = 0.0
         for sym, val in holdings_per_sym.items():
@@ -321,7 +421,7 @@ def _max_crash_pct(context, inputs):
                 req_pct = strategy_margin_req
             margin_required_after += val_after * (req_pct / 100)
 
-        if equity_after >= margin_required_after:
+        if left_side >= margin_required_after:
             lo = mid
         else:
             hi = mid
@@ -359,10 +459,76 @@ def get_margin_message(context, inputs):
     holdings_value = _holdings_market_value(context)
     drop_amount = holdings_value * (crash_pct / 100)
     return "Investments would have to drop %g%% ($%s) to face a margin call." % (crash_pct, "{:,.0f}".format(drop_amount))
+
+def _crash_values_at_pct(context, inputs, crash_pct):
+    """Return (holdings_after, collateral_after, margin_required) at given crash %."""
+    holdings_per_sym = _holdings_per_symbol(context)
+    holdings_value = sum(holdings_per_sym.values())
+    loan, borrow, col_sec, col_cash, col_req, strategy_margin_req = _wallet_fields(context)
+    inst_margin_reqs = context.get('instrumentMarginRequirements') or {}
+    target = float(inputs.get('targetAmplification', 25)) / 100
+    col_available = col_sec * (1 - col_req / 100)
+    net_equity = holdings_value - loan + col_available + col_cash
+    optimal_loan = net_equity * target
+
+    crash = crash_pct / 100
+    h_after = holdings_value * (1 - crash)
+    col_sec_after = col_sec * (1 - crash)
+    col_avail_after = col_sec_after * (1 - col_req / 100) + col_cash
+
+    margin_required_after = 0.0
+    for sym, val in holdings_per_sym.items():
+        val_after = val * (1 - crash)
+        req_pct = float(inst_margin_reqs.get(sym, 0)) if isinstance(inst_margin_reqs, dict) else 0
+        if req_pct <= 0:
+            req_pct = strategy_margin_req
+        margin_required_after += val_after * (req_pct / 100)
+
+    return h_after, col_avail_after, margin_required_after
+
+def get_holdings_after_crash(context, inputs):
+    crash_pct = _max_crash_pct(context, inputs)
+    h_after, _, _ = _crash_values_at_pct(context, inputs, crash_pct)
+    return round(h_after, 2)
+
+def get_holdings_after_crash_formula(context, inputs):
+    crash_pct = _max_crash_pct(context, inputs)
+    return "holdings × (1 − crash%%) = holdings × (1 − %g%%)" % crash_pct
+
+def get_collateral_after_crash(context, inputs):
+    crash_pct = _max_crash_pct(context, inputs)
+    _, col_after, _ = _crash_values_at_pct(context, inputs, crash_pct)
+    return round(col_after, 2)
+
+def get_collateral_after_crash_formula(context, inputs):
+    return "collateral securities × (1 − crash%) × (1 − collateral req%) + collateral cash"
+
+def get_margin_required_at_crash(context, inputs):
+    crash_pct = _max_crash_pct(context, inputs)
+    _, _, margin_req = _crash_values_at_pct(context, inputs, crash_pct)
+    return round(margin_req, 2)
+
+def get_margin_required_formula(context, inputs):
+    return "Σ (each holding × (1 − crash%) × its margin req%)"
+
+def get_max_crash_calculation(context, inputs):
+    """Show actual amounts: holdings after crash + collateral after crash − optimal loan = X > margin required"""
+    crash_pct = _max_crash_pct(context, inputs)
+    h_after, col_after, margin_req = _crash_values_at_pct(context, inputs, crash_pct)
+    optimal_loan = get_optimal_loan(context, inputs)
+    left_side = h_after + col_after - optimal_loan
+    return "%s + %s − %s = %s > %s" % (
+        "{:.2f}".format(h_after),
+        "{:.2f}".format(col_after),
+        "{:.2f}".format(optimal_loan),
+        "{:.2f}".format(left_side),
+        "{:.2f}".format(margin_req),
+    )
 `,
   functions: [
     'get_target_amplification_label',
     'get_net_equity',
+    'get_optimal_loan_formula',
     'get_optimal_loan',
     'get_current_loan',
     'get_loan_status_color',
@@ -371,5 +537,12 @@ def get_margin_message(context, inputs):
     'get_margin_verdict_color',
     'get_margin_health',
     'get_margin_message',
+    'get_holdings_after_crash',
+    'get_holdings_after_crash_formula',
+    'get_collateral_after_crash',
+    'get_collateral_after_crash_formula',
+    'get_margin_required_at_crash',
+    'get_margin_required_formula',
+    'get_max_crash_calculation',
   ],
 };

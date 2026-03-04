@@ -16,6 +16,7 @@ export class UpdateStrategyDto {
   @IsOptional() @IsBoolean() collateralEnabled?: boolean;
   @IsOptional() @IsNumber() loanInterest?: number;
   @IsOptional() @IsNumber() marginRequirement?: number;
+  @IsOptional() @IsNumber() borrowAmount?: number;
   @IsOptional() @IsNumber() collateralSecurities?: number;
   @IsOptional() @IsNumber() collateralCash?: number;
   @IsOptional() @IsNumber() collateralRequirement?: number;

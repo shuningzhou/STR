@@ -4,6 +4,7 @@ import { STOCK_ETF_TRANSACTIONS_TABLE } from './subview-editor/STOCK_ETF_TRANSAC
 import { OPTION_INCOME_TABLE } from './subview-editor/OPTION_INCOME_TABLE';
 import { OPEN_OPTIONS_PNL } from './subview-editor/OPEN_OPTIONS_PNL';
 import { LEAP_CALLS_TABLE } from './subview-editor/LEAP_CALLS_TABLE';
+import { VERTICAL_SPREAD_TABLE } from './subview-editor/VERTICAL_SPREAD_TABLE';
 import { LEAP_CALLS_PNL } from './subview-editor/LEAP_CALLS_PNL';
 import { LEAP_CALLS_ALLOCATION } from './subview-editor/LEAP_CALLS_ALLOCATION';
 import { LEAP_CALLS_TIMELINE } from './subview-editor/LEAP_CALLS_TIMELINE';
@@ -20,12 +21,16 @@ import { ICONS_EXAMPLE } from './subview-editor/ICONS_EXAMPLE';
 import { COLORS_EXAMPLE } from './subview-editor/COLORS_EXAMPLE';
 import { LOAN_INTEREST_SUBVIEW } from './subview-editor/LOAN_INTEREST_SUBVIEW';
 import { LOAN_SUBVIEW } from './subview-editor/LOAN_SUBVIEW';
+import { MARGIN_AVAILABLE_SUBVIEW } from './subview-editor/MARGIN_AVAILABLE_SUBVIEW';
 import { OPTIMIZED_LOAN } from './subview-editor/OPTIMIZED_LOAN';
 import { SECURED_PUTS_CAPITAL } from './subview-editor/SECURED_PUTS_CAPITAL';
 import { COVERED_CALL_COUNT } from './subview-editor/COVERED_CALL_COUNT';
 import { SECURED_PUTS_COUNT } from './subview-editor/SECURED_PUTS_COUNT';
 import { ASSIGNED_RATE } from './subview-editor/ASSIGNED_RATE';
 import { PREMIUM_INCOME_CHART } from './subview-editor/PREMIUM_INCOME_CHART';
+import { SPREAD_INCOME_CHART } from './subview-editor/SPREAD_INCOME_CHART';
+import { SPREAD_WIN_RATE } from './subview-editor/SPREAD_WIN_RATE';
+import { SPREAD_AVG_WIN_LOSS } from './subview-editor/SPREAD_AVG_WIN_LOSS';
 import { OPTIONS_TIMELINE } from './subview-editor/OPTIONS_TIMELINE';
 import { DIVIDEND_TABLE } from './subview-editor/DIVIDEND_TABLE';
 import { DIVIDEND_SUMMARY } from './subview-editor/DIVIDEND_SUMMARY';
@@ -50,6 +55,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'option-income', name: 'Open Options', description: 'Covered calls and secured puts. Add, edit, delete, roll, or close (partial close supported)', defaultSize: { w: 700, h: 180 }, categories: ['essential', 'option'], spec: OPTION_INCOME_TABLE as unknown as SubviewSpec },
   { id: 'open-options-pnl', name: 'Open Options P&L', description: 'Total unrealized gain of open covered calls and secured puts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: OPEN_OPTIONS_PNL as unknown as SubviewSpec },
   { id: 'leap-calls', name: 'Leap Calls', description: 'Long call positions. Add, edit, delete, roll, or close', defaultSize: { w: 700, h: 180 }, categories: ['option'], spec: LEAP_CALLS_TABLE as unknown as SubviewSpec },
+  { id: 'vertical-spread', name: 'Vertical Spreads', description: 'Credit vertical spreads (call credit, put credit). Add, close, or delete', defaultSize: { w: 380, h: 280 }, categories: ['option'], spec: VERTICAL_SPREAD_TABLE as unknown as SubviewSpec },
   { id: 'leap-calls-pnl', name: 'Leap Calls P&L', description: 'Total unrealized gain of open leap call positions', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: LEAP_CALLS_PNL as unknown as SubviewSpec },
   { id: 'leap-calls-allocation', name: 'Leap Call Allocation', description: 'Donut chart showing % of leap call portfolio by current value', defaultSize: { w: 375, h: 125 }, categories: ['option'], spec: LEAP_CALLS_ALLOCATION as unknown as SubviewSpec },
   { id: 'leap-calls-timeline', name: 'Leap Calls Timeline', description: 'Timeline of leap call expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['option'], spec: LEAP_CALLS_TIMELINE as unknown as SubviewSpec },
@@ -58,6 +64,9 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'secured-puts-count', name: 'Secured Puts', description: 'Number of open secured put contracts', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SECURED_PUTS_COUNT as unknown as SubviewSpec },
   { id: 'assigned-rate', name: 'Assigned Rate', description: '% of closed CC and SP that were assigned', defaultSize: { w: 175, h: 80 }, categories: ['option'], spec: ASSIGNED_RATE as unknown as SubviewSpec },
   { id: 'premium-income', name: 'Premium Income', description: 'Stacked bar chart of option premium income by Covered Call and Secured Put', defaultSize: { w: 700, h: 220 }, categories: ['option', 'income'], spec: PREMIUM_INCOME_CHART as unknown as SubviewSpec },
+  { id: 'spread-income', name: 'Spread Income', description: 'Stacked bar chart of credit vertical spread income by Call Credit and Put Credit', defaultSize: { w: 700, h: 220 }, categories: ['option', 'income'], spec: SPREAD_INCOME_CHART as unknown as SubviewSpec },
+  { id: 'spread-win-rate', name: 'Spread Win Rate', description: '% of closed credit spreads that were profitable', defaultSize: { w: 175, h: 40 }, categories: ['option'], spec: SPREAD_WIN_RATE as unknown as SubviewSpec },
+  { id: 'spread-avg-win-loss', name: 'Spread Avg Win/Loss', description: 'Average win $ and average loss $ for closed spreads', defaultSize: { w: 220, h: 80 }, categories: ['option'], spec: SPREAD_AVG_WIN_LOSS as unknown as SubviewSpec },
   { id: 'options-timeline', name: 'Options Timeline', description: 'Timeline of option expirations from open positions', defaultSize: { w: 700, h: 80 }, categories: ['option'], spec: OPTIONS_TIMELINE as unknown as SubviewSpec },
   { id: 'holdings', name: 'Stock & ETF Holdings', description: 'Current stock and ETF holdings with cost basis and gain', defaultSize: { w: 700, h: 180 }, categories: ['stock-etf'], spec: HOLDINGS_TABLE as unknown as SubviewSpec },
   { id: 'dividend', name: 'Dividends Distribution', description: 'Track dividend income from stocks and ETFs', defaultSize: { w: 500, h: 120 }, categories: ['essential', 'stock-etf', 'income'], spec: DIVIDEND_TABLE as unknown as SubviewSpec },
@@ -69,6 +78,7 @@ export const SUBVIEW_TEMPLATES: SubviewTemplate[] = [
   { id: 'unrealized-gain', name: 'Unrealized Gain', description: 'Unrealized gain: current holdings value minus book value', defaultSize: { w: 175, h: 40 }, categories: ['stock-etf'], spec: UNREALIZED_GAIN as unknown as SubviewSpec },
   { id: 'wallet', name: 'Wallet', description: 'Strategy wallet; deposit and withdraw', defaultSize: { w: 250, h: 40 }, categories: ['essential'], spec: WALLET_TABLE as unknown as SubviewSpec },
   { id: 'loan-interest', name: 'Loan Interest', description: 'APR and daily interest cost for margin loans', defaultSize: { w: 175, h: 40 }, categories: ['margin'], spec: LOAN_INTEREST_SUBVIEW as unknown as SubviewSpec },
+  { id: 'margin-available', name: 'Margin Available', description: 'Margin available and buying power', defaultSize: { w: 220, h: 80 }, categories: ['margin'], spec: MARGIN_AVAILABLE_SUBVIEW as unknown as SubviewSpec },
   { id: 'interest-paid', name: 'Interest Paid', description: 'Total interest paid for the strategy', defaultSize: { w: 175, h: 40 }, categories: ['margin', 'income'], spec: INTEREST_PAID_SUBVIEW as unknown as SubviewSpec },
   { id: 'loan', name: 'Loan', description: 'Current loan amount and loan as % of holdings value', defaultSize: { w: 175, h: 40 }, categories: ['margin'], spec: LOAN_SUBVIEW as unknown as SubviewSpec },
   { id: 'optimized-loan', name: 'Optimized Loan', description: 'Optimal loan based on target amplification with margin health gauge', defaultSize: { w: 380, h: 420 }, categories: ['margin'], spec: OPTIMIZED_LOAN as unknown as SubviewSpec },

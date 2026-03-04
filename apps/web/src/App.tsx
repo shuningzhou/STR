@@ -6,12 +6,15 @@ import { StrategySettingsModal } from '@/features/strategy/StrategySettingsModal
 import { SubviewSettingsModal } from '@/features/canvas/SubviewSettingsModal';
 import { SubviewGalleryModal } from '@/features/subviews/SubviewGalleryModal';
 import { AddTransactionModal } from '@/features/transactions/AddTransactionModal';
+import { AddVerticalSpreadModal } from '@/features/transactions/AddVerticalSpreadModal';
 import { EditTransactionModal } from '@/features/transactions/EditTransactionModal';
 import { DepositWithdrawModal } from '@/features/transactions/DepositWithdrawModal';
 import { WalletSettingsModal } from '@/features/transactions/WalletSettingsModal';
 import { DeleteTransactionConfirmModal } from '@/features/transactions/DeleteTransactionConfirmModal';
 import { RollOptionModal } from '@/features/transactions/RollOptionModal';
 import { CloseOptionModal } from '@/features/transactions/CloseOptionModal';
+import { CloseSpreadModal } from '@/features/transactions/CloseSpreadModal';
+import { EditSpreadModal } from '@/features/transactions/EditSpreadModal';
 import { AssignOptionModal } from '@/features/transactions/AssignOptionModal';
 import { TransactionListPanel } from '@/features/transactions/TransactionListPanel';
 import { UserModal } from '@/features/auth/UserModal';
@@ -32,12 +35,15 @@ export default function App() {
       <SubviewSettingsModal />
       <SubviewGalleryModal />
       <AddTransactionModal />
+      <AddVerticalSpreadModal />
       <EditTransactionModal />
       <DepositWithdrawModal />
       <WalletSettingsModal />
       <DeleteTransactionConfirmModal />
       <RollOptionModal />
       <CloseOptionModal />
+      <CloseSpreadModal />
+      <EditSpreadModal />
       <AssignOptionModal />
       <TransactionListPanel />
       <UserModal />

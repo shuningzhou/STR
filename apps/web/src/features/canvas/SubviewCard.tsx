@@ -258,6 +258,8 @@ export function SubviewCard({ subview, strategyId, strategy, isEditMode = true }
       setAddTransactionModalOpen({ strategyId, mode: 'option' });
     } else if (handler === 'buyLeapModal') {
       setAddTransactionModalOpen({ strategyId, mode: 'option-buy' });
+    } else if (handler === 'addVerticalSpreadModal') {
+      setAddTransactionModalOpen({ strategyId, mode: 'vertical-spread' });
     } else if (handler === 'depositWallet') {
       setDepositWithdrawModalOpen({ strategyId, mode: 'deposit' });
     } else if (handler === 'withdrawWallet') {

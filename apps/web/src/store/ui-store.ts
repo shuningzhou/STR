@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StrategyTransaction } from '@/store/strategy-store';
 
-export type AddTransactionModalMode = 'full' | 'stock-etf' | 'option' | 'option-buy' | 'dividend';
+export type AddTransactionModalMode = 'full' | 'stock-etf' | 'option' | 'option-buy' | 'dividend' | 'vertical-spread';
 
 interface UIState {
   sidebarCollapsed: boolean;
@@ -25,14 +25,21 @@ interface UIState {
   walletSettingsModalOpen: string | null;
   /** When open: strategyId for the transaction list slide-out panel */
   transactionListPanelOpen: string | null;
-  /** When open: { strategyId, transaction } for delete confirmation modal */
-  deleteTransactionConfirmOpen: { strategyId: string; transaction: StrategyTransaction } | null;
+  /** When open: { strategyId, transaction } or { strategyId, transactions } for delete confirmation modal */
+  deleteTransactionConfirmOpen:
+    | { strategyId: string; transaction: StrategyTransaction; transactions?: never }
+    | { strategyId: string; transaction?: never; transactions: StrategyTransaction[] }
+    | null;
   /** When open: { strategyId, transaction } for roll option modal */
   rollOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
   /** When open: { strategyId, transaction } for close option modal (partial close supported) */
   closeOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
   /** When open: { strategyId, transaction } for assign option modal */
   assignOptionModalOpen: { strategyId: string; transaction: StrategyTransaction } | null;
+  /** When open: { strategyId, legs } for close spread modal (both legs) */
+  closeSpreadModalOpen: { strategyId: string; legs: StrategyTransaction[] } | null;
+  /** When open: { strategyId, legs } for edit spread modal */
+  editSpreadModalOpen: { strategyId: string; legs: StrategyTransaction[] } | null;
   /** User account modal (logout etc.) */
   userModalOpen: boolean;
   /** Admin settings modal (super admin only) */
@@ -55,10 +62,17 @@ interface UIState {
   setDepositWithdrawModalOpen: (value: { strategyId: string; mode: 'deposit' | 'withdraw' } | null) => void;
   setWalletSettingsModalOpen: (value: string | null) => void;
   setTransactionListPanelOpen: (value: string | null) => void;
-  setDeleteTransactionConfirmOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setDeleteTransactionConfirmOpen: (
+    value:
+      | { strategyId: string; transaction: StrategyTransaction; transactions?: never }
+      | { strategyId: string; transaction?: never; transactions: StrategyTransaction[] }
+      | null
+  ) => void;
   setRollOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setAssignOptionModalOpen: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setCloseSpreadModalOpen: (value: { strategyId: string; legs: StrategyTransaction[] } | null) => void;
+  setEditSpreadModalOpen: (value: { strategyId: string; legs: StrategyTransaction[] } | null) => void;
   setUserModalOpen: (open: boolean) => void;
   setAdminSettingsModalOpen: (open: boolean) => void;
   setCanvasWidth: (width: number) => void;
@@ -82,6 +96,8 @@ export const useUIStore = create<UIState>()(
       rollOptionModalOpen: null,
       closeOptionModalOpen: null,
       assignOptionModalOpen: null,
+      closeSpreadModalOpen: null,
+      editSpreadModalOpen: null,
       userModalOpen: false,
       adminSettingsModalOpen: false,
       canvasWidth: 0,
@@ -101,6 +117,8 @@ export const useUIStore = create<UIState>()(
       setRollOptionModalOpen: (value) => set({ rollOptionModalOpen: value }),
       setCloseOptionModalOpen: (value) => set({ closeOptionModalOpen: value }),
       setAssignOptionModalOpen: (value) => set({ assignOptionModalOpen: value }),
+      setCloseSpreadModalOpen: (value) => set({ closeSpreadModalOpen: value }),
+      setEditSpreadModalOpen: (value) => set({ editSpreadModalOpen: value }),
       setUserModalOpen: (open) => set({ userModalOpen: open }),
       setAdminSettingsModalOpen: (open) => set({ adminSettingsModalOpen: open }),
       setCanvasWidth: (width) => set({ canvasWidth: width }),

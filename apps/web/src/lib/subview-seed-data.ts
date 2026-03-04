@@ -93,6 +93,7 @@ export interface SeedContext {
     loanAmount?: number;
     loanInterest?: number;
     marginRequirement?: number;
+    borrowAmount?: number;
     buyingPower?: number;
     marginLimit?: number;
     marginAvailable?: number;
@@ -286,6 +287,7 @@ export function buildStrategyContext(
     loanAmount?: number;
     loanInterest?: number;
     marginRequirement?: number;
+    borrowAmount?: number;
     collateralSecurities?: number;
     collateralCash?: number;
     collateralRequirement?: number;
@@ -343,8 +345,10 @@ export function buildStrategyContext(
   const marginLimit = equity * (marginReq / 100);
   const marginAvailable =
     collateralAvailable + equity + balance - loanAmount - marginLimit;
+  const borrowAmount = strategy?.borrowAmount ?? 0;
+  const marginAvailableAfterBorrow = Math.max(0, marginAvailable - borrowAmount);
   const buyingPower =
-    marginReq > 0 ? marginAvailable / (marginReq / 100) : balance;
+    marginReq > 0 ? marginAvailableAfterBorrow / (marginReq / 100) : balance;
 
   return {
     transactions: txs,
@@ -359,9 +363,10 @@ export function buildStrategyContext(
       loanAmount,
       loanInterest: strategy?.loanInterest,
       marginRequirement: strategy?.marginRequirement,
+      borrowAmount,
       buyingPower,
       marginLimit,
-      marginAvailable,
+      marginAvailable: marginAvailableAfterBorrow,
       collateralSecurities: strategy?.collateralSecurities,
       collateralCash: strategy?.collateralCash,
       collateralRequirement: strategy?.collateralRequirement,

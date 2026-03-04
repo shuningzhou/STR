@@ -227,6 +227,23 @@ const iconContentSchema = z.object({
   }),
 });
 
+const spreadCardsContentSchema = z.object({
+  SpreadCards: z.object({
+    source: z.string(),
+    header: z
+      .object({
+        title: z.string(),
+        actions: z.array(z.object({ title: z.string(), icon: z.string(), handler: z.string() })).optional(),
+      })
+      .optional(),
+    emptyMessage: z.string().optional(),
+    padding: paddingSchema,
+    cardActions: z
+      .array(z.object({ title: z.string(), icon: z.string(), handler: z.string() }))
+      .optional(),
+  }),
+});
+
 const contentItemSchema = z.union([
   textContentSchema,
   numberContentSchema,
@@ -235,6 +252,7 @@ const contentItemSchema = z.union([
   inputContentSchema,
   separatorContentSchema,
   iconContentSchema,
+  spreadCardsContentSchema,
 ]);
 
 /** Built-in: red, orange, yellow, lime, green, teal, cyan, blue, indigo, purple, pink, gray, crimson, amber, emerald, sky, violet, fuchsia, rose, slate, zinc, stone, brown, navy. Or custom: rgb(r,g,b), #hex, hsl(...) */
@@ -252,6 +270,8 @@ const layoutCellSchema = z.object({
   /** @deprecated Use flex: { justifyContent, alignItems } instead */
   alignment: z.string().optional(),
   padding: paddingSchema,
+  /** CSS margin-top (px). Use negative values to pull content up. */
+  marginTop: z.number().optional(),
   /** @deprecated Use flex: { flexDirection: 'row'|'column' } instead */
   contentDirection: z.enum(['row', 'column']).optional(),
   /** When true, draws a box outlining the cell for layout debugging */

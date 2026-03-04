@@ -43,6 +43,7 @@ export function AddTransactionModal() {
   const isOption = mode === 'option';
   const isLeapBuy = mode === 'option-buy';
   const isDividend = mode === 'dividend';
+  const isVerticalSpread = mode === 'vertical-spread';
 
   const [symbol, setSymbol] = useState('');
   const [side, setSide] = useState('buy');
@@ -432,7 +433,7 @@ export function AddTransactionModal() {
     resetForm();
   }, [setAddTransactionModalOpen, resetForm]);
 
-  if (!addTransactionModalOpen || !strategyId) return null;
+  if (!addTransactionModalOpen || !strategyId || isVerticalSpread) return null;
 
   const field = (label: string, children: React.ReactNode) => (
     <div style={{ marginBottom: 10 }}>

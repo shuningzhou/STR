@@ -340,6 +340,9 @@ function ContentRenderer({
   setDeleteTransactionConfirmOpen,
   setRollOptionModalOpen,
   setCloseOptionModalOpen,
+  setCloseSpreadModalOpen,
+  setEditSpreadModalOpen,
+  setAddTransactionModalOpen,
   setAssignOptionModalOpen,
   isEditMode = true,
 }: {
@@ -356,9 +359,17 @@ function ContentRenderer({
   onEditTransaction?: (transaction: Record<string, unknown>) => void;
   /** Resolved text color for text/number content (from cell.textColor) */
   textColor?: string;
-  setDeleteTransactionConfirmOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setDeleteTransactionConfirmOpen?: (
+    value:
+      | { strategyId: string; transaction: StrategyTransaction }
+      | { strategyId: string; transactions: StrategyTransaction[] }
+      | null
+  ) => void;
   setRollOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   setCloseOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
+  setCloseSpreadModalOpen?: (value: { strategyId: string; legs: StrategyTransaction[] } | null) => void;
+  setEditSpreadModalOpen?: (value: { strategyId: string; legs: StrategyTransaction[] } | null) => void;
+  setAddTransactionModalOpen?: (value: { strategyId: string; mode: string } | null) => void;
   setAssignOptionModalOpen?: (value: { strategyId: string; transaction: StrategyTransaction } | null) => void;
   isEditMode?: boolean;
 }) {
@@ -443,7 +454,7 @@ function ContentRenderer({
     const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal));
     if (format != null && !Number.isNaN(num)) {
       const fixed = num.toFixed(decimals);
-      display = format === '$' ? `${fixed} ${currency}` : `${fixed}%`;
+      display = (format === '$' || format === 'currency') ? `${fixed} ${currency}` : format === 'percent' ? `${fixed}%` : fixed;
     } else {
       display = String(numVal);
     }
@@ -478,7 +489,7 @@ function ContentRenderer({
     const columns = tbl.columns;
     const isReadWrite = spec.type === 'readwrite';
     const visibleRowActions = isEditMode ? (tbl.rowActions ?? []) : (tbl.rowActions ?? []).filter((ra) => ra.handler !== 'editTransactionModal' && ra.handler !== 'deleteTransaction');
-    const hasVisibleActionColumn = isReadWrite && visibleRowActions.length > 0;
+    const hasVisibleActionColumn = isReadWrite && isEditMode && visibleRowActions.length > 0;
 
     const cellPadding = 5;
     const inner = (
@@ -582,15 +593,36 @@ function ContentRenderer({
                                 quantity: (rowData.quantity as number) ?? 0,
                                 price: (rowData.price as number) ?? 0,
                               });
+                              const rowLegs = rowData.legs as Array<Record<string, unknown>> | undefined;
+                              const spreadLegs: StrategyTransaction[] =
+                                rowLegs?.length === 2
+                                  ? rowLegs.map((r) => ({
+                                      id: r.id as number,
+                                      side: (r.side as string) ?? '',
+                                      cashDelta: (r.cashDelta as number) ?? 0,
+                                      currency: (r.currency as string) ?? '',
+                                      timestamp: (r.timestamp as string) ?? '',
+                                      instrumentSymbol: (r.instrumentSymbol as string) ?? '',
+                                      option: (r.option as StrategyTransaction['option']) ?? null,
+                                      customData: (r.customData as Record<string, unknown>) ?? {},
+                                      quantity: (r.quantity as number) ?? 0,
+                                      price: (r.price as number) ?? 0,
+                                    }))
+                                  : [];
+
                               if (ra.handler === 'editTransactionModal' && strategyId && onEditTransaction && txId != null) {
                                 onEditTransaction(rowData);
                               } else if (ra.handler === 'deleteTransaction' && strategyId && txId != null && setDeleteTransactionConfirmOpen) {
                                 setDeleteTransactionConfirmOpen({ strategyId, transaction: toTx() });
+                              } else if (ra.handler === 'deleteSpread' && strategyId && setDeleteTransactionConfirmOpen && spreadLegs.length === 2) {
+                                setDeleteTransactionConfirmOpen({ strategyId, transactions: spreadLegs });
                               } else if (ra.handler === 'rollOptionModal' && strategyId && setRollOptionModalOpen) {
                                 const tx = toTx();
                                 if (tx.option) setRollOptionModalOpen({ strategyId, transaction: tx });
                               } else if (ra.handler === 'closeOptionModal' && strategyId && setCloseOptionModalOpen) {
                                 setCloseOptionModalOpen({ strategyId, transaction: toTx() });
+                              } else if (ra.handler === 'closeSpreadModal' && strategyId && setCloseSpreadModalOpen && spreadLegs.length === 2) {
+                                setCloseSpreadModalOpen({ strategyId, legs: spreadLegs });
                               } else if (ra.handler === 'assignOptionModal' && strategyId && setAssignOptionModalOpen) {
                                 setAssignOptionModalOpen({ strategyId, transaction: toTx() });
                               }
@@ -623,6 +655,191 @@ function ContentRenderer({
             </tbody>
           </table>
         </div>
+      </div>
+    );
+    return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
+  }
+  if ('SpreadCards' in item) {
+    const sc = item.SpreadCards;
+    const source = sc.source;
+    const spreads = (resolved[source] as Array<Record<string, unknown>>) ?? [];
+    const emptyMessage = sc.emptyMessage ?? 'No vertical spreads';
+    const cardActions = (sc.cardActions ?? []).filter(() => isEditMode);
+    const p = sc.padding;
+    const currency = (context as { wallet?: { baseCurrency?: string } })?.wallet?.baseCurrency ?? 'USD';
+
+    const fmt = (val: unknown, format?: 'currency' | 'percent') => {
+      if (val == null || val === '') return '—';
+      if (typeof val === 'number') {
+        if (format === 'currency') return `${val.toFixed(2)} ${currency}`;
+        if (format === 'percent') return `${val.toFixed(1)}%`;
+        return val.toFixed(2);
+      }
+      return String(val);
+    };
+
+    const inner = (
+      <div className="flex flex-col min-w-0 w-full h-full" style={{ padding: 'var(--space-gap)', gap: 'var(--space-gap)' }}>
+        {spreads.length === 0 ? (
+          <div className="text-[13px] flex items-center justify-center flex-1" style={{ color: 'var(--color-text-muted)', padding: 'var(--space-section)' }}>
+            {emptyMessage}
+          </div>
+        ) : (
+          <div className="flex flex-col overflow-y-auto min-h-0" style={{ gap: 'var(--space-gap)' }}>
+            {spreads.map((spread, i) => {
+              const legs = spread.legs as Array<Record<string, unknown>> | undefined;
+              const spreadLegs: StrategyTransaction[] =
+                legs?.length === 2
+                  ? legs.map((r) => ({
+                      id: r.id as number,
+                      side: (r.side as string) ?? '',
+                      cashDelta: (r.cashDelta as number) ?? 0,
+                      currency: (r.currency as string) ?? '',
+                      timestamp: (r.timestamp as string) ?? '',
+                      instrumentSymbol: (r.instrumentSymbol as string) ?? '',
+                      option: (r.option as StrategyTransaction['option']) ?? null,
+                      customData: (r.customData as Record<string, unknown>) ?? {},
+                      quantity: (r.quantity as number) ?? 0,
+                      price: (r.price as number) ?? 0,
+                    }))
+                  : [];
+              const legDetails = (spread.legDetails as Array<{ label: string; strike: number; book: number; current?: number; gain: number }>) ?? [];
+              const gain = spread.gain as number | undefined;
+              const gainColor = gain != null ? (gain >= 0 ? resolveColor('green-1') : resolveColor('red-1')) : undefined;
+
+              return (
+                <div
+                  key={spread.spreadId ?? i}
+                  className="rounded-[var(--radius-card)] border overflow-hidden flex flex-col"
+                  style={{
+                    backgroundColor: 'var(--color-bg-card)',
+                    borderColor: 'var(--color-border)',
+                    padding: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      paddingBottom: 'var(--space-gap)',
+                      borderBottom: '1px solid var(--color-border)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3" style={{ marginBottom: 'var(--space-gap)' }}>
+                      <span className="font-medium text-[13px] truncate" style={{ color: 'var(--color-text-primary)' }}>
+                        {spread.instrumentSymbol} {spread.spreadType} {spread.strikes}
+                        {spread.daysToExpire != null && ` · ${spread.daysToExpire}d`}
+                      </span>
+                      {cardActions.length > 0 && strategyId && (
+                        <div className="flex shrink-0" style={{ gap: 4 }}>
+                          {cardActions.map((ra, rai) => {
+                            const handleClick = () => {
+                              if (ra.handler === 'deleteSpread' && setDeleteTransactionConfirmOpen && spreadLegs.length === 2) {
+                                setDeleteTransactionConfirmOpen({ strategyId, transactions: spreadLegs });
+                              } else if (ra.handler === 'closeSpreadModal' && setCloseSpreadModalOpen && spreadLegs.length === 2) {
+                                setCloseSpreadModalOpen({ strategyId, legs: spreadLegs });
+                              } else if (ra.handler === 'editSpreadModal' && setEditSpreadModalOpen && spreadLegs.length === 2) {
+                                setEditSpreadModalOpen({ strategyId, legs: spreadLegs });
+                              }
+                            };
+                            const icon = ra.icon?.toLowerCase();
+                            return (
+                              <button
+                                key={rai}
+                                type="button"
+                                className="rounded-[var(--radius-medium)] p-1.5 transition-colors hover:bg-[var(--color-bg-hover)]"
+                                style={{ color: 'var(--color-text-secondary)' }}
+                                onClick={handleClick}
+                                title={ra.title}
+                              >
+                                {icon === 'pencil' && <Pencil size={12} />}
+                                {icon === 'trash' && <Trash2 size={12} />}
+                                {icon === 'x' && <X size={12} />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className="grid grid-cols-2 text-[12px]"
+                      style={{
+                        gap: '6px var(--space-section)',
+                        color: 'var(--color-text-secondary)',
+                      }}
+                    >
+                      <div className="flex justify-between">
+                        <span>Exp</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>{spread.expiration}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Qty</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>{spread.quantity}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Credit</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>{fmt(spread.netCredit, 'currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Break-even</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>{fmt(spread.breakEven, 'currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Max loss</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>{fmt(spread.maxLoss, 'currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Price</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>{fmt(spread.underlyingPrice, 'currency')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>To break-even</span>
+                        <span style={{ color: 'var(--color-text-primary)' }}>
+                          {spread.pctToBreakEven != null
+                            ? `${(spread.pctToBreakEven as number).toFixed(1)}% ${(spread.spreadType as string)?.includes('Put') ? 'drop' : 'rise'}`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Gain</span>
+                        <span style={{ color: gainColor ?? 'var(--color-text-primary)', fontWeight: 500 }}>
+                          {fmt(spread.gain, 'currency')} ({fmt(spread.gainPct, 'percent')})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      paddingTop: 'var(--space-gap)',
+                      marginTop: 'var(--space-gap)',
+                      backgroundColor: 'var(--color-bg-subtle)',
+                    }}
+                  >
+                    <div className="flex flex-col" style={{ gap: 6 }}>
+                      {legDetails.map((leg, li) => (
+                        <div
+                          key={li}
+                          className="flex justify-between items-baseline text-[12px]"
+                          style={{
+                            color: 'var(--color-text-secondary)',
+                            paddingLeft: 8,
+                            borderLeft: '2px solid var(--color-border)',
+                          }}
+                        >
+                          <span style={{ color: 'var(--color-text-primary)' }}>
+                            {leg.label} @ {leg.strike}
+                          </span>
+                          <span className="text-right">
+                            Book {fmt(leg.book, 'currency')} · Current {leg.current != null ? fmt(leg.current, 'currency') : '—'} · Gain{' '}
+                            <span style={{ color: (leg.gain ?? 0) >= 0 ? resolveColor('green-1') : resolveColor('red-1') }}>{fmt(leg.gain, 'currency')}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
     return p != null ? <div style={paddingToStyle(p)}>{inner}</div> : inner;
@@ -1280,6 +1497,9 @@ export function SubviewSpecRenderer({
   const setDeleteTransactionConfirmOpen = useUIStore((s) => s.setDeleteTransactionConfirmOpen);
   const setRollOptionModalOpen = useUIStore((s) => s.setRollOptionModalOpen);
   const setCloseOptionModalOpen = useUIStore((s) => s.setCloseOptionModalOpen);
+  const setCloseSpreadModalOpen = useUIStore((s) => s.setCloseSpreadModalOpen);
+  const setEditSpreadModalOpen = useUIStore((s) => s.setEditSpreadModalOpen);
+  const setAddTransactionModalOpen = useUIStore((s) => s.setAddTransactionModalOpen);
   const setAssignOptionModalOpen = useUIStore((s) => s.setAssignOptionModalOpen);
 
   const handleEditTransaction = (row: Record<string, unknown>) => {
@@ -1325,6 +1545,10 @@ export function SubviewSpecRenderer({
           }
           if ('Table' in c) {
             const src = (c as { Table: { source: string } }).Table.source;
+            if (typeof src === 'string' && src.startsWith('py:')) tableSources.add(src);
+          }
+          if ('SpreadCards' in c) {
+            const src = (c as { SpreadCards: { source: string } }).SpreadCards.source;
             if (typeof src === 'string' && src.startsWith('py:')) tableSources.add(src);
           }
           if ('Chart' in c) {
@@ -1450,6 +1674,7 @@ export function SubviewSpecRenderer({
                     style={{
                       ...(useFlex ? flexStyles : { ...legacyFlex, ...legacyAlign }),
                       ...(cell.padding != null ? paddingToStyle(cell.padding) : { padding: 0 }),
+                      ...(cell.marginTop != null ? { marginTop: cell.marginTop } : {}),
                       boxSizing: 'border-box',
                       ...(cell.showBorder
                         ? {
@@ -1479,6 +1704,9 @@ export function SubviewSpecRenderer({
                         setDeleteTransactionConfirmOpen={strategyId ? setDeleteTransactionConfirmOpen : undefined}
                         setRollOptionModalOpen={strategyId ? setRollOptionModalOpen : undefined}
                         setCloseOptionModalOpen={strategyId ? setCloseOptionModalOpen : undefined}
+                        setCloseSpreadModalOpen={strategyId ? setCloseSpreadModalOpen : undefined}
+                        setEditSpreadModalOpen={strategyId ? setEditSpreadModalOpen : undefined}
+                        setAddTransactionModalOpen={strategyId ? setAddTransactionModalOpen : undefined}
                         setAssignOptionModalOpen={strategyId ? setAssignOptionModalOpen : undefined}
                         isEditMode={isEditMode}
                       />

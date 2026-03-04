@@ -53,6 +53,7 @@ export class Strategy {
   @Prop({ default: false }) collateralEnabled!: boolean;
   @Prop() loanInterest?: number;
   @Prop() marginRequirement?: number;
+  @Prop() borrowAmount?: number;
   @Prop() collateralSecurities?: number;
   @Prop() collateralCash?: number;
   @Prop() collateralRequirement?: number;

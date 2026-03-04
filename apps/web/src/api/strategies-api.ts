@@ -130,6 +130,7 @@ function mapStrategy(raw: Record<string, unknown>): Strategy {
     loanAmount: doc.loanAmount as number | undefined,
     loanInterest: doc.loanInterest as number | undefined,
     marginRequirement: doc.marginRequirement as number | undefined,
+    borrowAmount: doc.borrowAmount as number | undefined,
     collateralSecurities: doc.collateralSecurities as number | undefined,
     collateralCash: doc.collateralCash as number | undefined,
     collateralRequirement: doc.collateralRequirement as number | undefined,

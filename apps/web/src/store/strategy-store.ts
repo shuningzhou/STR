@@ -72,6 +72,7 @@ export interface Strategy {
   loanAmount?: number;
   loanInterest?: number;
   marginRequirement?: number;
+  borrowAmount?: number;
   /** @deprecated Computed values */
   buyingPower?: number;
   marginLimit?: number;
