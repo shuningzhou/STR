@@ -25,6 +25,24 @@ export class MassiveProvider implements IOptionsDataProvider {
     return this.getOptionQuoteByTicker(ticker, option.symbol);
   }
 
+  /** EOD only: fetch previous day close (available on Basic/free plan). */
+  async getOptionQuoteEod(ticker: string, underlyingSymbol?: string): Promise<QuoteResult> {
+    const symbol = underlyingSymbol ?? fromOccTicker(ticker).symbol;
+    const url = `${BASE_URL}/v2/aggs/ticker/${ticker}/prev?apiKey=${this.apiKey}`;
+    this.logger.log(`[Massive] Query EOD ${ticker}`);
+    const start = Date.now();
+    const res = await fetch(url);
+    const ms = Date.now() - start;
+    if (!res.ok) {
+      this.logger.error(`[Massive] ${ticker} HTTP ${res.status} ${ms}ms`);
+      throw new Error(`Option EOD unavailable for ${ticker}: HTTP ${res.status}`);
+    }
+    const body = await res.json();
+    const price = body?.results?.[0]?.c ?? 0;
+    this.logger.log(`[Massive] ${ticker} EOD price=$${Number(price).toFixed(2)} ${ms}ms`);
+    return { symbol: ticker, price: Number(price) || 0 };
+  }
+
   async getOptionQuoteByTicker(ticker: string, underlyingSymbol?: string): Promise<QuoteResult> {
     const symbol = underlyingSymbol ?? fromOccTicker(ticker).symbol;
     let snapshotWas403 = false;

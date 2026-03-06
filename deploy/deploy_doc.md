@@ -169,6 +169,10 @@ sudo systemctl reload nginx
 
 # Logs
 sudo journalctl -u str-api -f
+
+# fix https issue
+certbot --nginx -d opticanvas.com -d www.opticanvas.com
+
 ```
 
 ---

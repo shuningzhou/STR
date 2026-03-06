@@ -44,6 +44,8 @@ export interface IOptionsDataProvider extends IMarketDataProvider {
     strike: number;
     callPut: string;
   }): Promise<QuoteResult>;
+  /** EOD only: fetch previous day close by OCC ticker */
+  getOptionQuoteEod?(ticker: string, underlyingSymbol?: string): Promise<QuoteResult>;
 }
 
 /** Convert internal option representation to OCC ticker format */

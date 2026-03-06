@@ -1,6 +1,13 @@
 # Price API
 
-Subviews that display holdings need current prices to compute gain and % of portfolio. The backend proxies EODHD and caches results in MongoDB.
+Subviews that display holdings need current prices to compute gain and % of portfolio. The backend polls EODHD (stocks) and Massive (options) in the background and serves cached quotes from MongoDB. The frontend receives cached data only; no live fetch on request.
+
+## Background Polling
+
+- **EODHD (stocks/ETFs)**: Once after market close (4:35 PM ET), batch EOD for all open positions
+- **Massive (options)**: Once after market close (4:35 PM ET), EOD (prev-day) for all open options, throttle 5 req/min
+- **Position source**: Transactions only (open positions with net qty > 0)
+- **Data**: End-of-day prices only for both stocks and options
 
 ## Endpoints
 

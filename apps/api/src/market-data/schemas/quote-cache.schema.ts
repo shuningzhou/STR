@@ -17,6 +17,8 @@ export class QuoteCache {
   @Prop() contractTicker?: string;
   @Prop({ default: 'eodhd' }) provider!: string;
   @Prop({ default: () => new Date() }) fetchedAt!: Date;
+  /** EOD date (YYYY-MM-DD) this price is from. Set when populated by EOD fetch. */
+  @Prop() eodDate?: string;
 }
 
 export type QuoteCacheDocument = HydratedDocument<QuoteCache>;

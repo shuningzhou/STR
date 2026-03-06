@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { MarketDataModule } from './market-data/market-data.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }]),
     MongooseModule.forRootAsync({
       inject: [ConfigService],

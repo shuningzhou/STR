@@ -1,3 +1,8 @@
+// Polyfill for Node 18: @nestjs/schedule uses crypto.randomUUID()
+if (!globalThis.crypto) {
+  (globalThis as any).crypto = require('crypto');
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';

@@ -56,7 +56,36 @@ export class EodhdProvider implements IMarketDataProvider {
     return results;
   }
 
-  async getHistory(symbol: string, from: string, to: string, interval: 'daily' | 'weekly' = 'daily'): Promise<HistoryBar[]> {
+  /** Batch EOD prices for a given date. Uses 1 API call per symbol. Returns QuoteResult with close as price. */
+  async getEodBatch(symbols: string[], date: string): Promise<QuoteResult[]> {
+    if (symbols.length === 0) return [];
+    this.logger.log(`[EODHD] Querying EOD for ${symbols.length} symbols: [${symbols.join(', ')}] date=${date}`);
+    const results: QuoteResult[] = [];
+    for (const sym of symbols) {
+      try {
+        const bars = await this.getHistory(sym, date, date, 'daily', true);
+        if (bars.length > 0) {
+          const bar = bars[0];
+          results.push({
+            symbol: sym,
+            price: bar.close,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            volume: bar.volume,
+          });
+          this.logger.log(`[EODHD] ${sym} EOD price=$${bar.close.toFixed(2)}`);
+        } else {
+          this.logger.warn(`[EODHD] ${sym} no data for ${date}`);
+        }
+      } catch (err) {
+        this.logger.warn(`[EODHD] ${sym} error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return results;
+  }
+
+  async getHistory(symbol: string, from: string, to: string, interval: 'daily' | 'weekly' = 'daily', quiet = false): Promise<HistoryBar[]> {
     const period = interval === 'weekly' ? 'w' : 'd';
     const params = new URLSearchParams({
       from,
@@ -66,16 +95,16 @@ export class EodhdProvider implements IMarketDataProvider {
       fmt: 'json',
     });
     const url = `${BASE_URL}/eod/${this.eodSymbol(symbol)}?${params}`;
-    this.logger.log(`→ GET history ${symbol} [${from} → ${to}]`);
+    if (!quiet) this.logger.log(`→ GET history ${symbol} [${from} → ${to}]`);
     const start = Date.now();
     const res = await fetch(url);
     const ms = Date.now() - start;
     if (!res.ok) {
-      this.logger.error(`← ${res.status} history ${symbol} ${ms}ms`);
+      if (!quiet) this.logger.error(`← ${res.status} history ${symbol} ${ms}ms`);
       return [];
     }
     const body = (await res.json()) as Record<string, unknown>[];
-    this.logger.log(`← ${res.status} history ${symbol}: ${body.length} bars ${ms}ms`);
+    if (!quiet) this.logger.log(`← ${res.status} history ${symbol}: ${body.length} bars ${ms}ms`);
     return body.map((item) => ({
       date: item.date as string,
       open: Number(item.open) || 0,

@@ -5,10 +5,7 @@ import { ProviderRegistry } from './providers/provider-registry';
 import { QuoteCache, QuoteCacheDocument } from './schemas/quote-cache.schema';
 import { PriceHistory, PriceHistoryDocument } from './schemas/price-history.schema';
 import type { QuoteResult, HistoryBar, SymbolMatch } from './providers/market-data-provider.interface';
-import { fromOccTicker } from './providers/market-data-provider.interface';
 
-const MARKET_HOURS_TTL_MS = 30 * 60 * 1000;
-const AFTER_HOURS_TTL_MS = 12 * 60 * 60 * 1000;
 const HISTORY_FRESHNESS_MS = 60 * 60 * 1000;
 
 const US_HOLIDAYS_2026 = [
@@ -35,38 +32,15 @@ export class MarketDataService {
   async getQuotes(symbols: string[]): Promise<Record<string, QuoteResult>> {
     if (symbols.length === 0) return {};
 
-    const now = new Date();
-    const ttl = this.getQuoteTtl('US');
     const result: Record<string, QuoteResult> = {};
-    const stale: string[] = [];
+    const cached = await this.quoteCacheModel.find({
+      symbol: { $in: symbols },
+      assetType: { $ne: 'option' },
+    }).lean().exec();
 
-    for (const sym of symbols) {
-      const cached = await this.quoteCacheModel.findOne({
-        symbol: sym,
-        assetType: { $ne: 'option' },
-      });
-      if (cached && now.getTime() - cached.fetchedAt.getTime() < ttl) {
-        result[sym] = this.cacheToQuote(cached);
-      } else {
-        stale.push(sym);
-      }
-    }
-
-    if (stale.length > 0) {
-      try {
-        const provider = this.registry.resolve(stale[0], 'stock');
-        const fresh = await provider.getQuotes(stale);
-        for (const q of fresh) {
-          result[q.symbol] = q;
-          await this.quoteCacheModel.updateOne(
-            { symbol: q.symbol, assetType: 'stock' },
-            { $set: { ...q, provider: provider.providerId, fetchedAt: now, assetType: 'stock' } },
-            { upsert: true },
-          );
-        }
-      } catch (err) {
-        this.logger.error(`Failed to fetch quotes for ${stale.join(',')}`, err);
-      }
+    for (const doc of cached) {
+      const sym = doc.symbol;
+      if (sym) result[sym] = this.cacheToQuote(doc as QuoteCacheDocument);
     }
 
     return result;
@@ -77,40 +51,15 @@ export class MarketDataService {
   async getOptionQuotes(contracts: string[]): Promise<Record<string, QuoteResult>> {
     if (contracts.length === 0) return {};
 
-    const now = new Date();
-    const ttl = this.getQuoteTtl('US');
     const result: Record<string, QuoteResult> = {};
-    const stale: string[] = [];
+    const cached = await this.quoteCacheModel.find({
+      contractTicker: { $in: contracts },
+      assetType: 'option',
+    }).lean().exec();
 
-    for (const ticker of contracts) {
-      const cached = await this.quoteCacheModel.findOne({
-        contractTicker: ticker,
-        assetType: 'option',
-      });
-      if (cached && now.getTime() - cached.fetchedAt.getTime() < ttl) {
-        result[ticker] = this.cacheToQuote(cached);
-      } else {
-        stale.push(ticker);
-      }
-    }
-
-    if (stale.length > 0) {
-      const provider = this.registry.resolveOptions();
-      for (const ticker of stale) {
-        try {
-          const parsed = fromOccTicker(ticker);
-          const q = await provider.getOptionQuote(parsed);
-          q.symbol = ticker;
-          result[ticker] = q;
-          await this.quoteCacheModel.updateOne(
-            { contractTicker: ticker, assetType: 'option' },
-            { $set: { symbol: ticker, contractTicker: ticker, price: q.price, provider: provider.providerId, fetchedAt: now, assetType: 'option' } },
-            { upsert: true },
-          );
-        } catch (err) {
-          this.logger.error(`Failed to fetch option quote for ${ticker}`, err);
-        }
-      }
+    for (const doc of cached) {
+      const ticker = doc.contractTicker ?? doc.symbol;
+      if (ticker) result[ticker] = this.cacheToQuote(doc as QuoteCacheDocument);
     }
 
     return result;
@@ -295,10 +244,6 @@ export class MarketDataService {
   }
 
   /* ── Helpers ──────────────────────────────────── */
-
-  private getQuoteTtl(exchange: string): number {
-    return this.isMarketOpen(exchange) ? MARKET_HOURS_TTL_MS : AFTER_HOURS_TTL_MS;
-  }
 
   isMarketOpen(exchange = 'US'): boolean {
     const now = new Date();
